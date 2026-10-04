@@ -19,6 +19,9 @@ public class CustomerController {
 
     @PostMapping
     public ResponseEntity<Customer> createCustomer(@RequestBody Customer customer) {
+//        if (customerRepository.existsByEmail(customerDto.getEmail())) {
+//            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email đã tồn tại");
+//        }
         return ResponseEntity.ok(customerRepository.save(customer));
     }
 

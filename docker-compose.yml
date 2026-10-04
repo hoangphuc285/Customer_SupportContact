@@ -9,6 +9,8 @@ services:
       MYSQL_DATABASE: customer_support
     ports:
       - "3306:3306"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # <--- Bổ sung ket noi bang link n8n
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
