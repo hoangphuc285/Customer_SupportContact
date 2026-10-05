@@ -1,0 +1,515 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0000fa06-8f51-4107-b62d-a1b5e00b1e34",
+      "name": "Webhook",
+      "webhookId": "69eb70ec-ed34-459a-8591-88b56c0f49ce"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        96
+      ],
+      "id": "75db5bfa-e9dd-4f75-89c1-f6dfb04bbc5f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8080/api/customers",
+        "sendBody": true,
+        "specifyBody": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={\n  \"name\": \"{{ $('Normalize Request').item.json.customerName }}\",\n  \"email\": \"{{ $('Normalize Request').item.json.customerEmail }}\",\n  \"phone\": \"{{ $('Normalize Request').item.json.customerPhone }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1008,
+        48
+      ],
+      "id": "b80e0924-3261-4653-b077-0e1474481fd5",
+      "name": "Create Customer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8080/api/tickets",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customerId\": {{ $('IF: Customer Exists?').item.json.id || $('Create Customer').item.json.id }},\n  \"customerName\": \"{{ $('Normalize Request').item.json.customerName }}\",\n  \"customerEmail\": \"{{ $('Normalize Request').item.json.customerEmail }}\",\n  \"subject\": \"Hỗ trợ khách hàng: {{ $('Normalize Request').item.json.customerName }}\",\n  \"customerPhone\": \"{{ $('Normalize Request').item.json.customerPhone }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2000,
+        -80
+      ],
+      "id": "9ce2a8df-3bb0-4adf-b600-859485635025",
+      "name": "Create Ticket"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hoangphucsjw@gmail.com",
+        "toEmail": "phucnh.24it@vku.udn.vn",
+        "subject": "[CSKH] Đã tiếp nhận yêu cầu {{ $json.ticketId }}",
+        "emailFormat": "text",
+        "text": "=Xin chào {{ $('Normalize Request').item.json.customerName }},\n\nChúng tôi đã tiếp nhận yêu cầu của bạn.\n\nMã Ticket: {{ $json.id }}\nMức độ ưu tiên: {{ $json.priority }}\nTrạng thái: NEW\n\nĐội ngũ CSKH sẽ xử lý yêu cầu của bạn.\n\nTrân trọng,\nCustomer Support",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2224,
+        -80
+      ],
+      "id": "b592909c-b5de-48f4-9ac6-6818e3c22e9e",
+      "name": "Send Customer Confirmation",
+      "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('Create Ticket').item.json.id }}/status",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"status\": \"NEW\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2464,
+        -80
+      ],
+      "id": "17669b19-b1bb-461e-a713-4a490e85d51f",
+      "name": "Update Ticket Status"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"ticketId\": \"{{ $json.id }}\",\n  \"customerId\": \"{{ $json.customerId }}\",\n  \"intent\": \"{{ $json.subject }}\",\n  \"priority\": \"{{ $json.priority }}\",\n  \"status\": \"NEW\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2656,
+        -80
+      ],
+      "id": "bcae7f48-c48d-4cee-a00b-ebe50a15e295",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6990d044-e965-400e-a6a7-e2683a353bf4",
+              "leftValue": "{{$json.body.customer.email}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "1f493309-dfcc-4a7d-b732-f0345ddd4e19",
+              "leftValue": "{{$json.body.message}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "1a740a18-bd62-42bc-a4a4-57236a9ab85e",
+              "leftValue": "{{ $json.body.customer.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "787c7cea-09b3-47b3-81bf-52938ee44623",
+              "leftValue": "{{ $json.body.channel }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "07ecb7de-c248-403f-95d8-0d602a586e93",
+      "name": "IF: Validate Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "503b7574-1c03-43f8-a41c-483e4510a465",
+              "leftValue": "={{ $('Check Customer').item.json.id }}",
+              "rightValue": "200",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        -128
+      ],
+      "id": "8b6ea3c8-140b-4cb2-9abb-8c7b48c36d14",
+      "name": "IF: Customer Exists?"
+    },
+    {
+      "parameters": {
+        "url": "http://172.17.0.1:8080/api/customers/by-email",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.customerEmail }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        656,
+        -96
+      ],
+      "id": "0b3fd663-6074-4758-90a7-12a1fbb2957d",
+      "name": "Check Customer"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "59b9942b-a539-4f27-9bd2-fa308ce9a18e",
+              "name": "customerName",
+              "value": "={{ $json.body.customer.name }}",
+              "type": "string"
+            },
+            {
+              "id": "7dea3844-a457-4ad6-98d1-a7a9e28ae454",
+              "name": "=customerEmail",
+              "value": "={{ $json.body.customer.email }}",
+              "type": "string"
+            },
+            {
+              "id": "c26ecca3-1245-43e8-bbbf-773933ee53a3",
+              "name": "message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "7416dc7d-dd3b-4e03-98a4-9bc6526724d6",
+              "name": "=channel",
+              "value": "={{ $json.body.channel }}",
+              "type": "string"
+            },
+            {
+              "id": "124f9ce3-7810-471c-a3eb-6abd7d0f72c7",
+              "name": "=customerPhone",
+              "value": "={{ $json.body.customer.phone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        -96
+      ],
+      "id": "c36bc751-1dcc-4e51-bd49-e9e377b7b1fa",
+      "name": "Normalize Request"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a customer support priority classifier.\n\nClassify the priority as exactly one of:\n\nHIGH\nMEDIUM\nLOW\n\nCustomer message:\n{{ $json.content.parts[0].text }}\n\nRules:\n\nHIGH:\n- Serious complaint\n- Legal threat\n- Safety issue\n- Payment problem with significant impact\n- Angry or highly dissatisfied customer\n\nMEDIUM:\n- Normal refund\n- Warranty request\n- Product exchange\n- Payment inquiry\n- Order issue\n\nLOW:\n- General question\n- FAQ\n- Product information\n\nReturn JSON only:\n\n{\n  \"priority\": \"HIGH|MEDIUM|LOW\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1680,
+        -80
+      ],
+      "id": "aabb5316-bfc9-4ebc-ae43-1d4b8d1a0103",
+      "name": "AI PRIORITY",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a customer support intent classifier.\n\nClassify the customer's request into exactly ONE category.\n\nCategories:\n\nREFUND\nWARRANTY\nCOMPLAINT\nPAYMENT\nORDER_STATUS\nPRODUCT_SUPPORT\nPRODUCT_EXCHANGE\nOTHER\n\nCustomer message:\n{{ $('Webhook').item.json.body.message }}\n\nReturn JSON only:\n\n{\n  \"intent\": \"CATEGORY\",\n  \"confidence\": 0.0\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1376,
+        -80
+      ],
+      "id": "4330fe13-fe7c-4e2e-b982-271b2c4029ef",
+      "name": "AI CUSTOMER INTENT",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF: Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Customer": {
+      "main": [
+        [
+          {
+            "node": "AI CUSTOMER INTENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "Send Customer Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Customer Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Update Ticket Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ticket Status": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "AI CUSTOMER INTENT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Customer": {
+      "main": [
+        [
+          {
+            "node": "IF: Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Check Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI PRIORITY": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI CUSTOMER INTENT": {
+      "main": [
+        [
+          {
+            "node": "AI PRIORITY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
+}
