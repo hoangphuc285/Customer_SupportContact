@@ -513,3 +513,496 @@
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
 }
+
+
+
+// luong 2
+
+
+
+{
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $json.body.ticketId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -32,
+        480
+      ],
+      "id": "f9156943-e99c-4f8b-9a18-087b956b2ff9",
+      "name": "Lấy thông tin Ticket"
+    },
+    {
+      "parameters": {
+        "jsCode": "let ticketData;\n\ntry {\n  // Lấy dữ liệu từ node trước nếu có\n  ticketData = $input.first().json;\n} catch (e) {\n  ticketData = null;\n}\n\n// Nếu chưa có dữ liệu nạp sang, dùng dữ liệu mẫu để test\nif (!ticketData || !ticketData.id) {\n  ticketData = {\n    id: 1,\n    ticketCode: \"TK-8A2B1C\",\n    title: \"Lỗi thanh toán đơn hàng\",\n    description: \"Tôi đã chuyển khoản qua MoMo nhưng tài khoản chưa được kích hoạt, nhờ hỗ trợ gấp\"\n  };\n}\n\nconst title = ticketData.title || ticketData.subject || '';\nconst description = ticketData.description || '';\n\nreturn [{\n  json: {\n    ticketId: ticketData.id,\n    ticketCode: ticketData.ticketCode || '',\n    title: title,\n    description: description,\n    fullContent: `${title}. ${description}`.trim()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        480
+      ],
+      "id": "9bb7e609-f81b-4b3e-9ea4-3a973e29934f",
+      "name": "3. Đọc nội dung yêu cầu"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-ticket",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -240,
+        480
+      ],
+      "id": "324b153f-c0f5-4e73-8db2-6e357ad7c2fa",
+      "name": "Webhook1",
+      "webhookId": "46c9747e-c58c-48df-9227-bef82267bba2"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        384,
+        688
+      ],
+      "id": "7d611a04-cb4f-4579-bd33-d60168e1b57a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là hệ thống đánh giá mức độ khẩn cấp của ticket hỗ trợ.\nNội dung yêu cầu: {{ $('3. Đọc nội dung yêu cầu').item.json.fullContent }}\nPhòng ban: {{ $('4. Phân tích Intent').item.json.text }}\n\nHãy xác định mức độ ưu tiên (Priority) cho ticket này theo các mức:\n- HIGH: Sự cố nghiêm trọng, lỗi tiền bạc/thanh toán, gián đoạn hoàn toàn hệ thống.\n- MEDIUM: Lỗi tính năng một phần, cần hỗ trợ sớm.\n- LOW: Hỏi thông tin chung, thắc mắc tài liệu, tư vấn dịch vụ.\n\nCHỈ trả về đúng 1 từ duy nhất: HIGH hoặc MEDIUM hoặc LOW. Không thêm bất kỳ từ nào khác.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        736,
+        480
+      ],
+      "id": "9a16f483-7eb8-4af1-929b-fc88d65fdd69",
+      "name": "5. Đánh giá Priority"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        688
+      ],
+      "id": "5b4b00ef-c2aa-4b43-b8f3-a971d64c47d6",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên viên phân loại ticket hỗ trợ khách hàng.\nDưới đây là thông tin yêu cầu của khách hàng:\nNội dung: {{ $json.fullContent }}\n\nHãy phân tích và xếp yêu cầu này vào DUY NHẤT 1 trong 3 phòng ban sau:\n- KY_THUAT (liên quan đến lỗi hệ thống, server, bugs, ứng dụng không vào được)\n- THANH_TOAN (liên quan đến nạp tiền, trừ tiền, thẻ, ví MoMo, hóa đơn)\n- CSKH (hỏi đáp thông tin chung, chính sách, tài khoản thông thường)\n\nCHỈ trả về đúng 1 từ duy nhất là mã phòng ban: KY_THUAT hoặc THANH_TOAN hoặc CSKH. Tuyệt đối không thêm bất kỳ từ ngữ hay giải thích nào khác.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        400,
+        480
+      ],
+      "id": "5e88cf62-3d60-4b7b-9931-033a4adade52",
+      "name": "4. Phân tích Intent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy dữ liệu từ các bước trước\nconst ticketData = $('3. Đọc nội dung yêu cầu').first().json;\nconst intentResult = $('4. Phân tích Intent').first().json.text.trim();\nconst priorityResult = $('5. Đánh giá Priority').first().json.text.trim();\n\n// Quy định SLA (giờ) theo mức Priority\nlet slaHours = 24; // Mặc định LOW là 24h\nif (priorityResult.includes('HIGH')) {\n  slaHours = 2;    // Khẩn cấp: 2h\n} else if (priorityResult.includes('MEDIUM')) {\n  slaHours = 8;    // Trung bình: 8h\n}\n\n// Tính thời điểm deadline\nconst deadline = new Date();\ndeadline.setHours(deadline.getHours() + slaHours);\n\n// Trả về dữ liệu chuẩn hóa cho các bước tiếp theo\nreturn [{\n  json: {\n    ticketId: ticketData.ticketId,\n    ticketCode: ticketData.ticketCode,\n    subject: ticketData.subject,\n    department: intentResult,\n    priority: priorityResult,\n    slaHours: slaHours,\n    deadline: deadline.toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        480
+      ],
+      "id": "88829002-e8ef-4e2e-b4b3-cda56131c582",
+      "name": "6. Tính hạn SLA"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.department }}",
+                    "rightValue": "KY_THUAT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "0ef166de-541b-4514-b620-d2c37b01d848"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Kỹ thuật"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "918e5d90-4c90-42f6-bde9-961e413e253a",
+                    "leftValue": "={{ $json.department }}",
+                    "rightValue": "THANH_TOAN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Thanh toán"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f6d3cbe2-ffd0-45aa-bb41-9699c7ad7551",
+                    "leftValue": "={{ $json.department }}",
+                    "rightValue": "CSKH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CSKH"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        480
+      ],
+      "id": "619e3187-b070-437f-bfe2-3bc51cf5055d",
+      "name": "7. Xác định phòng ban"
+    },
+    {
+      "parameters": {
+        "url": "=http://172.17.0.1:8080/api/tickets/agents/available?department={{ $json.department }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1552,
+        480
+      ],
+      "id": "d6274669-0d18-4ca3-8771-59f2f44072ff",
+      "name": "8. Tìm nhân viên"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('6. Tính hạn SLA').item.json.ticketId }}/assign",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agentId\": \"{{ $json.agentId }}\",\n  \"category\": \"{{ $('6. Tính hạn SLA').item.json.department }}\",\n  \"priority\": \"{{ $('6. Tính hạn SLA').item.json.priority }}\",\n  \"status\": \"ASSIGNED\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1776,
+        480
+      ],
+      "id": "54c5b7ed-4cc6-4553-bfa3-0c6c55a68b6d",
+      "name": "9. Gán Ticket"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('9. Gán Ticket').item.json.id }}/status",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"status\": \"PROCESSING\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2224,
+        480
+      ],
+      "id": "f05f8285-257e-4670-9222-a2badbf49b16",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('9. Gán Ticket').item.json.id }}/logs",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"action\": \"AUTO_ASSIGN_TICKET\",\n  \"department\": \"{{ $('6. Tính hạn SLA').item.json.department }}\",\n  \"priority\": \"{{ $('6. Tính hạn SLA').item.json.priority }}\",\n  \"assignedAgent\": \"{{ $('8. Tìm nhân viên').item.json.name }}\",\n  \"deadline\": \"{{ $('6. Tính hạn SLA').item.json.deadline }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2448,
+        480
+      ],
+      "id": "8d815a89-937b-49ed-90ea-b2f020590b52",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "fromEmail": "nguyenphucphi2102@gmail.com",
+        "toEmail": "nguyenphucphi213@gmail.com",
+        "subject": "[CSKH] Đã tiếp nhận yêu cầu #{{ $json.id }}",
+        "emailFormat": "text",
+        "text": "=Xin chào {{ $('8. Tìm nhân viên').item.json.name }},\n\nBạn vừa được phân công xử lý yêu cầu hỗ trợ mới:\n- Mã Ticket: {{ $json.ticketCode }}\n- Mã số ID: {{ $json.id }}\n- Phòng ban: {{ $('6. Tính hạn SLA').item.json.department }}\n- Mức độ ưu tiên: {{ $('6. Tính hạn SLA').item.json.priority }}\n- Thời hạn SLA: {{ $('6. Tính hạn SLA').item.json.deadline }}\n\nVui lòng kiểm tra và xử lý ticket trên hệ thống.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2016,
+        480
+      ],
+      "id": "a0e2b9d5-e79e-40c0-8c3c-4b786c38038e",
+      "name": "Thông báo cho nhân viên",
+      "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lấy thông tin Ticket": {
+      "main": [
+        [
+          {
+            "node": "3. Đọc nội dung yêu cầu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Đọc nội dung yêu cầu": {
+      "main": [
+        [
+          {
+            "node": "4. Phân tích Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Lấy thông tin Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "4. Phân tích Intent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Đánh giá Priority": {
+      "main": [
+        [
+          {
+            "node": "6. Tính hạn SLA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "5. Đánh giá Priority",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Phân tích Intent": {
+      "main": [
+        [
+          {
+            "node": "5. Đánh giá Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Tính hạn SLA": {
+      "main": [
+        [
+          {
+            "node": "7. Xác định phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Xác định phòng ban": {
+      "main": [
+        [
+          {
+            "node": "8. Tìm nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "8. Tìm nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "8. Tìm nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Tìm nhân viên": {
+      "main": [
+        [
+          {
+            "node": "9. Gán Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Gán Ticket": {
+      "main": [
+        [
+          {
+            "node": "Thông báo cho nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thông báo cho nhân viên": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook1": [
+      {
+        "body": {
+          "ticketId": 2
+        }
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  }
+}

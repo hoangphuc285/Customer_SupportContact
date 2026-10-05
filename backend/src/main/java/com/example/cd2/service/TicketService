@@ -1,0 +1,40 @@
+package com.example.cd2.service;
+
+import com.example.cd2.entity.Ticket;
+import com.example.cd2.entity.TicketMessage;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+public interface TicketService {
+
+    // Luồng 1: Tạo Ticket mới
+    Ticket createTicket(Ticket ticket);
+
+    // Luồng 2 - Bước 2: Lấy thông tin Ticket theo ID
+    Optional<Ticket> getTicketById(Long id);
+
+    // Luồng 2 - Bước 8: Tìm nhân viên khả dụng theo phòng ban
+    Map<String, Object> getAvailableAgent(String department);
+
+    // Luồng 2 - Bước 9: Gán Ticket cho nhân viên & cập nhật SLA, độ ưu tiên
+    Optional<Ticket> assignTicket(Long id, Map<String, Object> payload);
+
+    // Luồng 2 - Bước 11: Cập nhật trạng thái Ticket (ASSIGNED, RESOLVED, v.v.)
+    Optional<Ticket> updateTicketStatus(Long id, String status);
+
+    // Luồng 2 - Bước 12: Ghi log lịch sử xử lý Ticket
+    Map<String, Object> addTicketLog(Long id, Map<String, Object> logData);
+
+    // Tin nhắn trao đổi trong Ticket (Chat với khách hàng)
+    Optional<TicketMessage> addMessageToTicket(Long id, TicketMessage message);
+
+    List<TicketMessage> getTicketMessages(Long id);
+
+    // Lấy danh sách lọc (hỗ trợ hiển thị trên Next.js Dashboard)
+    List<Ticket> getTicketsByStatus(String status);
+    List<Ticket> getTicketsByAgent(Long agentId);
+
+    
+}

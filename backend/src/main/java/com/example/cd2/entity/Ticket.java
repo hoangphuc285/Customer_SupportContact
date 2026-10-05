@@ -20,6 +20,10 @@ public class Ticket {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
+    // Thêm trường này để khớp với TicketRepository.findByAssignedUserId
+    @Column(name = "assigned_user_id")
+    private Long assignedUserId;
+
     @Column(nullable = false)
     private String subject;
 
