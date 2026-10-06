@@ -6,6 +6,8 @@ import com.example.cd2.repository.CustomerRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/customers")
 @CrossOrigin(origins = "*")
@@ -16,13 +18,18 @@ public class CustomerController {
     public CustomerController(CustomerRepository customerRepository) {
         this.customerRepository = customerRepository;
     }
-
+    // 1. Lấy danh sách tất cả khách hàng
+    @GetMapping
+    public ResponseEntity<List<Customer>> getAllCustomers() {
+        return ResponseEntity.ok(customerRepository.findAll());
+    }
     @PostMapping
     public ResponseEntity<Customer> createCustomer(@RequestBody Customer customer) {
-//        if (customerRepository.existsByEmail(customerDto.getEmail())) {
-//            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email đã tồn tại");
-//        }
-        return ResponseEntity.ok(customerRepository.save(customer));
+        if (customer.getEmail() != null && customerRepository.existsByEmail(customer.getEmail())) {
+            return ResponseEntity.badRequest().build();
+        }
+        Customer savedCustomer = customerRepository.save(customer);
+        return ResponseEntity.ok(savedCustomer);
     }
 
     @GetMapping("/{id}")

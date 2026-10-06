@@ -17,7 +17,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByStatus(String status);
 
     // Lấy ticket theo nhân viên được gán (Dùng cho Dashboard nhân viên)
-    List<Ticket> findByAssignedUserId(Long assignedUserId);
+    List<Ticket> assignedAgentId(Long assignedAgentId);
 
     // Lọc theo phòng ban / danh mục (KY_THUAT, THANH_TOAN, CSKH)
     List<Ticket> findByCategory(String category);

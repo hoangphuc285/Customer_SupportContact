@@ -1,9 +1,11 @@
 package com.example.cd2.controller;
 
+import com.example.cd2.entity.CreateTicketDTO;
 import com.example.cd2.entity.Ticket;
 import com.example.cd2.entity.TicketMessage;
 import com.example.cd2.repository.TicketMessageRepository;
 import com.example.cd2.repository.TicketRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -32,16 +34,45 @@ public class TicketController {
         this.messageRepository = messageRepository;
     }
 
+    // 1. Lấy danh sách Ticket
+    @GetMapping
+    public ResponseEntity<List<Ticket>> getAllTickets() {
+        return ResponseEntity.ok(ticketRepository.findAll());
+    }
+
     /**
      * Tạo Ticket mới
      * POST /api/tickets
      */
     @PostMapping
-    public ResponseEntity<Ticket> createTicket(@RequestBody Ticket ticket) {
-        if (ticket.getTicketCode() == null || ticket.getTicketCode().isEmpty()) {
-            ticket.setTicketCode("TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+    @Transactional
+    public ResponseEntity<Ticket> createTicket(@RequestBody CreateTicketDTO dto) {
+        Ticket ticket = new Ticket();
+        ticket.setCustomerId(dto.getCustomerId());
+        ticket.setSubject(dto.getSubject());
+        ticket.setCategory(dto.getCategory());
+        ticket.setPriority(dto.getPriority());
+        ticket.setStatus(dto.getStatus() != null ? dto.getStatus() : "NEW");
+
+        // Sinh ticketCode ngẫu nhiên (VD: TK-9B1A2C3D)
+        String randomCode = "TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        ticket.setTicketCode(randomCode);
+
+        // Lưu Ticket vào DB
+        Ticket savedTicket = ticketRepository.save(ticket);
+
+        // 2. Nếu có gửi kèm initialMessage, tự động lưu vào bảng ticket_messages
+        if (dto.getInitialMessage() != null && !dto.getInitialMessage().trim().isEmpty()) {
+            TicketMessage message = new TicketMessage();
+            message.setTicketId(savedTicket.getId());
+            message.setSenderType("CUSTOMER");
+            message.setSenderId(dto.getCustomerId().toString());
+            message.setMessageText(dto.getInitialMessage());
+
+            messageRepository.save(message);
         }
-        return ResponseEntity.ok(ticketRepository.save(ticket));
+
+        return ResponseEntity.ok(savedTicket);
     }
 
     /**
@@ -100,25 +131,25 @@ public class TicketController {
         return ResponseEntity.ok(messageRepository.findByTicketIdOrderByCreatedAtAsc(id));
     }
 
-    /**
-     * [LUỒNG 2 - Bước 11]: n8n cập nhật trạng thái Ticket
-     * PATCH /api/tickets/{id}/status
-     */
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<Ticket> updateTicketStatus(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-
-        return ticketRepository.findById(id)
-                .map(ticket -> {
-                    if (body != null && body.containsKey("status")) {
-                        ticket.setStatus(body.get("status"));
-                    }
-                    ticket.setUpdatedAt(LocalDateTime.now());
-                    return ResponseEntity.ok(ticketRepository.save(ticket));
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
+//    /**
+//     * [LUỒNG 2 - Bước 11]: n8n cập nhật trạng thái Ticket
+//     * PATCH /api/tickets/{id}/status
+//     */
+//    @PatchMapping("/{id}/status")
+//    public ResponseEntity<Ticket> updateTicketStatus(
+//            @PathVariable Long id,
+//            @RequestBody Map<String, String> body) {
+//
+//        return ticketRepository.findById(id)
+//                .map(ticket -> {
+//                    if (body != null && body.containsKey("status")) {
+//                        ticket.setStatus(body.get("status"));
+//                    }
+//                    ticket.setUpdatedAt(LocalDateTime.now());
+//                    return ResponseEntity.ok(ticketRepository.save(ticket));
+//                })
+//                .orElse(ResponseEntity.notFound().build());
+//    }
 
     /**
      * [LUỒNG 2 - Bước 8]: n8n tìm nhân viên trực khả dụng
@@ -135,10 +166,33 @@ public class TicketController {
         return ResponseEntity.ok(agent);
     }
 
-    /**
-     * [LUỒNG 2 - Bước 9]: n8n gán Ticket cho nhân viên & cập nhật phân loại
-     * PUT /api/tickets/{id}/assign
-     */
+//    /**
+//     * [LUỒNG 2 - Bước 9]: n8n gán Ticket cho nhân viên & cập nhật phân loại
+//     * PUT /api/tickets/{id}/assign
+//     */
+//    @PutMapping("/{id}/assign")
+//    public ResponseEntity<Ticket> assignTicket(
+//            @PathVariable Long id,
+//            @RequestBody Map<String, Object> payload) {
+//
+//        return ticketRepository.findById(id)
+//                .map(ticket -> {
+//                    if (payload.containsKey("category")) {
+//                        ticket.setCategory((String) payload.get("category"));
+//                    }
+//                    if (payload.containsKey("priority")) {
+//                        ticket.setPriority((String) payload.get("priority"));
+//                    }
+//                    if (payload.containsKey("status")) {
+//                        ticket.setStatus((String) payload.get("status"));
+//                    }
+//                    ticket.setUpdatedAt(LocalDateTime.now());
+//                    return ResponseEntity.ok(ticketRepository.save(ticket));
+//                })
+//                .orElse(ResponseEntity.notFound().build());
+//    }
+
+    // [LUỒNG 2 - Bước 9 & SLA]: Gán Ticket, Cập nhật Agent, SLA, Status, Category, Priority
     @PutMapping("/{id}/assign")
     public ResponseEntity<Ticket> assignTicket(
             @PathVariable Long id,
@@ -146,14 +200,35 @@ public class TicketController {
 
         return ticketRepository.findById(id)
                 .map(ticket -> {
-                    if (payload.containsKey("category")) {
-                        ticket.setCategory((String) payload.get("category"));
+                    if (payload.containsKey("category")) ticket.setCategory((String) payload.get("category"));
+                    if (payload.containsKey("priority")) ticket.setPriority((String) payload.get("priority"));
+                    if (payload.containsKey("status")) ticket.setStatus((String) payload.get("status"));
+
+                    // Gán ID nhân viên xử lý
+                    if (payload.containsKey("assignedAgentId")) {
+                        ticket.setAssignedAgentId(Long.parseLong(payload.get("assignedAgentId").toString()));
                     }
-                    if (payload.containsKey("priority")) {
-                        ticket.setPriority((String) payload.get("priority"));
+                    // Cập nhật hạn SLA nếu n8n truyền sang
+                    if (payload.containsKey("slaDueAt")) {
+                        ticket.setSlaDueAt(LocalDateTime.parse((String) payload.get("slaDueAt")));
                     }
-                    if (payload.containsKey("status")) {
-                        ticket.setStatus((String) payload.get("status"));
+
+                    ticket.setUpdatedAt(LocalDateTime.now());
+                    return ResponseEntity.ok(ticketRepository.save(ticket));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // [LUỒNG 2 - Bước 11]: Cập nhật trạng thái Ticket
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Ticket> updateTicketStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+
+        return ticketRepository.findById(id)
+                .map(ticket -> {
+                    if (body != null && body.containsKey("status")) {
+                        ticket.setStatus(body.get("status"));
                     }
                     ticket.setUpdatedAt(LocalDateTime.now());
                     return ResponseEntity.ok(ticketRepository.save(ticket));
@@ -161,19 +236,19 @@ public class TicketController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * [LUỒNG 2 - Bước 12]: n8n ghi log lịch sử phân công
-     * POST /api/tickets/{id}/logs
-     */
-    @PostMapping("/{id}/logs")
-    public ResponseEntity<Map<String, Object>> addTicketLog(
-            @PathVariable Long id,
-            @RequestBody Map<String, Object> logData) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("ticketId", id);
-        response.put("status", "LOGGED");
-        response.put("data", logData);
-        response.put("timestamp", LocalDateTime.now());
-        return ResponseEntity.ok(response);
-    }
+//    /**
+//     * [LUỒNG 2 - Bước 12]: n8n ghi log lịch sử phân công
+//     * POST /api/tickets/{id}/logs
+//     */
+//    @PostMapping("/{id}/logs")
+//    public ResponseEntity<Map<String, Object>> addTicketLog(
+//            @PathVariable Long id,
+//            @RequestBody Map<String, Object> logData) {
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("ticketId", id);
+//        response.put("status", "LOGGED");
+//        response.put("data", logData);
+//        response.put("timestamp", LocalDateTime.now());
+//        return ResponseEntity.ok(response);
+//    }
 }

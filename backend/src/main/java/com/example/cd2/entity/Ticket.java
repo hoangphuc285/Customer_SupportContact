@@ -20,17 +20,18 @@ public class Ticket {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
-    // Thêm trường này để khớp với TicketRepository.findByAssignedUserId
-    @Column(name = "assigned_user_id")
-    private Long assignedUserId;
+//    // Thêm trường này để khớp với TicketRepository.findByAssignedUserId
+//    @Column(name = "assigned_user_id")
+//    private Long assignedUserId;
 
     @Column(nullable = false)
     private String subject;
 
     private String status = "NEW";
-    private String priority = "MEDIUM";
+    private String priority ;
     private String category;
-
+    private Long assignedAgentId;
+    private LocalDateTime slaDueAt;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
 }
