@@ -59,7 +59,7 @@
         "url": "http://172.17.0.1:8080/api/tickets",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"customerId\": {{ $('IF: Customer Exists?').item.json.id || $('Create Customer').item.json.id }},\n  \"customerName\": \"{{ $('Normalize Request').item.json.customerName }}\",\n  \"customerEmail\": \"{{ $('Normalize Request').item.json.customerEmail }}\",\n  \"subject\": \"Hỗ trợ khách hàng: {{ $('Normalize Request').item.json.customerName }}\",\n  \"customerPhone\": \"{{ $('Normalize Request').item.json.customerPhone }}\"\n}",
+        "jsonBody": "={\n  \"customerId\": {{ $('Check Customer').item.json.id || $('Create Customer').item.json.id }},\n  \"subject\": \"Hỗ trợ khách hàng: {{ $('Normalize Request').item.json.customerName }}\",\n  \"category\": \"{{ JSON.parse($('AI CUSTOMER INTENT').item.json.content.parts[0].text.replace(/```json|```/g, '').trim()).intent }}\",\n  \"initialMessage\": \"{{ $('Normalize Request').item.json.message }}\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -75,9 +75,9 @@
       "parameters": {
         "fromEmail": "hoangphucsjw@gmail.com",
         "toEmail": "phucnh.24it@vku.udn.vn",
-        "subject": "[CSKH] Đã tiếp nhận yêu cầu {{ $json.ticketId }}",
+        "subject": "=[CSKH] Đã tiếp nhận yêu cầu #{{ $json.id }}",
         "emailFormat": "text",
-        "text": "=Xin chào {{ $('Normalize Request').item.json.customerName }},\n\nChúng tôi đã tiếp nhận yêu cầu của bạn.\n\nMã Ticket: {{ $json.id }}\nMức độ ưu tiên: {{ $json.priority }}\nTrạng thái: NEW\n\nĐội ngũ CSKH sẽ xử lý yêu cầu của bạn.\n\nTrân trọng,\nCustomer Support",
+        "text": "=Xin chào {{ $('Webhook').item.json.body.customer.name }},\n\nChúng tôi đã tiếp nhận yêu cầu của bạn.\n\nMã Ticket: {{ $json.ticketCode }}\nKênh tiếp nhận:{{ $('Webhook').item.json.body.channel }}\nLoại yêu cầu: {{ $json.category }}\nTrạng thái:{{ $json.status }}\n\nNội dung yêu cầu:{{ $('Webhook').item.json.body.message }}\n\nĐội ngũ CSKH sẽ xử lý yêu cầu của bạn.\n\nTrân trọng,\nCustomer Support",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
@@ -117,7 +117,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"ticketId\": \"{{ $json.id }}\",\n  \"customerId\": \"{{ $json.customerId }}\",\n  \"intent\": \"{{ $json.subject }}\",\n  \"priority\": \"{{ $json.priority }}\",\n  \"status\": \"NEW\"\n}",
+        "responseBody": "={\n  \"success\": true,\n  \"ticketId\": \"{{ $json.id }}\",\n  \"customerId\": \"{{ $json.customerId }}\",\n  \"intent\": \"{{ $json.subject }}\",\n  \"status\": \"NEW\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -314,39 +314,6 @@
         "messages": {
           "values": [
             {
-              "content": "=You are a customer support priority classifier.\n\nClassify the priority as exactly one of:\n\nHIGH\nMEDIUM\nLOW\n\nCustomer message:\n{{ $json.content.parts[0].text }}\n\nRules:\n\nHIGH:\n- Serious complaint\n- Legal threat\n- Safety issue\n- Payment problem with significant impact\n- Angry or highly dissatisfied customer\n\nMEDIUM:\n- Normal refund\n- Warranty request\n- Product exchange\n- Payment inquiry\n- Order issue\n\nLOW:\n- General question\n- FAQ\n- Product information\n\nReturn JSON only:\n\n{\n  \"priority\": \"HIGH|MEDIUM|LOW\"\n}"
-            }
-          ]
-        },
-        "builtInTools": {},
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.googleGemini",
-      "typeVersion": 1.2,
-      "position": [
-        1680,
-        -80
-      ],
-      "id": "aabb5316-bfc9-4ebc-ae43-1d4b8d1a0103",
-      "name": "AI PRIORITY",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "SJLHvzSS8Ttxpv8k",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "modelId": {
-          "__rl": true,
-          "value": "models/gemini-3.5-flash",
-          "mode": "list",
-          "cachedResultName": "models/gemini-3.5-flash"
-        },
-        "messages": {
-          "values": [
-            {
               "content": "=You are a customer support intent classifier.\n\nClassify the customer's request into exactly ONE category.\n\nCategories:\n\nREFUND\nWARRANTY\nCOMPLAINT\nPAYMENT\nORDER_STATUS\nPRODUCT_SUPPORT\nPRODUCT_EXCHANGE\nOTHER\n\nCustomer message:\n{{ $('Webhook').item.json.body.message }}\n\nReturn JSON only:\n\n{\n  \"intent\": \"CATEGORY\",\n  \"confidence\": 0.0\n}"
             }
           ]
@@ -362,12 +329,31 @@
       ],
       "id": "4330fe13-fe7c-4e2e-b982-271b2c4029ef",
       "name": "AI CUSTOMER INTENT",
+      "retryOnFail": true,
       "credentials": {
         "googlePalmApi": {
           "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/process-ticket",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ticketId\": {{ $('Create Ticket').item.json.id }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2880,
+        -80
+      ],
+      "id": "7c8c532e-9d53-4113-b827-f7277be841b7",
+      "name": "HTTP Request2"
     }
   ],
   "connections": {
@@ -420,6 +406,17 @@
         [
           {
             "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
             "type": "main",
             "index": 0
           }
@@ -484,22 +481,11 @@
         ]
       ]
     },
-    "AI PRIORITY": {
-      "main": [
-        [
-          {
-            "node": "Create Ticket",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "AI CUSTOMER INTENT": {
       "main": [
         [
           {
-            "node": "AI PRIORITY",
+            "node": "Create Ticket",
             "type": "main",
             "index": 0
           }
@@ -513,8 +499,6 @@
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
 }
-
-
 
 // luong 2
 {
