@@ -1,19 +1,17 @@
-Chạy db->frontend->backend
-
-//cap nhat lai du lieu db
-
+# Database
+Nếu cần reset toàn bộ dữ liệu Database:
 docker compose down -v
-
 docker compose up -d
 
-docker compose up db -d  -> chay database bang docker
+docker compose up db -d
 
-//chay frontend (Next.js)
+# Backend
+cd backend
+./mvnw spring-boot:run
 
+# Frontend
 cd frontend
+npm install
+npm run dev
 
-npm run dev 
-
-//Chạy backend (Spring boot)
-
--n8n copy file n8n rồi dán vào n8n 
+Sau đó import workflow n8n vào n8n và activate workflow.
