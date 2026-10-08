@@ -85,7 +85,7 @@ CREATE TABLE `ticket_logs` (
                                `performed_by` varchar(255) DEFAULT NULL,
                                `ticket_id` bigint DEFAULT NULL,
                                PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -94,7 +94,7 @@ CREATE TABLE `ticket_logs` (
 
 LOCK TABLES `ticket_logs` WRITE;
 /*!40000 ALTER TABLE `ticket_logs` DISABLE KEYS */;
-INSERT INTO `ticket_logs` VALUES (1,'AUTOMATION_PROCESS_COMPLETED','2026-10-06 17:14:52.932818','Đã tự động phân loại: COMPLAINT, độ ưu tiên: HIGH, gán cho Agent Nguyen Van A (ID: 1)','N8N_WORKFLOW',7);
+INSERT INTO `ticket_logs` VALUES (1,'AUTOMATION_PROCESS_COMPLETED','2026-10-06 17:14:52.932818','Đã tự động phân loại: COMPLAINT, độ ưu tiên: HIGH, gán cho Agent Nguyen Van A (ID: 1)','N8N_WORKFLOW',7),(2,'CUSTOMER_FEEDBACK','2026-10-08 16:03:58.737424','Tôi vẫn chưa nhận được sản phẩm mới.','CUSTOMER',7),(3,'REASSIGN_TICKET','2026-10-08 17:33:36.053834','Hệ thống đã phân công ticket cho Nhân viên ID:1 . Mức ưu tiên: URGENT','SYSTEM',7),(4,'CUSTOMER_FEEDBACK','2026-10-08 17:37:34.707785','Tôi vẫn chưa nhận được sản phẩm mới.','CUSTOMER',7);
 /*!40000 ALTER TABLE `ticket_logs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -129,6 +129,33 @@ INSERT INTO `ticket_messages` VALUES (1,7,'CUSTOMER','11','Sản phẩm bị l�
 UNLOCK TABLES;
 
 --
+-- Table structure for table `ticket_reports`
+--
+
+DROP TABLE IF EXISTS `ticket_reports`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ticket_reports` (
+                                  `id` bigint NOT NULL AUTO_INCREMENT,
+                                  `created_at` datetime(6) DEFAULT NULL,
+                                  `resolved_by` bigint DEFAULT NULL,
+                                  `satisfaction` varchar(255) DEFAULT NULL,
+                                  `status` varchar(255) DEFAULT NULL,
+                                  `ticket_id` varchar(255) DEFAULT NULL,
+                                  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ticket_reports`
+--
+
+LOCK TABLES `ticket_reports` WRITE;
+/*!40000 ALTER TABLE `ticket_reports` DISABLE KEYS */;
+/*!40000 ALTER TABLE `ticket_reports` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `tickets`
 --
 
@@ -148,6 +175,9 @@ CREATE TABLE `tickets` (
                            `assigned_agent_id` bigint DEFAULT NULL,
                            `assigned_user_id` bigint DEFAULT NULL,
                            `sla_due_at` datetime(6) DEFAULT NULL,
+                           `resolution` text,
+                           `result` varchar(255) DEFAULT NULL,
+                           `satisfaction` varchar(255) DEFAULT NULL,
                            PRIMARY KEY (`id`),
                            UNIQUE KEY `ticket_code` (`ticket_code`),
                            KEY `customer_id` (`customer_id`),
@@ -161,7 +191,7 @@ CREATE TABLE `tickets` (
 
 LOCK TABLES `tickets` WRITE;
 /*!40000 ALTER TABLE `tickets` DISABLE KEYS */;
-INSERT INTO `tickets` VALUES (1,'TK-2CE840DE',1,'Hỗ trợ khách hàng: Nguyen Van B','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(2,'TK-2E95E154',8,'Hỗ trợ khách hàng: Nguyen Phi Phuc','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(3,'TK-B22CFAFC',9,'Hỗ trợ khách hàng: abc','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(4,'TK-51526A47',1,'Hỗ trợ khách hàng: Nguyen Van B','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(5,'TK-82780344',1,'Hỗ trợ khách hàng: abc','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(6,'TK-3B53700D',10,'Hỗ trợ khách hàng: Nguyen Phúc Hoàng','NEW',NULL,NULL,'2026-10-06 15:16:35','2026-10-06 15:16:40',NULL,NULL,NULL),(7,'TK-F9EC552B',11,'Hỗ trợ khách hàng: Phúc Nguyễn','PROCESSING','HIGH','COMPLAINT','2026-10-06 15:24:59','2026-10-06 17:11:09',1,NULL,'2026-10-06 12:09:55.000000');
+INSERT INTO `tickets` VALUES (1,'TK-2CE840DE',1,'Hỗ trợ khách hàng: Nguyen Van B','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),(2,'TK-2E95E154',8,'Hỗ trợ khách hàng: Nguyen Phi Phuc','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),(3,'TK-B22CFAFC',9,'Hỗ trợ khách hàng: abc','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),(4,'TK-51526A47',1,'Hỗ trợ khách hàng: Nguyen Van B','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),(5,'TK-82780344',1,'Hỗ trợ khách hàng: abc','NEW',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),(6,'TK-3B53700D',10,'Hỗ trợ khách hàng: Nguyen Phúc Hoàng','NEW',NULL,NULL,'2026-10-06 15:16:35','2026-10-06 15:16:40',NULL,NULL,NULL,NULL,NULL,NULL),(7,'TK-F9EC552B',11,'Hỗ trợ khách hàng: Phúc Nguyễn','ASSIGNED','URGENT','COMPLAINT','2026-10-06 15:24:59','2026-10-08 17:31:57',1,NULL,'2026-10-08 12:11:53.000000','Chung toi se gui lai san pham moi cho ban',NULL,NULL);
 /*!40000 ALTER TABLE `tickets` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -174,4 +204,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-07 13:59:37
+-- Dump completed on 2026-10-08 17:42:52

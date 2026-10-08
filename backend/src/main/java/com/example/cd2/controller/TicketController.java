@@ -236,6 +236,45 @@ public class TicketController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{ticketId}/resolution")
+    public ResponseEntity<?> getTicketResolution(@PathVariable Long ticketId) {
+        return ticketRepository.findById(ticketId)
+                .map(ticket -> {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("ticketId", ticket.getTicketCode()); // hoặc ticket.getId()
+                    response.put("resolution", ticket.getResolution());
+                    response.put("agentId", ticket.getAssignedAgentId());
+                    return ResponseEntity.ok(response);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // [LUỒNG 3]: API gộp cập nhật kết quả đánh giá và ĐÓNG Ticket
+    @PatchMapping("/{id}/close")
+    public ResponseEntity<?> closeTicketWithFeedback(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> payload) {
+
+        return ticketRepository.findById(id).map(ticket -> {
+            if (payload.containsKey("status")) {
+                ticket.setStatus(payload.get("status").toString());
+            } else {
+                ticket.setStatus("CLOSED"); // Mặc định đóng ticket
+            }
+
+            if (payload.containsKey("satisfaction")) {
+                ticket.setSatisfaction(payload.get("satisfaction").toString());
+            }
+
+            if (payload.containsKey("result")) {
+                ticket.setResult(payload.get("result").toString());
+            }
+
+            ticket.setUpdatedAt(LocalDateTime.now());
+            Ticket updatedTicket = ticketRepository.save(ticket);
+            return ResponseEntity.ok(updatedTicket);
+        }).orElse(ResponseEntity.notFound().build());
+    }
 //    /**
 //     * [LUỒNG 2 - Bước 12]: n8n ghi log lịch sử phân công
 //     * POST /api/tickets/{id}/logs

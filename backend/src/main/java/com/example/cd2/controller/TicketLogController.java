@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/tickets/{ticketId}/logs")
@@ -30,5 +31,11 @@ public class TicketLogController {
         }
         TicketLog savedLog = logRepository.save(log);
         return ResponseEntity.ok(savedLog);
+    }
+    // [LẤY LỊCH SỬ LOGS] - Dùng cho Luồng 2 khi Ticket bị REOPEN
+    @GetMapping
+    public ResponseEntity<List<TicketLog>> getTicketLogs(@PathVariable Long ticketId) {
+        List<TicketLog> logs = logRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
+        return ResponseEntity.ok(logs);
     }
 }

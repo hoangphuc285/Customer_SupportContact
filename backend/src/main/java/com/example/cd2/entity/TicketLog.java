@@ -15,8 +15,10 @@ public class TicketLog {
 
     private Long ticketId;
     private String action;      // ASSIGNED, SLA_CALCULATED, STATUS_CHANGED
-    private String note;        // Chi tiết log
-    private String performedBy; // SYSTEM, AI, HOAC_TEN_AGENT
+
+    @Column(columnDefinition = "TEXT")
+    private String note;        // // Nội dung phản hồi của khách hoặc ghi chú
+    private String performedBy; // Người thực hiện: "CUSTOMER", "AGENT", "SYSTEM"
 
     private LocalDateTime createdAt = LocalDateTime.now();
 }

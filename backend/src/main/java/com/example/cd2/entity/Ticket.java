@@ -27,6 +27,11 @@ public class Ticket {
     @Column(nullable = false)
     private String subject;
 
+    @Column(columnDefinition = "TEXT")
+    private String resolution;
+
+    private String satisfaction; // Ví dụ: "SATISFIED", "UNSATISFIED"
+    private String result;       // Ví dụ: "RESOLVED", "UNRESOLVED"
     private String status = "NEW";
     private String priority ;
     private String category;
