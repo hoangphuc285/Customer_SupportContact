@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface AgentRepository extends JpaRepository<Agent, Long>  {
 
     Optional<Object> findFirstByDepartmentAndStatus(String department, String available);
+    Optional<Agent> findByEmail(String email);
 }

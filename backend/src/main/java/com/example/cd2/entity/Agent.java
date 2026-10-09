@@ -14,4 +14,5 @@ public class Agent {
     private String email;
     private String department; // CSKH, KY_THUAT, THANH_TOAN
     private String status;     // AVAILABLE, BUSY, OFFLINE
+    private String password; // <--- Cột mật khẩu mới
 }

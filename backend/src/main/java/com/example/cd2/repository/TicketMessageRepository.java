@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface TicketMessageRepository extends JpaRepository<TicketMessage, Long> {
     List<TicketMessage> findByTicketIdOrderByCreatedAtAsc(Long ticketId);
+    List<TicketMessage> findByTicketIdOrderByIdAsc(Long ticketId);
 }

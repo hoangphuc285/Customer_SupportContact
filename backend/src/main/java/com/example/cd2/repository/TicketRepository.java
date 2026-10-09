@@ -2,6 +2,8 @@ package com.example.cd2.repository;
 
 import com.example.cd2.entity.Ticket;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,4 +29,14 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     // Lọc theo khách hàng
     List<Ticket> findByCustomerId(Long customerId);
+    // Lọc linh hoạt theo agentId, status, priority (nếu tham số null thì bỏ qua)
+    @Query("SELECT t FROM Ticket t WHERE " +
+            "(:assignedAgentId IS NULL OR t.assignedAgentId = :assignedAgentId) AND " +
+            "(:status IS NULL OR t.status = :status) AND " +
+            "(:priority IS NULL OR t.priority = :priority)")
+    List<Ticket> findTicketsWithFilters(
+            @Param("assignedAgentId") Long assignedAgentId,
+            @Param("status") String status,
+            @Param("priority") String priority
+    );
 }

@@ -11,10 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -274,6 +271,49 @@ public class TicketController {
             Ticket updatedTicket = ticketRepository.save(ticket);
             return ResponseEntity.ok(updatedTicket);
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // Tra cứu Ticket bằng ticketCode (Ví dụ: GET /api/tickets/code/TK-F9EC552B)
+    @GetMapping("/code/{ticketCode}")
+    public ResponseEntity<Ticket> getTicketByCode(@PathVariable String ticketCode) {
+        return ticketRepository.findByTicketCode(ticketCode)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{ticketId}/customer-feedback")
+    public ResponseEntity<?> triggerCustomerFeedback(
+            @PathVariable Long ticketId,
+            @RequestBody Map<String, Object> body) {
+
+        Optional<Ticket> ticketOpt = ticketRepository.findById(ticketId);
+        if (ticketOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Ticket ticket = ticketOpt.get();
+        String message = body.getOrDefault("message", "").toString();
+        Object customerIdObj = body.getOrDefault("customerId", ticket.getCustomerId());
+
+        try {
+            // Bắn trực tiếp dữ liệu sang Webhook3 của n8n (Luồng 3B)
+            RestTemplate restTemplate = new RestTemplate();
+            String n8nWebhook3Url = "http://localhost:5678/webhook/customer-feedback";
+
+            Map<String, Object> payload = Map.of(
+                    "ticketId", ticket.getId(),
+                    "customerId", customerIdObj != null ? customerIdObj : ticket.getCustomerId(),
+                    "message", message
+            );
+
+            restTemplate.postForEntity(n8nWebhook3Url, payload, String.class);
+            System.out.println(">>> [SUCCESS] Đã gửi Feedback của khách sang n8n Webhook3 cho Ticket #" + ticket.getId());
+
+        } catch (Exception e) {
+            System.err.println(">>> [ERROR] Không thể kết nối tới n8n Webhook3: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Phản hồi đã được tiếp nhận thành công."));
     }
 //    /**
 //     * [LUỒNG 2 - Bước 12]: n8n ghi log lịch sử phân công

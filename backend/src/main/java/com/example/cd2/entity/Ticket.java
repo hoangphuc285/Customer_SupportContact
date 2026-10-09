@@ -39,4 +39,60 @@ public class Ticket {
     private LocalDateTime slaDueAt;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getTicketCode() {
+        return ticketCode;
+    }
+
+    public Long getCustomerId() {
+        return customerId;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public String getResolution() {
+        return resolution;
+    }
+
+    public String getSatisfaction() {
+        return satisfaction;
+    }
+
+    public String getResult() {
+        return result;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public Long getAssignedAgentId() {
+        return assignedAgentId;
+    }
+
+    public LocalDateTime getSlaDueAt() {
+        return slaDueAt;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
 }
