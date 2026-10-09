@@ -916,6 +916,305 @@
       "id": "5680ca63-2a7d-442f-a05a-fb4787752a5a",
       "name": "Customer phản hồi",
       "webhookId": "8cdc18e5-4f7b-4a47-85a6-d26c75609de0"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://172.17.0.1:8080/api/reports/tickets",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ticketId\": \"{{ $json.ticketCode }}\",\n  \"resolution\": \"{{ $json.resolution }}\",\n  \"satisfaction\": \"{{ $json.satisfaction }}\",\n  \"closedAt\": \"{{ $json.updatedAt }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3072,
+        944
+      ],
+      "id": "6d136461-dca4-4f0c-a205-b49dc844d987",
+      "name": "Tạo báo cáo"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -256,
+        1232
+      ],
+      "id": "3aab49fd-3a2e-4b1b-b3f0-0f1b4c6984a8",
+      "name": "Nhận tin nhắn từ khách",
+      "webhookId": "8b55c750-9788-439c-836c-d3b54885624b"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "41039086-93cd-4cb7-8e8e-4f51d04bb6ec",
+              "name": "conversationId",
+              "value": "={{ $json.body.conversationId }}",
+              "type": "string"
+            },
+            {
+              "id": "65dacb73-467e-45b5-b221-d683baa12189",
+              "name": "customerId",
+              "value": "={{ $json.body.customerId }}",
+              "type": "number"
+            },
+            {
+              "id": "6fe9167f-58cf-4f61-b4ea-cdf44043d584",
+              "name": "message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -32,
+        1232
+      ],
+      "id": "a4e7e468-95a4-433d-989c-c57eda250029",
+      "name": "Chuẩn hóa dữ liệu"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "=Bạn là trợ lý AI chăm sóc khách hàng của VKU Support.\n\nNhiệm vụ:\n1. Tra cứu thông tin từ Qdrant Vector Store để trả lời câu hỏi của khách hàng.\n2. Đánh giá cờ `needHumanSupport`:\n   - `true`: Khi khách hàng chủ động yêu cầu gặp nhân viên, khi khiếu nại gay gắt, hoặc khi câu hỏi vượt quá khả năng xử lý của AI / không có trong dữ liệu.\n   - `false`: Khi AI đã trả lời thành công dựa trên dữ liệu tri thức hoặc khi đang hỏi thêm thông tin làm rõ từ khách.\n\nBẮT BUỘC trả về kết quả dưới dạng JSON duy nhất (không bọc trong thẻ ```json):\n{\n  \"reply\": \"Nội dung phản hồi khách hàng\",\n  \"needHumanSupport\": false\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        192,
+        1248
+      ],
+      "id": "c35ae278-6470-484f-8b05-0540d74263f3",
+      "name": "AI Agent / RAG",
+      "retryOnFail": true,
+      "waitBetweenTries": 1000,
+      "maxTries": 5,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "models/gemini-3-flash-preview"
+        },
+        "messages": {
+          "values": [
+            {}
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        1520
+      ],
+      "id": "9962b232-e01f-416c-aa01-a08b707809d2",
+      "name": "Message a model in Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Sử dụng công cụ này để tra cứu thông tin chính sách, tài liệu sản phẩm, hướng dẫn dịch vụ và FAQ để trả lời cho khách hàng.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "vku_knowledge",
+          "mode": "list",
+          "cachedResultName": "vku_knowledge"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        1520
+      ],
+      "id": "8515bb16-3fad-4d31-9dc6-5500a98816a5",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "y730vllKiyJ4P0LX",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        624,
+        1760
+      ],
+      "id": "40de1d01-f958-424e-a2fd-77dca3700fc0",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        1920
+      ],
+      "id": "37dc3e7d-c239-4c1d-b1b4-46419d66065c",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "vku_knowledge",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        1872
+      ],
+      "id": "610dc416-df30-41bc-bf3c-a64dc319f586",
+      "name": "Qdrant Vector Store1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "y730vllKiyJ4P0LX",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        48,
+        2080
+      ],
+      "id": "5538afd3-4712-4300-9332-b8c2e271aa85",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        2048
+      ],
+      "id": "c6fcace9-d815-4553-80ef-be880c79866c",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "10c2c8e7-28de-4f47-b6ef-29946a203af3",
+              "name": "text",
+              "value": "==== THÔNG TIN VÀ CHÍNH SÁCH CSKH VKU SUPPORT ===1. THỜI GIAN LÀM VIỆC VÀ KÊNH HỖ TRỢ- Thời gian làm việc CSKH: Từ 08:00 đến 17:30 (Thứ 2 đến Thứ 6). Thứ 7 làm việc từ 08:00 đến 12:00. Nghỉ Chủ Nhật và các ngày lễ Tết.- Kênh tiếp nhận hỗ trợ: Website Support (/support/new), Email: support@vku.edu.vn, Hotline: 1900-xxxx.2. CHÍNH SÁCH ĐỔI TRẢ VÀ HOÀN TIỀN- Điều kiện đổi trả: Sản phẩm hoặc dịch vụ phát sinh lỗi kỹ thuật từ nhà cung cấp trong vòng 7 ngày kể từ khi nhận.- Yêu cầu sản phẩm: Còn nguyên tem mác, nguyên vỏ hộp và đầy đủ phụ kiện đi kèm.- Thời gian xử lý hoàn tiền: Từ 24h đến 48h làm việc sau khi Ticket yêu cầu hoàn tiền được xác minh thành công.3. QUY TRÌNH XỬ LÝ TICKET VÀ SLA- Mức độ ưu tiên LOW / MEDIUM: Thời gian phản hồi tối đa là 4 giờ làm việc.- Mức độ ưu tiên HIGH / URGENT: Thời gian phản hồi khẩn cấp trong vòng 1 giờ làm việc.- Quy trình Mở lại Ticket (Reopen): Khi nhận email kết quả xử lý, nếu khách hàng chưa hài lòng có thể gửi phản hồi trực tiếp qua link feedback. Hệ thống n8n sẽ tự động kích hoạt chuyển trạng thái Ticket thành REOPENED để nhân viên hỗ trợ tiếp.4. TRẠNG THÁI TICKET HỆ THỐNG- NEW: Ticket mới tạo, chờ gán nhân viên.- IN_PROGRESS / ASSIGNED: Nhân viên đang tiếp nhận và xử lý.- RESOLVED: Đã xử lý xong, hệ thống gửi email AI phản hồi cho khách.- CLOSED: Khách hàng xác nhận hài lòng và đóng ticket.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -176,
+        1840
+      ],
+      "id": "baec9871-a375-4d3a-a572-2bd9904906e7",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": {{ $json.success }},\n  \"conversationId\": \"{{ $json.conversationId }}\",\n  \"reply\": \"{{ $json.reply }}\",\n  \"needHumanSupport\": {{ $json.needHumanSupport }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1024,
+        1248
+      ],
+      "id": "7b2d5a4a-4048-4f35-adc8-905e8cc6ab45",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy output từ AI Agent\nlet rawOutput =  $input.first().json.content.parts[0].text|| \"\";\nlet parsed = {};\n\ntry {\n  // Loại bỏ các ký tự bọc markdown nếu AI tự thêm vào\n  let cleanJson = rawOutput.replace(/```json/g, '').replace(/```/g, '').trim();\n  parsed = JSON.parse(cleanJson);\n} catch (e) {\n  // Fallback nếu AI trả về plain text\n  parsed = {\n    reply: rawOutput,\n    needHumanSupport: false\n  };\n}\n\n// Trả về đúng cấu trúc bạn yêu cầu\nreturn {\n  success: true,\n  conversationId: $('Chuẩn hóa dữ liệu').first().json.conversationId,\n  reply: parsed.reply || rawOutput,\n  needHumanSupport: Boolean(parsed.needHumanSupport)\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        1248
+      ],
+      "id": "ee515daa-f702-48b9-ad9e-109b950e49ff",
+      "name": "Code in JavaScript"
     }
   ],
   "connections": {
@@ -1231,7 +1530,13 @@
     },
     "Đóng Ticket & Cập nhật đánh giá": {
       "main": [
-        []
+        [
+          {
+            "node": "Tạo báo cáo",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Workflow 1": {
@@ -1346,6 +1651,132 @@
           }
         ]
       ]
+    },
+    "Nhận tin nhắn từ khách": {
+      "main": [
+        [
+          {
+            "node": "Chuẩn hóa dữ liệu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chuẩn hóa dữ liệu": {
+      "main": [
+        [
+          {
+            "node": "AI Agent / RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent / RAG": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model in Google Gemini": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent / RAG",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent / RAG",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store1": {
+      "main": [
+        []
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {
@@ -1387,6 +1818,35 @@
           "customerId": 11
         },
         "webhookUrl": "http://localhost:5678/webhook/customer-feedback",
+        "executionMode": "production"
+      }
+    ],
+    "Nhận tin nhắn từ khách": [
+      {
+        "headers": {
+          "host": "localhost:5678",
+          "user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:157.0) Gecko/20100101 Firefox/157.0",
+          "accept": "*/*",
+          "accept-language": "en-US,en;q=0.9",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "referer": "http://localhost:3000/",
+          "content-type": "application/json",
+          "content-length": "62",
+          "origin": "http://localhost:3000",
+          "connection": "keep-alive",
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-site",
+          "priority": "u=4"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "conversationId": "CHAT-620484",
+          "customerId": 1,
+          "message": "hi"
+        },
+        "webhookUrl": "http://localhost:5678/webhook/chat",
         "executionMode": "production"
       }
     ]
