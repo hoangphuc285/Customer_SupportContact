@@ -68,7 +68,7 @@ public class AgentTicketController {
             // Lấy tên Nhân viên từ assigned_agent_id
             if (ticket.getAssignedAgentId() != null) {
                 agentRepository.findById(ticket.getAssignedAgentId()).ifPresent(a -> {
-                    map.put("agentName", a.getName());
+                    map.put("agentName", a.getAccount().getName());
                     map.put("department", a.getDepartment());
                 });
             } else {
@@ -135,7 +135,7 @@ public class AgentTicketController {
 
         if (ticket.getAssignedAgentId() != null) {
             agentRepository.findById(ticket.getAssignedAgentId()).ifPresent(a -> {
-                details.put("agentName", a.getName());
+                details.put("agentName", a.getAccount().getName());
                 details.put("department", a.getDepartment());
             });
         }

@@ -8,21 +8,35 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     const [authorized, setAuthorized] = useState(false);
 
     useEffect(() => {
-        const token = localStorage.getItem('jwt_token');
-        if (!token) {
-            router.push('/staff/login'); // <--- Đổi thành /staff/login
-        } else {
+        // 1. Kiểm tra tài khoản đã lưu trong localStorage
+        const savedAccount = localStorage.getItem('user_account');
+        if (!savedAccount) {
+            router.push('/staff/login');
+            return;
+        }
+
+        try {
+            const user = JSON.parse(savedAccount);
+            const roleStr = String(user.role || '').toUpperCase();
+
+            // 2. Xác thực quyền STAFF (hỗ trợ cả STAFF, ROLE_STAFF, AGENT)
+            const isStaff = roleStr.includes('STAFF') || roleStr.includes('AGENT') || roleStr === '1';
+
+            if (!isStaff) {
+                router.push('/staff/login');
+                return;
+            }
+
             setAuthorized(true);
+        } catch {
+            router.push('/staff/login');
         }
     }, [router]);
 
     if (!authorized) {
         return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
-                <div className="text-center">
-                    <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-sm text-slate-400">Đang kiểm tra quyền truy cập hệ thống...</p>
-                </div>
+            <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-500 font-medium">
+                Đang kiểm tra quyền truy cập...
             </div>
         );
     }

@@ -1,142 +1,217 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface Message {
-    sender: 'user' | 'ai';
-    text: string;
-    canEscalate?: boolean;
-}
-
-export default function AIChatPage() {
+export default function CustomerChatPage() {
     const router = useRouter();
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            sender: 'ai',
-            text: 'Xin chào! Tôi là Trợ lý AI VKU. Tôi có thể tìm kiếm trong kho kiến thức để trả lời thắc mắc của bạn ngay lập tức.',
-        },
-    ]);
+    const [userAccount, setUserAccount] = useState<any>(null);
+    const [conversationId, setConversationId] = useState<string>('');
+    const [messages, setMessages] = useState<any[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [needHumanSupport, setNeedHumanSupport] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const handleSend = async () => {
-        if (!input.trim() || loading) return;
+    useEffect(() => {
+        // 1. ĐỌC ĐÚNG KEY 'user_account' TỪ LOCALSTORAGE
+        const savedAccount = localStorage.getItem('user_account');
+        if (!savedAccount) {
+            // Nếu chưa đăng nhập, tự động chuyển về trang Đăng nhập (không dùng alert gây popup)
+            router.push('/support/login');
+            return;
+        }
 
-        const userMsg = input.trim();
-        setInput('');
-        setMessages((prev) => [...prev, { sender: 'user', text: userMsg }]);
-        setLoading(true);
+        const parsedAccount = JSON.parse(savedAccount);
+        setUserAccount(parsedAccount);
 
+        // 2. Khởi tạo phiên Chat ID duy nhất
+        let storedChatId = sessionStorage.getItem('vku_chat_id');
+        if (!storedChatId) {
+            storedChatId = `CHAT-${Date.now().toString().slice(-6)}`;
+            sessionStorage.setItem('vku_chat_id', storedChatId);
+        }
+        setConversationId(storedChatId);
+
+        // Khởi tạo phiên chat ở CSDL Spring Boot
+        initSession(storedChatId, parsedAccount.id);
+    }, [router]);
+
+    const initSession = async (convId: string, customerId: number) => {
         try {
-            // Gửi sang Webhook AI Chat (n8n RAG Workflow)
-            const res = await fetch('http://localhost:5678/webhook/ai-rag-chat', {
+            await fetch('http://localhost:8080/api/chat/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg }),
+                body: JSON.stringify({ conversationId: convId, customerId }),
             });
+            fetchChatHistory(convId);
+        } catch (err) {
+            console.error('Lỗi khởi tạo phiên chat:', err);
+        }
+    };
 
+    const fetchChatHistory = async (convId: string) => {
+        try {
+            const res = await fetch(`http://localhost:8080/api/chat/history/${convId}`);
             if (res.ok) {
                 const data = await res.json();
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        sender: 'ai',
-                        text: data.reply || 'Cảm ơn bạn. Bạn có cần hỗ trợ thêm thông tin gì khác không?',
-                        canEscalate: data.needsHumanEscalation || false,
-                    },
-                ]);
-            } else {
-                throw new Error('Không thể kết nối AI');
+                setMessages(data);
             }
-        } catch {
-            setMessages((prev) => [
-                ...prev,
-                {
-                    sender: 'ai',
-                    text: 'Xin lỗi, tôi không tìm thấy thông tin phù hợp trong kho kiến thức. Bạn có muốn chuyển yêu cầu này cho Nhân viên hỗ trợ không?',
-                    canEscalate: true,
-                },
-            ]);
+        } catch (err) {
+            console.error('Lỗi tải lịch sử chat:', err);
+        }
+    };
+
+    // Tự động cuộn xuống tin nhắn mới nhất
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, loading]);
+
+    // Lắng nghe tin nhắn từ Nhân viên theo thời gian thực nếu needHumanSupport = true
+    useEffect(() => {
+        if (!needHumanSupport || !conversationId) return;
+        const interval = setInterval(() => fetchChatHistory(conversationId), 3000);
+        return () => clearInterval(interval);
+    }, [needHumanSupport, conversationId]);
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || loading) return;
+
+        const userText = input.trim();
+        setInput('');
+        setLoading(true);
+
+        // 1. Lưu tin nhắn CUSTOMER vào MySQL
+        await fetch('http://localhost:8080/api/chat/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                conversationId,
+                senderType: 'CUSTOMER',
+                message: userText,
+            }),
+        });
+        fetchChatHistory(conversationId);
+
+        // 2. Nếu đã chuyển sang chat trực tiếp với Nhân viên
+        if (needHumanSupport) {
+            setLoading(false);
+            return;
+        }
+
+        // 3. Gửi sang n8n AI Webhook
+        try {
+            const response = await fetch('http://localhost:5678/webhook/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversationId,
+                    customerId: userAccount?.id || null,
+                    message: userText,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Lưu phản hồi AI vào MySQL
+                await fetch('http://localhost:8080/api/chat/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        conversationId,
+                        senderType: 'AI',
+                        message: data.reply,
+                    }),
+                });
+
+                // Nếu AI báo cần Nhân viên hỗ trợ
+                if (data.needHumanSupport) {
+                    setNeedHumanSupport(true);
+                    await fetch('http://localhost:8080/api/chat/escalate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ conversationId }),
+                    });
+                }
+                fetchChatHistory(conversationId);
+            }
+        } catch (err) {
+            console.error('Lỗi gửi tin nhắn AI:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleEscalateToTicket = () => {
-        // Chuyển sang form tạo ticket với nội dung chat sẵn có
-        router.push(`/support/new`);
-    };
+    if (!userAccount) return null;
 
     return (
-        <div className="min-h-screen bg-slate-100 flex flex-col">
-            {/* Header */}
-            <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
-                        AI
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-slate-900 text-sm">Trợ lý Hỗ trợ AI (RAG)</h1>
-                        <span className="text-xs text-emerald-600 flex items-center">● Đang hoạt động</span>
-                    </div>
+        <div className="max-w-4xl mx-auto my-6 p-4 bg-white rounded-2xl shadow-lg border border-slate-200 flex flex-col h-[82vh]">
+            {/* HEADER */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div>
+                    <h2 className="font-bold text-slate-800 text-sm">VKU Support Chat</h2>
+                    <p className="text-xs text-slate-500">
+                        Mã hội thoại: <span className="font-mono text-indigo-600 font-bold">{conversationId}</span>
+                    </p>
                 </div>
-                <button onClick={() => router.push('/support')} className="text-xs font-semibold text-slate-500 hover:text-slate-800">
-                    Thoát Chat
-                </button>
-            </header>
+                {needHumanSupport ? (
+                    <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full animate-pulse border border-amber-200">
+            👨‍💼 Đang kết nối Nhân viên CSKH
+          </span>
+                ) : (
+                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-full border border-emerald-200">
+            🤖 Trợ lý AI sẵn sàng
+          </span>
+                )}
+            </div>
 
-            {/* Chat Messages */}
-            <div className="flex-1 max-w-3xl w-full mx-auto p-4 space-y-4 overflow-y-auto">
-                {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+            {/* KHU VỰC HIỂN THỊ TIN NHẮN */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-3 px-2">
+                {messages.map((msg) => (
+                    <div
+                        key={msg.id}
+                        className={`flex flex-col ${msg.senderType === 'CUSTOMER' ? 'items-end' : 'items-start'}`}
+                    >
+            <span className="text-[10px] text-slate-400 mb-0.5">
+              {msg.senderType === 'CUSTOMER' ? userAccount.name : msg.senderType === 'AGENT' ? 'Nhân viên VKU' : 'AI Assistant'}
+            </span>
                         <div
-                            className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                                msg.sender === 'user'
+                            className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                                msg.senderType === 'CUSTOMER'
                                     ? 'bg-indigo-600 text-white rounded-br-none'
-                                    : 'bg-white text-slate-800 rounded-bl-none border border-slate-200'
+                                    : msg.senderType === 'AGENT'
+                                        ? 'bg-amber-500 text-white rounded-bl-none shadow-sm'
+                                        : 'bg-slate-100 text-slate-800 rounded-bl-none'
                             }`}
                         >
-                            {msg.text}
+                            {msg.message}
                         </div>
-
-                        {/* Nút Chuyển gặp Nhân viên / Tạo Ticket nếu AI không giải quyết được */}
-                        {msg.canEscalate && (
-                            <div className="mt-2 bg-amber-50 border border-amber-200 p-3 rounded-xl max-w-[80%] text-left">
-                                <p className="text-xs text-amber-800 mb-2">Bạn cần được hỗ trợ trực tiếp từ con người?</p>
-                                <button
-                                    onClick={handleEscalateToTicket}
-                                    className="text-xs bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-700 transition"
-                                >
-                                    🎧 Chuyển yêu cầu cho Nhân viên
-                                </button>
-                            </div>
-                        )}
                     </div>
                 ))}
-                {loading && <div className="text-xs text-slate-400 italic">AI đang suy nghĩ...</div>}
+
+                {loading && <div className="text-xs text-slate-400 italic">AI đang xử lý...</div>}
+                <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Box */}
-            <div className="bg-white border-t p-4">
-                <div className="max-w-3xl mx-auto flex gap-2">
-                    <input
-                        type="text"
-                        placeholder="Nhập câu hỏi của bạn..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                        className="flex-1 px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    />
-                    <button
-                        onClick={handleSend}
-                        disabled={loading}
-                        className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition disabled:bg-slate-300"
-                    >
-                        Gửi
-                    </button>
-                </div>
-            </div>
+            {/* KHUNG NHẬP TIN NHẮN */}
+            <form onSubmit={handleSendMessage} className="pt-3 border-t border-slate-100 flex gap-2">
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={needHumanSupport ? 'Nhập tin nhắn gửi cho Nhân viên...' : 'Nhập câu hỏi của bạn...'}
+                    className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-indigo-600"
+                />
+                <button
+                    type="submit"
+                    disabled={loading || !input.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                >
+                    Gửi
+                </button>
+            </form>
         </div>
     );
 }

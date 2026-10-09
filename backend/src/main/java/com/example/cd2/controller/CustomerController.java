@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -44,5 +45,23 @@ public class CustomerController {
         return customerRepository.findByEmail(email)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+    @PostMapping("/login")
+    public ResponseEntity<?> loginCustomer(@RequestBody Map<String, String> loginReq) {
+        String email = loginReq.get("email");
+        String password = loginReq.get("password");
+
+        // Giả lập xác thực đơn giản (Hoặc query bảng customers từ CSDL)
+        if (email != null && !email.isEmpty() && "123456".equals(password)) {
+            Map<String, Object> customer = Map.of(
+                    "id", 15L,
+                    "name", "Nguyễn Văn A",
+                    "email", email,
+                    "phone", "0905123456"
+            );
+            return ResponseEntity.ok(Map.of("success", true, "customer", customer));
+        }
+
+        return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email hoặc mật khẩu không chính xác (Mật khẩu mặc định: 123456)"));
     }
 }

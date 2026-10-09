@@ -10,6 +10,7 @@ export default function ProcessTicketDetailPage() {
     const router = useRouter();
 
     const [ticket, setTicket] = useState<any>(null);
+    const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [resolutionText, setResolutionText] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -28,20 +29,30 @@ export default function ProcessTicketDetailPage() {
             }
         }
 
-        fetchTicketDetail();
+        fetchTicketAndLogs();
     }, [ticketId]);
 
-    const fetchTicketDetail = async () => {
+    // Tải đồng thời Thông tin Ticket và Danh sách Logs từ 2 API riêng biệt
+    const fetchTicketAndLogs = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`http://localhost:8080/api/agent/tickets/${ticketId}`);
-            if (res.ok) {
-                const data = await res.json();
-                setTicket(data);
-                if (data.resolution) setResolutionText(data.resolution);
+            const [resTicket, resLogs] = await Promise.all([
+                fetch(`http://localhost:8080/api/agent/tickets/${ticketId}`),
+                fetch(`http://localhost:8080/api/tickets/${ticketId}/logs`)
+            ]);
+
+            if (resTicket.ok) {
+                const ticketData = await resTicket.json();
+                setTicket(ticketData);
+                if (ticketData.resolution) setResolutionText(ticketData.resolution);
+            }
+
+            if (resLogs.ok) {
+                const logsData = await resLogs.json();
+                setLogs(logsData);
             }
         } catch (err) {
-            console.error('Lỗi khi tải chi tiết Ticket:', err);
+            console.error('Lỗi khi tải dữ liệu Ticket và Logs:', err);
         } finally {
             setLoading(false);
         }
@@ -62,8 +73,8 @@ export default function ProcessTicketDetailPage() {
             });
 
             if (res.ok) {
-                alert('✅ Đã lưu kết quả vào CSDL, ghi log và kích hoạt n8n Luồng 3 gửi Mail cho khách thành công!');
-                fetchTicketDetail();
+                alert('✅ Đã lưu kết quả vào CSDL, ghi log và kích hoạt n8n Luồng 3 thành công!');
+                fetchTicketAndLogs(); // Reload lại cả ticket và logs mới
             } else {
                 alert('Lưu kết quả thất bại!');
             }
@@ -74,11 +85,24 @@ export default function ProcessTicketDetailPage() {
         }
     };
 
+    const formatDateTime = (dateString?: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    };
+
     if (loading) {
         return (
             <ProtectedRoute>
                 <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-500">
-                    Đang tải dữ liệu Ticket...
+                    Đang tải dữ liệu...
                 </div>
             </ProtectedRoute>
         );
@@ -87,12 +111,12 @@ export default function ProcessTicketDetailPage() {
     return (
         <ProtectedRoute>
             <div className="min-h-screen bg-slate-100 p-6">
-                <div className="max-w-5xl mx-auto space-y-6">
+                <div className="max-w-6xl mx-auto space-y-6">
                     <button onClick={() => router.push('/staff/tickets')} className="text-sm text-indigo-600 font-semibold flex items-center hover:underline">
                         ← Quay lại danh sách Ticket
                     </button>
 
-                    {/* KHỐI TIÊU ĐỀ TICKET */}
+                    {/* TIÊU ĐỀ TICKET */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-start">
                         <div>
                             <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{ticket?.ticketCode}</span>
@@ -107,24 +131,80 @@ export default function ProcessTicketDetailPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* THÔNG TIN YÊU CẦU */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                            <h3 className="font-bold text-slate-800 text-sm border-b pb-2">Yêu cầu từ khách hàng</h3>
-                            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                {ticket?.description || ticket?.subject}
-                            </p>
+
+                        {/* CỘT TRÁI: NỘI DUNG YÊU CẦU BAN ĐẦU + DANH SÁCH LOGS TỪ API RIÊNG */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-sm border-b pb-2">Yêu cầu ban đầu</h3>
+                                <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-3">
+                                    {ticket?.description || ticket?.subject}
+                                </p>
+                            </div>
+
+                            {/* LỊCH SỬ TRAO ĐỔI & LOGS */}
+                            <div className="space-y-3">
+                                <h3 className="font-bold text-slate-800 text-sm border-b pb-2 flex justify-between items-center">
+                                    <span>Nhật ký xử lý & Feedback</span>
+                                    <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-normal">
+                    {logs.length} bản ghi
+                  </span>
+                                </h3>
+
+                                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                                    {logs.length === 0 ? (
+                                        <p className="text-xs text-slate-400 italic">Chưa có lịch sử log nào.</p>
+                                    ) : (
+                                        logs.map((log: any) => {
+                                            const isCustomer = log.performedBy === 'CUSTOMER';
+                                            const isAgent = log.performedBy === 'AGENT';
+
+                                            return (
+                                                <div
+                                                    key={log.id}
+                                                    className={`p-3 rounded-xl border text-xs space-y-1 ${
+                                                        isCustomer
+                                                            ? 'bg-amber-50/60 border-amber-200 text-amber-900'
+                                                            : isAgent
+                                                                ? 'bg-indigo-50/60 border-indigo-200 text-indigo-900'
+                                                                : 'bg-slate-50 border-slate-200 text-slate-700'
+                                                    }`}
+                                                >
+                                                    <div className="flex justify-between items-center font-bold">
+                            <span className="flex items-center gap-1">
+                              {isCustomer && '👤 Khách hàng'}
+                                {isAgent && '👨‍💼 Nhân viên'}
+                                {!isCustomer && !isAgent && '🤖 Hệ thống / AI'}
+                            </span>
+                                                        <span className="text-[10px] text-slate-400 font-normal">
+                              {formatDateTime(log.createdAt)}
+                            </span>
+                                                    </div>
+
+                                                    <p className="whitespace-pre-wrap leading-relaxed text-[12px]">
+                                                        {log.note}
+                                                    </p>
+
+                                                    <div className="text-[10px] text-slate-400 pt-1 font-mono">
+                                                        Action: {log.action}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Ô NHẬP KẾT QUẢ & LƯU TỰ ĐỘNG TRIGGER N8N */}
-                        <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        {/* CỘT PHẢI: FORM NHẬP KẾT QUẢ CỦA NHÂN VIÊN */}
+                        <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 h-fit">
                             <h3 className="font-bold text-slate-900 text-sm border-b pb-2">Nhập kết quả xử lý của Nhân viên</h3>
 
                             <div>
                                 <label className="block text-xs font-semibold text-slate-600 mb-2">
-                                    Nội dung kết quả xử lý (Hệ thống sẽ ghi log và n8n AI sẽ dựa vào đây để soạn mail):
+                                    Nội dung phản hồi (Hệ thống sẽ ghi log và n8n AI sẽ gửi mail cho khách):
                                 </label>
                                 <textarea
-                                    rows={5}
+                                    rows={6}
                                     placeholder="VD: Tôi sẽ hoàn tiền cho bạn trong vòng 24h..."
                                     value={resolutionText}
                                     onChange={(e) => setResolutionText(e.target.value)}
@@ -140,6 +220,7 @@ export default function ProcessTicketDetailPage() {
                                 {submitting ? 'Đang lưu CSDL & Kích hoạt Luồng 3...' : '💾 Lưu Kết Quả & Kích Hoạt n8n Gửi Mail AI'}
                             </button>
                         </div>
+
                     </div>
                 </div>
             </div>

@@ -5,41 +5,50 @@ import { useRouter } from 'next/navigation';
 
 export default function StaffLoginPage() {
     const router = useRouter();
-    const [credentials, setCredentials] = useState({ username: '', password: '' });
+    const [email, setEmail] = useState('staff1@vku.edu.vn');
+    const [password, setPassword] = useState('123456');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         setError('');
+        setLoading(true);
 
         try {
             const res = await fetch('http://localhost:8080/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(credentials),
+                body: JSON.stringify({ email, password }),
             });
 
-            const data = await res.json();
-
             if (!res.ok) {
-                throw new Error(data.message || 'Đăng nhập thất bại!');
+                const errorText = await res.text();
+                throw new Error(errorText || 'Tài khoản hoặc mật khẩu không chính xác!');
             }
 
-            localStorage.setItem('jwt_token', data.token);
-            localStorage.setItem('user_role', data.role);
-            localStorage.setItem('user_info', JSON.stringify({
-                id: data.agentId,
-                name: data.name,
-                email: data.email,
-                department: data.department,
-            }));
+            const data = await res.json();
+            console.log('👉 Phản hồi từ Backend Spring Boot:', data);
 
-            // Chuyển hướng tới Dashboard nhân viên
-            router.push('/staff/dashboard');
+            // Bóc tách đối tượng account dù Backend trả về phẳng hay lồng trong data/user/account
+            const accountData = data.account || data.user || data;
+
+            // Lấy thuộc tính role và chuẩn hóa thành chuỗi viết hoa
+            const rawRole = accountData.role || data.role || '';
+            const roleStr = String(rawRole).toUpperCase();
+
+            // Kiểm tra linh hoạt (Chấp nhận: STAFF, ROLE_STAFF, AGENT hoặc ordinal 1)
+            const isStaff = roleStr.includes('STAFF') || roleStr.includes('AGENT') || roleStr === '1';
+
+            if (!isStaff) {
+                throw new Error(`Tài khoản này không có quyền truy cập CSKH! (Role nhận được: "${rawRole || 'Rỗng'}")`);
+            }
+
+            // Lưu tài khoản đã xác thực và điều hướng sang Dashboard
+            localStorage.setItem('user_account', JSON.stringify(accountData));
+            router.push('/staff/chat');
         } catch (err: any) {
-            setError(err.message || 'Lỗi đăng nhập');
+            setError(err.message);
         } finally {
             setLoading(false);
         }
@@ -47,50 +56,52 @@ export default function StaffLoginPage() {
 
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
-                <div className="text-center mb-8">
-                    <div className="w-12 h-12 bg-indigo-600 rounded-xl mx-auto flex items-center justify-center text-white font-bold text-2xl shadow-lg mb-3">
+            <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl space-y-6">
+                <div className="text-center space-y-2">
+                    <div className="w-12 h-12 bg-indigo-600 text-white font-black rounded-xl mx-auto flex items-center justify-center text-sm shadow-lg shadow-indigo-500/30">
                         VKU
                     </div>
-                    <h2 className="text-2xl font-bold text-white">Cổng CSKH Nội Bộ</h2>
-                    <p className="text-xs text-slate-400 mt-1">Đăng nhập tài khoản nhân viên (/staff)</p>
+                    <h2 className="text-xl font-bold text-white">Cổng CSKH Nội Bộ</h2>
+                    <p className="text-xs text-slate-400">Đăng nhập tài khoản nhân viên (/staff)</p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-500/10 border border-red-500 text-red-400 text-sm p-3 rounded-xl mb-6">
+                    <div className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-3 rounded-xl text-xs text-center font-medium">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleLogin} className="space-y-5">
+                <form onSubmit={handleLogin} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-semibold uppercase text-slate-400 mb-2">Email nhân viên</label>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                            Email Nhân Viên
+                        </label>
                         <input
                             type="email"
                             required
-                            placeholder="agent.a@company.com"
-                            value={credentials.username}
-                            onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold uppercase text-slate-400 mb-2">Mật khẩu</label>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                            Mật Khẩu
+                        </label>
                         <input
                             type="password"
                             required
-                            placeholder="••••••••"
-                            value={credentials.password}
-                            onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500"
                         />
                     </div>
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-500 transition shadow-lg disabled:opacity-50"
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-50"
                     >
                         {loading ? 'Đang xác thực...' : 'Đăng Nhập Dashboard'}
                     </button>

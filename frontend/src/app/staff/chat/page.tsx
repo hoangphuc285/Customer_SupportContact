@@ -1,97 +1,210 @@
 'use client';
 
-import { useState } from 'react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { useState, useEffect, useRef } from 'react';
 
-export default function ChatPage() {
-    const [activeTab, setActiveTab] = useState('conv-101');
-    const [messages, setMessages] = useState([
-        { sender: 'customer', text: 'Em ơi ứng dụng báo lỗi 500 khi thanh toán' },
-        { sender: 'agent', text: 'Dạ anh/chị cho em xin mã giao dịch ạ!' },
-    ]);
-    const [inputMsg, setInputMsg] = useState('');
+export default function StaffChatPage() {
+    const [conversations, setConversations] = useState<any[]>([]);
+    const [selectedChat, setSelectedChat] = useState<any>(null);
+    const [chatHistory, setChatHistory] = useState<any[]>([]);
+    const [replyText, setReplyText] = useState('');
+    const [loading, setLoading] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const handleSendMsg = () => {
-        if (!inputMsg.trim()) return;
-        setMessages([...messages, { sender: 'agent', text: inputMsg }]);
-        setInputMsg('');
+    // 1. Tải danh sách các cuộc hội thoại cần Nhân viên hỗ trợ
+    useEffect(() => {
+        fetchConversations();
+        const interval = setInterval(fetchConversations, 3000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const fetchConversations = async () => {
+        try {
+            const res = await fetch('http://localhost:8080/api/chat/staff/conversations');
+            if (res.ok) {
+                const data = await res.json();
+                setConversations(data);
+            }
+        } catch (err) {
+            console.error('Lỗi tải danh sách hội thoại:', err);
+        }
     };
 
-    const handleCreateTicketFromChat = async () => {
-        const res = await fetch('http://localhost:8080/api/chat/conversations/conv-101/create-ticket', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subject: 'Lỗi thanh toán 500 từ chat' }),
-        });
-        const data = await res.json();
-        alert(`Đã tạo ticket thành công từ hội thoại: ${data.ticketCode}`);
+    // 2. Tự động cập nhật lịch sử chat theo thời gian thực (3s/lần)
+    useEffect(() => {
+        if (!selectedChat) return;
+        fetchHistory(selectedChat.conversationId);
+        const interval = setInterval(() => fetchHistory(selectedChat.conversationId), 3000);
+        return () => clearInterval(interval);
+    }, [selectedChat]);
+
+    const fetchHistory = async (convId: string) => {
+        try {
+            const res = await fetch(`http://localhost:8080/api/chat/history/${convId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setChatHistory(data);
+            }
+        } catch (err) {
+            console.error('Lỗi tải lịch sử nhắn tin:', err);
+        }
+    };
+
+    // Tự động cuộn xuống tin nhắn mới nhất
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatHistory]);
+
+    const handleSelectChat = (chat: any) => {
+        setSelectedChat(chat);
+        fetchHistory(chat.conversationId);
+    };
+
+    // 3. Nhân viên gửi tin nhắn phản hồi tới Khách hàng
+    const handleSendReply = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!replyText.trim() || !selectedChat || loading) return;
+
+        const textToSend = replyText.trim();
+        setReplyText('');
+        setLoading(true);
+
+        try {
+            const res = await fetch('http://localhost:8080/api/chat/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversationId: selectedChat.conversationId,
+                    senderType: 'AGENT', // Gửi đúng mã AGENT cho Backend
+                    message: textToSend, // Gửi đúng trường message
+                }),
+            });
+
+            if (res.ok) {
+                await fetchHistory(selectedChat.conversationId);
+            } else {
+                alert('Không thể gửi tin nhắn. Vui lòng kiểm tra lại Backend Spring Boot!');
+            }
+        } catch (err) {
+            console.error('Lỗi khi gửi tin nhắn:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <ProtectedRoute>
-            <div className="h-screen bg-slate-100 flex flex-col">
-                <header className="bg-white border-b px-6 py-3 font-bold text-slate-800">
-                    Trung Tâm Hội Thoại CSKH
-                </header>
+        <div className="p-6 h-[88vh] flex gap-6 bg-slate-50">
+            {/* CỘT BÊN TRÁI: DANH SÁCH YÊU CẦU HỖ TRỢ LIVE */}
+            <div className="w-80 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col shadow-sm">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                    <h2 className="font-bold text-slate-800 text-sm">Yêu cầu Hỗ trợ Live</h2>
+                    <span className="w-6 h-6 bg-rose-100 text-rose-600 rounded-full text-xs font-bold flex items-center justify-center">
+            {conversations.length}
+          </span>
+                </div>
 
-                <div className="flex-1 flex overflow-hidden">
-                    {/* Cột 1: Danh sách hội thoại */}
-                    <div className="w-80 bg-white border-r flex flex-col">
-                        <div className="p-3 border-b">
-                            <input type="text" placeholder="Tìm hội thoại..." className="w-full px-3 py-1.5 text-xs bg-slate-100 rounded-lg outline-none" />
-                        </div>
-                        <div className="flex-1 overflow-y-auto divide-y">
-                            <div onClick={() => setActiveTab('conv-101')} className={`p-4 cursor-pointer ${activeTab === 'conv-101' ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
-                                <div className="font-bold text-xs text-slate-900">Nguyễn Văn A</div>
-                                <div className="text-xs text-slate-500 truncate mt-1">Em ơi ứng dụng báo lỗi 500...</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Cột 2: Nội dung trao đổi */}
-                    <div className="flex-1 flex flex-col bg-slate-50">
-                        <div className="p-4 bg-white border-b font-bold text-sm text-slate-800">
-                            Đang chat với: Nguyễn Văn A
-                        </div>
-                        <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-                            {messages.map((m, i) => (
-                                <div key={i} className={`flex ${m.sender === 'agent' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`p-3 rounded-xl text-xs max-w-xs ${m.sender === 'agent' ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-800'}`}>
-                                        {m.text}
-                                    </div>
+                <div className="flex-1 overflow-y-auto space-y-2">
+                    {conversations.length === 0 ? (
+                        <p className="text-xs text-slate-400 text-center py-8">Chưa có yêu cầu hỗ trợ mới nào.</p>
+                    ) : (
+                        conversations.map((chat) => (
+                            <div
+                                key={chat.conversationId}
+                                onClick={() => handleSelectChat(chat)}
+                                className={`p-3 rounded-xl border text-xs cursor-pointer transition ${
+                                    selectedChat?.conversationId === chat.conversationId
+                                        ? 'border-indigo-600 bg-indigo-50/60 shadow-sm'
+                                        : 'border-slate-100 hover:bg-slate-50'
+                                }`}
+                            >
+                                <div className="flex justify-between font-bold text-slate-800 mb-1">
+                                    <span>Mã: {chat.conversationId}</span>
+                                    <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-semibold">
+                    Cần hỗ trợ
+                  </span>
                                 </div>
-                            ))}
-                        </div>
-                        <div className="p-3 bg-white border-t flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Nhập tin nhắn..."
-                                value={inputMsg}
-                                onChange={(e) => setInputMsg(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendMsg()}
-                                className="flex-1 px-3 py-2 border rounded-xl text-xs outline-none"
-                            />
-                            <button onClick={handleSendMsg} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl">Gửi</button>
-                        </div>
-                    </div>
-
-                    {/* Cột 3: Thông tin Khách hàng & Tạo Ticket */}
-                    <div className="w-72 bg-white border-l p-4 space-y-4">
-                        <h3 className="font-bold text-xs text-slate-400 uppercase">Thông tin khách hàng</h3>
-                        <div className="text-xs space-y-1">
-                            <p className="font-bold text-slate-800">Nguyễn Văn A</p>
-                            <p className="text-slate-500">nguyenvana@gmail.com</p>
-                        </div>
-                        <hr />
-                        <button
-                            onClick={handleCreateTicketFromChat}
-                            className="w-full py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600"
-                        >
-                            ➕ Tạo Ticket từ Hội Thoại
-                        </button>
-                    </div>
+                                <p className="text-slate-500 text-[11px]">
+                                    Khách hàng ID: {chat.customerId || 'Chưa xác định'}
+                                </p>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
-        </ProtectedRoute>
+
+            {/* CỘT BÊN PHẢI: KHUNG CHAT TƯ VẤN TRỰC TIẾP */}
+            <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-6 flex flex-col shadow-sm">
+                {selectedChat ? (
+                    <>
+                        {/* HEADER HỘI THOẠI */}
+                        <div className="border-b border-slate-100 pb-3 mb-4 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-slate-900 text-sm">
+                                    Hội thoại: <span className="text-indigo-600 font-mono">{selectedChat.conversationId}</span>
+                                </h3>
+                                <p className="text-xs text-slate-400">
+                                    Khách hàng ID: <span className="font-semibold">{selectedChat.customerId || 'N/A'}</span>
+                                </p>
+                            </div>
+                            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full text-xs font-bold">
+                ● Đang kết nối Trực tiếp
+              </span>
+                        </div>
+
+                        {/* KHU VỰC LỊCH SỬ CHAT */}
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4">
+                            {chatHistory.length === 0 ? (
+                                <div className="text-xs text-slate-400 text-center py-8">Chưa có tin nhắn nào trong đoạn chat này.</div>
+                            ) : (
+                                chatHistory.map((msg) => (
+                                    <div
+                                        key={msg.id || Math.random()}
+                                        className={`flex flex-col ${msg.senderType === 'AGENT' ? 'items-end' : 'items-start'}`}
+                                    >
+                    <span className="text-[10px] text-slate-400 mb-0.5 font-medium">
+                      {msg.senderType === 'AGENT' ? 'Bạn (Nhân viên)' : msg.senderType === 'AI' ? 'Trợ lý AI' : 'Khách hàng'}
+                    </span>
+                                        <div
+                                            className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                                                msg.senderType === 'AGENT'
+                                                    ? 'bg-indigo-600 text-white rounded-br-none shadow-sm'
+                                                    : msg.senderType === 'AI'
+                                                        ? 'bg-slate-100 text-slate-700 rounded-bl-none border border-slate-200'
+                                                        : 'bg-amber-500 text-white rounded-bl-none shadow-sm'
+                                            }`}
+                                        >
+                                            {/* ĐỌC ĐÚNG TRƯỜNG msg.message TỪ MYSQL */}
+                                            {msg.message}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* KHUNG NHẬP PHẢN HỒI GỬI CHO KHÁCH HÀNG */}
+                        <form onSubmit={handleSendReply} className="flex gap-2 border-t border-slate-100 pt-3">
+                            <input
+                                type="text"
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="Nhập nội dung tư vấn gửi cho khách hàng..."
+                                className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-indigo-600"
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading || !replyText.trim()}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                            >
+                                {loading ? 'Đang gửi...' : 'Gửi Phản Hồi'}
+                            </button>
+                        </form>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs">
+                        <span>💬 Chọn một cuộc hội thoại bên trái để bắt đầu tư vấn cho khách hàng.</span>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }

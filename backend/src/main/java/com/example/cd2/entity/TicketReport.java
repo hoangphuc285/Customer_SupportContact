@@ -1,72 +1,32 @@
 package com.example.cd2.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "ticket_reports")
+@Data
 public class TicketReport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String ticketId;     // Mã ticket (ví dụ: "TKT-20261005-0001" hoặc ID số)
-    private String status;       // Trạng thái (ví dụ: "CLOSED")
-    private String satisfaction; // Đánh giá (ví dụ: "SATISFIED", "UNSATISFIED")
-    private Long resolvedBy;     // ID nhân viên xử lý (ví dụ: 102)
+    @Column(name = "ticket_id")
+    private String ticketId; // Lưu mã Ticket (Ví dụ: TKT-20261009-0001 hoặc TK-F9EC552B)
 
-    private LocalDateTime createdAt;
+    @Column(columnDefinition = "TEXT")
+    private String resolution;
 
-    public TicketReport() {
-    }
+    private String satisfaction;
 
-    // Getters & Setters
-    public Long getId() {
-        return id;
-    }
+    @Column(name = "handling_time_minutes")
+    private Integer handlingTimeMinutes;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    @Column(name = "reopen_count")
+    private Integer reopenCount;
 
-    public String getTicketId() {
-        return ticketId;
-    }
-
-    public void setTicketId(String ticketId) {
-        this.ticketId = ticketId;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getSatisfaction() {
-        return satisfaction;
-    }
-
-    public void setSatisfaction(String satisfaction) {
-        this.satisfaction = satisfaction;
-    }
-
-    public Long getResolvedBy() {
-        return resolvedBy;
-    }
-
-    public void setResolvedBy(Long resolvedBy) {
-        this.resolvedBy = resolvedBy;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
 }
