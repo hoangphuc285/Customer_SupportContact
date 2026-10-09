@@ -42,7 +42,7 @@
         "url": "http://172.17.0.1:8080/api/tickets",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"customerId\": {{ $('Check Customer').item.json.id || $('Create Customer').item.json.id }},\n  \"subject\": \"Hỗ trợ khách hàng: {{ $('Normalize Request').item.json.customerName }}\",\n  \"category\": \"{{ JSON.parse($('AI CUSTOMER INTENT').item.json.content.parts[0].text.replace(/```json|```/g, '').trim()).intent }}\",\n  \"initialMessage\": \"{{ $('Normalize Request').item.json.message }}\"\n}",
+        "jsonBody": "={\n  \"customerId\": {{ $('Check Customer').item.json.id || $('Create Customer').item.json.id }},\n  \"subject\": \"{{ $('Normalize Request').item.json.subject }}\",\n  \"category\": \"{{ JSON.parse($('AI CUSTOMER INTENT').item.json.content.parts[0].text.replace(/```json|```/g, '').trim()).intent }}\",\n  \"initialMessage\": \"{{ $('Normalize Request').item.json.message }}\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -100,7 +100,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"ticketId\": \"{{ $json.id }}\",\n  \"customerId\": \"{{ $json.customerId }}\",\n  \"intent\": \"{{ $json.subject }}\",\n  \"status\": \"NEW\"\n}",
+        "responseBody": "={\n  \"success\": true,\n  \"ticketId\": \"{{ $json.id }}\",\n  \"ticketCode\": \"{{ $json.ticketCode || $json.id }}\",\n  \"customerId\": \"{{ $json.customerId }}\",\n  \"intent\": \"{{ $json.subject }}\",\n  \"status\": \"NEW\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -124,7 +124,7 @@
           "conditions": [
             {
               "id": "6990d044-e965-400e-a6a7-e2683a353bf4",
-              "leftValue": "{{$json.body.customer.email}",
+              "leftValue": "={{ $json.body.customer.email }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -134,7 +134,7 @@
             },
             {
               "id": "1f493309-dfcc-4a7d-b732-f0345ddd4e19",
-              "leftValue": "{{$json.body.message}}",
+              "leftValue": "={{ $json.body.message }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -144,7 +144,7 @@
             },
             {
               "id": "1a740a18-bd62-42bc-a4a4-57236a9ab85e",
-              "leftValue": "{{ $json.body.customer.name }}",
+              "leftValue": "={{ $json.body.customer.name }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -154,7 +154,7 @@
             },
             {
               "id": "787c7cea-09b3-47b3-81bf-52938ee44623",
-              "leftValue": "{{ $json.body.channel }}",
+              "leftValue": "={{ $json.body.channel }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -246,31 +246,37 @@
             {
               "id": "59b9942b-a539-4f27-9bd2-fa308ce9a18e",
               "name": "customerName",
-              "value": "={{ $json.body.customer.name }}",
+              "value": "={{ $('Workflow 1').item.json.body.customer.name }}",
               "type": "string"
             },
             {
               "id": "7dea3844-a457-4ad6-98d1-a7a9e28ae454",
               "name": "=customerEmail",
-              "value": "={{ $json.body.customer.email }}",
+              "value": "={{ $('Workflow 1').item.json.body.customer.email }}",
               "type": "string"
             },
             {
               "id": "c26ecca3-1245-43e8-bbbf-773933ee53a3",
               "name": "message",
-              "value": "={{ $json.body.message }}",
+              "value": "={{ $('Workflow 1').item.json.body.message }}",
               "type": "string"
             },
             {
               "id": "7416dc7d-dd3b-4e03-98a4-9bc6526724d6",
               "name": "=channel",
-              "value": "={{ $json.body.channel }}",
+              "value": "={{ $('Workflow 1').item.json.body.channel }}",
               "type": "string"
             },
             {
               "id": "124f9ce3-7810-471c-a3eb-6abd7d0f72c7",
               "name": "=customerPhone",
-              "value": "={{ $json.body.customer.phone }}",
+              "value": "={{ $('Workflow 1').item.json.body.customer.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "9e8cb54a-d92a-466a-a726-bf4902461e87",
+              "name": "subject",
+              "value": "={{ $('Workflow 1').item.json.body.subject }}",
               "type": "string"
             }
           ]
@@ -342,8 +348,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        928,
-        656
+        944,
+        608
       ],
       "id": "f8d291fc-5319-4bbe-8a61-51f89d646b9e",
       "name": "Google Gemini Chat Model",
@@ -423,24 +429,6 @@
           "name": "SMTP account"
         }
       }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://localhost:5678/webhook/process-ticket",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"ticketId\": {{ $('Create Ticket').item.json.id }}\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        2880,
-        -80
-      ],
-      "id": "7c8c532e-9d53-4113-b827-f7277be841b7",
-      "name": "HTTP Request2"
     },
     {
       "parameters": {
@@ -524,6 +512,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "ticket-resolution",
+        "responseMode": "responseNode",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
@@ -632,7 +621,7 @@
         "toEmail": "phucnh.24it@vku.udn.vn",
         "subject": "=[CSKH] Phản hồi yêu cầu #{{ $('Get Ticket').item.json.ticketCode }}",
         "emailFormat": "text",
-        "text": "={{ JSON.parse($('AI Draft Response').item.json.content.parts[0].text.replace(/```json|```/g, '').trim()).response }}\n\nMã yêu cầu: {{ $('Get Ticket').item.json.ticketCode }}\n\nNếu vấn đề của bạn đã được giải quyết, vui lòng xác nhận.\nNếu chưa, bạn có thể phản hồi lại email này.\n\nTrân trọng,\nCustomer Support Team",
+        "text": "=Phản hồi từ nhân viên: {{ JSON.parse($('AI Draft Response').item.json.content.parts[0].text.replace(/```json|```/g, '').trim()).response }}\n\nMã yêu cầu: {{ $('Get Ticket').item.json.ticketCode }}\n\nNếu vấn đề chưa được giải quyết hoặc bạn có thêm thắc mắc, vui lòng phản hồi cho chúng tôi tại đây:\nhttp://localhost:3000/support/feedback?ticketId={{ $('Get Ticket').item.json.id }}&customerId={{ $('Get Ticket').item.json.customerId }}\n\nTrân trọng,\nCustomer Support Team",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
@@ -653,24 +642,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "customer-feedback",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        1616,
-        848
-      ],
-      "id": "5680ca63-2a7d-442f-a05a-fb4787752a5a",
-      "name": "Webhook3",
-      "webhookId": "8cdc18e5-4f7b-4a47-85a6-d26c75609de0"
-    },
-    {
-      "parameters": {
         "method": "POST",
-        "url": "=http://172.17.0.1:8080/api/tickets/{{ $json.ticketId }}/logs",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $json.body.ticketId }}/logs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -682,7 +655,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"action\": \"CUSTOMER_FEEDBACK\",\n  \"note\": \"{{ $json.message }}\",\n  \"performedBy\": \"CUSTOMER\"\n}",
+        "jsonBody": "={\n  \"action\": \"CUSTOMER_FEEDBACK\",\n  \"note\": \"{{ $json.body.message }}\",\n  \"performedBy\": \"CUSTOMER\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -697,7 +670,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=http://172.17.0.1:8080/api/tickets/{{ $json.body.ticketId}}/close",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('Customer phản hồi').item.json.body.ticketId }}/close",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "{\n  \"status\": \"CLOSED\",\n  \"satisfaction\": \"SATISFIED\",\n  \"result\": \"RESOLVED\"\n}",
@@ -707,7 +680,7 @@
       "typeVersion": 4.5,
       "position": [
         2816,
-        896
+        944
       ],
       "id": "d80eee19-8ccd-4742-85f1-bd89df9ef147",
       "name": "Đóng Ticket & Cập nhật đánh giá"
@@ -715,35 +688,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://172.17.0.1:8080/api/ticket-reports",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"ticketId\": \"{{ $('Webhook3').item.json.ticketId }}\",\n  \"status\": \"CLOSED\",\n  \"satisfaction\": \"{{ JSON.parse($('AI Analyze Feedback ').item.json.text.replace(/^```json\\s*/i, '').replace(/\\s*```$/i, '').trim()).satisfaction || 'SATISFIED' }}\",\n  \"resolvedBy\": {{ $('Lấy thông tin Ticket').item.json.assignedAgentId }}\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        3264,
-        928
-      ],
-      "id": "04ca32c0-98a4-462c-909d-716acb7fac6d",
-      "name": "Tạo báo cáo"
-    },
-    {
-      "parameters": {
-        "method": "POST",
         "url": "http://localhost:5678/webhook/process-ticket",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"ticketId\": \"{{ $json.id }}\"\n  \n}",
+        "jsonBody": "={\n  \"ticketId\": \"{{ $('Customer phản hồi').item.json.body.ticketId }}\"\n  \n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
         3072,
-        672
+        720
       ],
       "id": "c7fe18fc-bb44-4aa0-a4de-caaea9e1f0c7",
       "name": "Trigger Workflow 2"
@@ -810,7 +765,7 @@
       "typeVersion": 2.3,
       "position": [
         2560,
-        800
+        848
       ],
       "id": "3e32aaa0-262f-460d-9c40-4d228b97c80a",
       "name": "IF needsAction?"
@@ -859,7 +814,7 @@
         "messages": {
           "values": [
             {
-              "content": "=You are a customer satisfaction analysis agent.\n\nAnalyze the customer's feedback.\n\nClassify:\n\nSATISFIED\nNEUTRAL\nDISSATISFIED\n\nAlso determine whether the ticket needs further action.\n\nReturn JSON only:\n\n{\n  \"satisfaction\": \"SATISFIED|NEUTRAL|DISSATISFIED\",\n  \"needsAction\": true,\n  \"reason\": \"short explanation\"\n}\n\nCustomer feedback:\n{{ $('Webhook3').item.json.message }}"
+              "content": "=You are a customer satisfaction analysis agent.\n\nAnalyze the customer's feedback.\n\nClassify:\n\nSATISFIED\nNEUTRAL\nDISSATISFIED\n\nAlso determine whether the ticket needs further action.\n\nReturn JSON only:\n\n{\n  \"satisfaction\": \"SATISFIED|NEUTRAL|DISSATISFIED\",\n  \"needsAction\": true,\n  \"reason\": \"short explanation\"\n}\n\nCustomer feedback:\n{{ $('Customer phản hồi').item.json.body.message }}"
             }
           ]
         },
@@ -885,7 +840,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('Webhook3').item.json.ticketId }}/status",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $('Customer phản hồi').item.json.body.ticketId }}/status",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "{\n  \"status\": \"REOPENED\"\n}",
@@ -895,7 +850,7 @@
       "typeVersion": 4.5,
       "position": [
         2832,
-        688
+        736
       ],
       "id": "dea29d56-a914-453b-a726-9c80c4cb41d7",
       "name": "Cập nhật lại status1"
@@ -912,11 +867,12 @@
         400
       ],
       "id": "26606b0f-d9d2-4298-8f95-595514edb728",
-      "name": "Lấy thông tin feedback"
+      "name": "Lấy thông tin feedback",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    ticket: $('Lấy thông tin Ticket').item.json,\n    messages: $('Lấy thông tin yêu cầu').all().map(i => i.json),\n    logs: $('Lấy thông tin feedback').all().map(i => i.json)\n  }\n}];"
+        "jsCode": "// Lấy item đầu tiên của Ticket an toàn\nconst ticketItem = $('Lấy thông tin Ticket').first();\nconst ticketData = ticketItem ? ticketItem.json : {};\n\n// Lấy danh sách messages và logs\nconst messageItems = $('Lấy thông tin yêu cầu').all().map(i => i.json);\nconst logItems = $('Lấy thông tin feedback').all().map(i => i.json);\n\nreturn [{\n  json: {\n    ticketId: ticketData.id || ticketData.ticketId,\n    status: ticketData.status,\n    subject: ticketData.subject,\n    description: ticketData.description,\n    ticket: ticketData,\n    messages: messageItems,\n    logs: logItems\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -926,6 +882,40 @@
       ],
       "id": "8925666e-fa1b-4951-918d-7588acebb5e9",
       "name": "ticket + mess + log "
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/process-ticket",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ticketId\": {{ $('Create Ticket').item.json.id }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2880,
+        -80
+      ],
+      "id": "7c8c532e-9d53-4113-b827-f7277be841b7",
+      "name": "Gọi workfollow 2"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-feedback",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1616,
+        848
+      ],
+      "id": "5680ca63-2a7d-442f-a05a-fb4787752a5a",
+      "name": "Customer phản hồi",
+      "webhookId": "8cdc18e5-4f7b-4a47-85a6-d26c75609de0"
     }
   ],
   "connections": {
@@ -977,7 +967,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request2",
+            "node": "Gọi workfollow 2",
             "type": "main",
             "index": 0
           }
@@ -1228,17 +1218,6 @@
         []
       ]
     },
-    "Webhook3": {
-      "main": [
-        [
-          {
-            "node": "Save Feedback",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Save Feedback": {
       "main": [
         [
@@ -1356,16 +1335,20 @@
           }
         ]
       ]
+    },
+    "Customer phản hồi": {
+      "main": [
+        [
+          {
+            "node": "Save Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {
-    "Webhook3": [
-      {
-        "ticketId": 7,
-        "customerId": 11,
-        "message": "Tôi vẫn chưa nhận được sản phẩm mới."
-      }
-    ],
     "Workflow 2": [
       {
         "headers": {
@@ -1383,6 +1366,27 @@
           "ticketId": "7"
         },
         "webhookUrl": "http://localhost:5678/webhook/process-ticket",
+        "executionMode": "production"
+      }
+    ],
+    "Customer phản hồi": [
+      {
+        "headers": {
+          "accept": "text/plain, application/json, application/*+json, */*",
+          "content-type": "application/json",
+          "user-agent": "Java/21.0.12.1",
+          "host": "localhost:5678",
+          "connection": "keep-alive",
+          "transfer-encoding": "chunked"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "message": "Tôi đã nhận được ",
+          "ticketId": 7,
+          "customerId": 11
+        },
+        "webhookUrl": "http://localhost:5678/webhook/customer-feedback",
         "executionMode": "production"
       }
     ]
