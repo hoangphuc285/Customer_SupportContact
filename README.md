@@ -26,4 +26,6 @@ docker run -d --name qdrant \
   qdrant/qdrant
 
   URL: http://172.17.0.1:6333
-  
+
+  staff1@vku.edu.vn
+  123456
