@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import SupportHeader from '@/components/SupportHeader';
+import { ArrowDownRight, ArrowRight, ChevronDown, CircleHelp, FilePlus2, Headset, MessageCircle, Search, TicketCheck } from 'lucide-react';
 
 export default function SupportHomePage() {
     // Trạng thái mở/đóng các câu hỏi FAQ
@@ -33,125 +34,125 @@ export default function SupportHomePage() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-            {/* 1. HEADER DÙNG CHUNG CÓ NÚT ĐĂNG NHẬP / ĐĂNG XUẤT */}
+        <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
             <SupportHeader />
-
-            {/* 2. HERO SECTION */}
-            <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 space-y-10">
-                <div className="text-center space-y-3">
-          <span className="px-3.5 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full border border-indigo-100 shadow-sm inline-block">
-            ⚡ Hệ thống CSKH Toàn diện & AI RAG Assistant
-          </span>
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                        Chúng tôi có thể giúp gì cho bạn hôm nay?
-                    </h2>
-                    <p className="text-slate-500 text-xs max-w-xl mx-auto leading-relaxed">
-                        Tra cứu thông tin nhanh qua AI Bot, gửi yêu cầu hỗ trợ (Ticket), theo dõi trạng thái đơn hỗ trợ hoặc trao đổi trực tiếp với Nhân viên VKU.
-                    </p>
-                </div>
-
-                {/* 3. KHU VỰC CHỨC NĂNG CHÍNH (4 CARDS) */}
-                <div className="grid md:grid-cols-3 gap-6">
-                    {/* CARD 1: LIVE CHAT & AI */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 hover:border-indigo-400 transition flex flex-col justify-between">
-                        <div className="space-y-3">
-                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl font-bold">
-                                💬
-                            </div>
-                            <h3 className="font-bold text-slate-800 text-sm">Hỗ Trợ Live Chat & AI</h3>
-                            <p className="text-slate-500 text-xs leading-relaxed">
-                                Trò chuyện với AI Trợ lý để tra cứu chính sách tức thì hoặc kết nối trực tiếp với Nhân viên tư vấn.
+            <main className="page-enter mx-auto w-full max-w-6xl px-5 pb-16 pt-6 lg:px-8 lg:pt-9">
+                <section className="relative isolate overflow-hidden bg-[#153e35] text-white">
+                    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.14]" style={{ backgroundImage: 'repeating-linear-gradient(115deg, transparent 0, transparent 34px, rgba(255,255,255,.42) 35px, transparent 36px)' }} />
+                    <div className="grid min-h-[340px] md:grid-cols-[1fr_0.72fr]">
+                        <div className="flex flex-col items-start justify-center px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
+                            <p className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#b9d5c8]">
+                                <span className="h-px w-8 bg-[#d27a5e]" /> Trung tâm hỗ trợ VKU
                             </p>
-                        </div>
-                        <Link
-                            href="/support/chat"
-                            className="inline-flex items-center justify-center w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
-                        >
-                            Bắt Đầu Chat Ngay →
-                        </Link>
-                    </div>
-
-                    {/* CARD 2: TẠO TICKET MỚI */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 hover:border-indigo-400 transition flex flex-col justify-between">
-                        <div className="space-y-3">
-                            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl font-bold">
-                                🎫
-                            </div>
-                            <h3 className="font-bold text-slate-800 text-sm">Gửi Yêu Cầu (Tạo Ticket)</h3>
-                            <p className="text-slate-500 text-xs leading-relaxed">
-                                Tạo phiều yêu cầu hỗ trợ chính thức đối với các sự cố phức tạp, khiếu nại dịch vụ hoặc yêu cầu kỹ thuật.
+                            <h1 className="editorial-title max-w-xl text-[40px] leading-[1.06] sm:text-5xl lg:text-[58px]">
+                                Lắng nghe.<br />Giải quyết. Đồng hành.
+                            </h1>
+                            <p className="mt-5 max-w-md text-sm leading-6 text-white/70">
+                                Mọi thắc mắc và yêu cầu của bạn đều được tiếp nhận tại một nơi.
                             </p>
-                        </div>
-                        <Link
-                            href="/support/new"
-                            className="inline-flex items-center justify-center w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-md shadow-emerald-100"
-                        >
-                            Tạo Ticket Hỗ Trợ →
-                        </Link>
-                    </div>
-
-                    {/* CARD 3: TRA CỨU TICKET */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 hover:border-indigo-400 transition flex flex-col justify-between">
-                        <div className="space-y-3">
-                            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-xl font-bold">
-                                🔍
-                            </div>
-                            <h3 className="font-bold text-slate-800 text-sm">Tra Cứu Tiến Độ Ticket</h3>
-                            <p className="text-slate-500 text-xs leading-relaxed">
-                                Nhập Mã Ticket của bạn để kiểm tra trạng thái phản hồi và lịch sử xử lý từ Nhân viên.
-                            </p>
-                        </div>
-                        <div className="space-y-2">
-                            <input
-                                type="text"
-                                placeholder="Nhập mã Ticket (VD: TCK-102)..."
-                                value={ticketSearchId}
-                                onChange={(e) => setTicketSearchId(e.target.value)}
-                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
-                            />
-                            <Link
-                                href={ticketSearchId ? `/support/tickets?id=${ticketSearchId}` : '/support/tickets'}
-                                className="inline-flex items-center justify-center w-full bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-sm"
-                            >
-                                Kiểm Tra Trạng Thái
+                            <Link href="/support/chat" className="mt-7 inline-flex min-h-11 items-center gap-3 bg-[#f2eee5] px-5 text-xs font-bold text-[#153e35] transition hover:bg-white">
+                                Bắt đầu trò chuyện <ArrowRight size={16} />
                             </Link>
                         </div>
-                    </div>
-                </div>
-
-                {/* 4. KHU VỰC CÂU HỎI THƯỜNG GẶP (FAQ) */}
-                <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-800">Câu Hỏi Thường Gặp (FAQ)</h3>
-                            <p className="text-xs text-slate-500">Giải đáp nhanh các thắc mắc phổ biến từ người dùng</p>
-                        </div>
-                        <span className="text-xl">❓</span>
-                    </div>
-
-                    <div className="space-y-3">
-                        {faqData.map((faq, index) => (
-                            <div
-                                key={index}
-                                className="border border-slate-100 rounded-xl overflow-hidden transition"
-                            >
-                                <button
-                                    onClick={() => toggleFaq(index)}
-                                    className="w-full text-left p-4 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between text-xs font-bold text-slate-800 transition"
-                                >
-                                    <span>{faq.question}</span>
-                                    <span className="text-indigo-600 text-sm ml-2">
-                    {openFaq === index ? '−' : '+'}
-                  </span>
-                                </button>
-                                {openFaq === index && (
-                                    <div className="p-4 bg-white text-xs text-slate-600 border-t border-slate-100 leading-relaxed">
-                                        {faq.answer}
+                        <div className="relative hidden min-h-[300px] items-center justify-center border-l border-white/15 md:flex">
+                            <div aria-hidden="true" className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)', backgroundSize: '42px 42px' }} />
+                            <div className="relative w-[78%] max-w-[310px] border border-white/25 bg-[#1d4b40] p-5 shadow-2xl">
+                                <div className="flex items-center justify-between border-b border-white/20 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <span className="flex h-9 w-9 items-center justify-center bg-[#d27a5e] text-white"><Headset size={18} /></span>
+                                        <span className="text-xs font-semibold">Bàn hỗ trợ VKU</span>
                                     </div>
-                                )}
+                                    <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-[#b9d5c8]"><span className="h-1.5 w-1.5 bg-[#b9d5c8]" /> Sẵn sàng</span>
+                                </div>
+                                <div className="py-5">
+                                    <span className="editorial-title text-6xl text-white/90">24<span className="text-[#d27a5e]">/</span>7</span>
+                                    <p className="mt-2 text-[11px] leading-5 text-white/65">Gửi yêu cầu bất cứ lúc nào.<br />Theo dõi tiến độ ngay trên hệ thống.</p>
+                                </div>
+                                <div className="flex items-center justify-between border-t border-dashed border-white/25 pt-4 text-[9px] uppercase tracking-[0.14em] text-white/50">
+                                    <span>VKU · Student services</span><ArrowDownRight size={15} />
+                                </div>
                             </div>
-                        ))}
+                            <span aria-hidden="true" className="editorial-title absolute bottom-5 right-7 text-7xl text-white/[0.08]">01</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="grid border-b border-[var(--line)] lg:grid-cols-[1.1fr_0.9fr]">
+                    <div className="py-8 lg:pr-10">
+                        <div className="mb-5 flex items-center justify-between">
+                            <h2 className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Bạn muốn làm gì?</h2>
+                            <span className="text-[10px] text-[var(--muted)]">02 / 03</span>
+                        </div>
+                        <Link href="/support/new" className="group flex items-center gap-4 border-t border-[var(--line)] py-5 transition-colors hover:text-[var(--green)]">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-[var(--brick-wash)] text-[var(--brick)]"><FilePlus2 size={19} strokeWidth={1.7} /></span>
+                            <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Gửi yêu cầu hỗ trợ</span><span className="mt-1 block text-xs text-[var(--muted)]">Báo sự cố, đặt câu hỏi hoặc gửi góp ý</span></span>
+                            <ArrowRight size={17} className="shrink-0 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                        <Link href="/support/chat" className="group flex items-center gap-4 border-t border-[var(--line)] py-5 transition-colors hover:text-[var(--green)]">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-[var(--green-wash)] text-[var(--green)]"><MessageCircle size={19} strokeWidth={1.7} /></span>
+                            <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Trò chuyện với bộ phận hỗ trợ</span><span className="mt-1 block text-xs text-[var(--muted)]">Trao đổi trực tiếp và nhận hướng dẫn</span></span>
+                            <ArrowRight size={17} className="shrink-0 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                    </div>
+
+                    <div className="border-t border-[var(--line)] bg-white px-5 py-7 lg:border-l lg:px-8 lg:py-8">
+                        <div className="mb-5 flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--brick)]">Tra cứu</p>
+                                <h2 className="editorial-title mt-2 text-3xl">Ticket của bạn</h2>
+                            </div>
+                            <TicketCheck size={21} strokeWidth={1.6} className="text-[var(--green)]" />
+                        </div>
+                        <label htmlFor="ticket-search" className="mb-2 block text-xs font-semibold text-[var(--muted)]">Nhập mã ticket để xem cập nhật</label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <div className="relative min-w-0 flex-1">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                                <input
+                                    id="ticket-search"
+                                    type="text"
+                                    placeholder="VD: TK-9B1A2C3D"
+                                    value={ticketSearchId}
+                                    onChange={(event) => setTicketSearchId(event.target.value)}
+                                    className="h-11 w-full border border-[var(--line)] bg-[var(--paper)] pl-9 pr-3 text-sm outline-none transition focus:border-[var(--green)]"
+                                />
+                            </div>
+                            <Link
+                                href={ticketSearchId ? `/support/tickets?id=${encodeURIComponent(ticketSearchId)}` : '/support/tickets'}
+                                className="inline-flex h-11 shrink-0 items-center justify-center gap-3 bg-[var(--ink)] px-5 text-xs font-bold text-white transition hover:bg-[var(--green-dark)]"
+                            >
+                                Tra cứu <ArrowRight size={15} />
+                            </Link>
+                        </div>
+                        <p className="mt-3 text-[11px] leading-5 text-[var(--muted)]">Mã ticket được gửi trong email xác nhận yêu cầu.</p>
+                    </div>
+                </section>
+
+                <section className="border-t border-[var(--line)] pt-7">
+                    <div className="mb-2 flex items-center gap-2 text-[var(--brick)]">
+                        <CircleHelp size={17} strokeWidth={1.7} />
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em]">Thông tin hữu ích</p>
+                    </div>
+                    <div className="grid gap-8 md:grid-cols-[0.7fr_1.3fr]">
+                        <div>
+                            <h2 className="editorial-title text-3xl">Câu hỏi thường gặp</h2>
+                            <p className="mt-2 max-w-xs text-xs leading-5 text-[var(--muted)]">Một vài hướng dẫn nhanh trước khi gửi yêu cầu.</p>
+                        </div>
+                        <div className="border-t border-[var(--line)]">
+                            {faqData.map((faq, index) => (
+                                <div key={faq.question} className="border-b border-[var(--line)]">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleFaq(index)}
+                                        aria-expanded={openFaq === index}
+                                        className="flex min-h-14 w-full items-center justify-between gap-4 py-4 text-left text-sm font-semibold transition-colors hover:text-[var(--green)]"
+                                    >
+                                        <span>{faq.question}</span>
+                                        <ChevronDown size={17} className={`shrink-0 text-[var(--green)] transition-transform ${openFaq === index ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {openFaq === index && <p className="max-w-2xl pb-5 pr-8 text-xs leading-6 text-[var(--muted)]">{faq.answer}</p>}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </section>
             </main>

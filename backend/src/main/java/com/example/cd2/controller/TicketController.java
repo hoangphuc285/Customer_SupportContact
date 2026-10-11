@@ -72,17 +72,7 @@ public class TicketController {
         return ResponseEntity.ok(savedTicket);
     }
 
-    /**
-     * [LUỒNG 2 - Bước 2]: n8n lấy thông tin chi tiết của Ticket để AI đọc & phân tích
-     * GET /api/tickets/{id}
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<Ticket> getTicketById(@PathVariable Long id) {
-        return ticketRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
+   
     /**
      * [LUỒNG 1]: Thêm tin nhắn vào Ticket (Nếu CUSTOMER gửi sẽ tự động bắn Webhook sang n8n)
      * POST /api/tickets/{id}/messages
@@ -100,6 +90,7 @@ public class TicketController {
         TicketMessage savedMessage = messageRepository.save(message);
 
         // Bắn Webhook sang n8n bất đồng bộ khi khách hàng nhắn
+        // Bắn Webhook sang n8n bất đồng bộ khi khách hàng nhắn
         if ("CUSTOMER".equalsIgnoreCase(savedMessage.getSenderType())) {
             CompletableFuture.runAsync(() -> {
                 try {
@@ -108,10 +99,23 @@ public class TicketController {
                     payload.put("messageText", savedMessage.getMessageText());
                     payload.put("senderType", savedMessage.getSenderType());
                     payload.put("senderId", savedMessage.getSenderId());
-
+                    
                     restTemplate.postForEntity(N8N_WEBHOOK_URL, payload, String.class);
+                    System.out.println(">>> [SUCCESS] Đã gửi thông báo thành công!");
+                    
+                } catch (org.springframework.web.client.HttpClientErrorException e) {
+                    // === THÊM THÔNG BÁO HOẶC XỬ LÝ KHI GẶP LỖI HTTP (4xx, 5xx) ===
+                    System.err.println(">>> [CẢNH BÁO THÔNG BÁO THẤT BẠI] Không thể gửi dữ liệu tới n8n!");
+                    System.err.println(">>> Mã lỗi HTTP: " + e.getStatusCode());
+                    System.err.println(">>> Chi tiết phản hồi: " + e.getResponseBodyAsString());
+                    
+                    // (Tùy chọn) Bạn có thể gọi repository để lưu log lỗi vào bảng ticket_logs ở đây nếu muốn
+                    
                 } catch (Exception e) {
-                    System.err.println("Lỗi gửi Webhook tới n8n: " + e.getMessage());
+                    // === THÊM THÔNG BÁO HOẶC XỬ LÝ KHI MẤT KẾT NỐI / LỖI CHUNG ===
+                    System.err.println(">>> [LỖI HỆ THỐNG] Lỗi kết nối tới n8n: " + e.getMessage());
+                    
+                    // (Tùy chọn) Thêm thông báo hoặc cơ chế dự phòng tại đây
                 }
             });
         }
@@ -127,6 +131,18 @@ public class TicketController {
     public ResponseEntity<List<TicketMessage>> getTicketMessages(@PathVariable Long id) {
         return ResponseEntity.ok(messageRepository.findByTicketIdOrderByCreatedAtAsc(id));
     }
+
+ /**
+     * [LUỒNG 2 - Bước 2]: n8n lấy thông tin chi tiết của Ticket để AI đọc & phân tích
+     * GET /api/tickets/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<Ticket> getTicketById(@PathVariable Long id) {
+        return ticketRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
 
 //    /**
 //     * [LUỒNG 2 - Bước 11]: n8n cập nhật trạng thái Ticket
@@ -280,7 +296,7 @@ public class TicketController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
+// tiếp nhận phản hồi (feedback) từ phía khách hàng cho một ticket cụ thể, sau đó tự động chuyển tiếp (bắn webhook) dữ liệu đó sang n8n (Webhook3) để kích hoạt luồng tự động hóa tiếp theo
     @PostMapping("/{ticketId}/customer-feedback")
     public ResponseEntity<?> triggerCustomerFeedback(
             @PathVariable Long ticketId,
@@ -308,13 +324,23 @@ public class TicketController {
 
             restTemplate.postForEntity(n8nWebhook3Url, payload, String.class);
             System.out.println(">>> [SUCCESS] Đã gửi Feedback của khách sang n8n Webhook3 cho Ticket #" + ticket.getId());
+            return ResponseEntity.ok(Map.of("status", "sent", "ticketId", ticket.getId()));
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.err.println(">>> [BÁO VỀ TỪ N8N Webhook3] Mã lỗi: " + e.getStatusCode());
+            System.err.println(">>> Chi tiết phản hồi: " + e.getResponseBodyAsString());
+            return ResponseEntity.status(502).body(Map.of(
+                    "error", "n8n rejected the customer feedback",
+                    "details", e.getResponseBodyAsString()
+            ));
 
         } catch (Exception e) {
             System.err.println(">>> [ERROR] Không thể kết nối tới n8n Webhook3: " + e.getMessage());
+            return ResponseEntity.status(502).body(Map.of(
+                    "error", "Could not deliver customer feedback to n8n"
+            ));
         }
-
-        return ResponseEntity.ok(Map.of("message", "Phản hồi đã được tiếp nhận thành công."));
-    }
+    } 
 //    /**
 //     * [LUỒNG 2 - Bước 12]: n8n ghi log lịch sử phân công
 //     * POST /api/tickets/{id}/logs
@@ -330,4 +356,8 @@ public class TicketController {
 //        response.put("timestamp", LocalDateTime.now());
 //        return ResponseEntity.ok(response);
 //    }
+
+    
+
+
 }

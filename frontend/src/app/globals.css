@@ -1,3 +1,72 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+	color-scheme: light;
+	--paper: #f4f5f1;
+	--surface: #ffffff;
+	--ink: #202923;
+	--muted: #6b746e;
+	--line: #dfe4dd;
+	--green: #176d5c;
+	--green-dark: #105647;
+	--green-wash: #e7f1ec;
+	--brick: #b84e35;
+	--brick-wash: #f8ebe6;
+}
+
+html {
+	background: var(--paper);
+}
+
+body {
+	background: var(--paper);
+	color: var(--ink);
+	font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+	font-size: 14px;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+}
+
+::selection {
+	background: #cbe3d8;
+	color: var(--ink);
+}
+
+.editorial-title {
+	font-family: Georgia, "Times New Roman", serif;
+	font-weight: 500;
+}
+
+.page-enter {
+	animation: page-enter 420ms ease-out both;
+}
+
+@keyframes page-enter {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+	}
+}

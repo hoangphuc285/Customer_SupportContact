@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { ArrowUpRight, LogOut, MessageCircle, UserRound } from 'lucide-react';
 
 export default function SupportHeader() {
     const router = useRouter();
@@ -38,71 +39,43 @@ export default function SupportHeader() {
     };
 
     return (
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                {/* LOGO & TIÊU ĐỀ */}
-                <Link href="/support" className="flex items-center gap-3 hover:opacity-90 transition">
-                    <div className="w-10 h-10 bg-indigo-600 text-white font-black rounded-xl flex items-center justify-center text-sm shadow-md shadow-indigo-200">
-                        VKU
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-slate-800 text-sm leading-tight">VKU Support Center</h1>
-                        <p className="text-[11px] text-slate-400">Trung tâm Hỗ trợ & CSKH</p>
-                    </div>
+        <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-white/95 backdrop-blur">
+            <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between gap-5 px-5 lg:px-8">
+                <Link href="/support" className="flex shrink-0 items-center gap-3" aria-label="VKU Support, trang chủ">
+                    <span className="flex h-10 w-10 items-center justify-center bg-[var(--green)] text-xs font-black tracking-wide text-white">VKU</span>
+                    <span>
+                        <span className="block text-sm font-bold leading-tight text-[var(--ink)]">Trung tâm hỗ trợ</span>
+                        <span className="mt-1 block text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">Đại học VKU</span>
+                    </span>
                 </Link>
 
-                {/* MENU ĐIỀU HƯỚNG */}
-                <nav className="flex items-center gap-6">
-                    <Link
-                        href="/support"
-                        className={`text-xs font-semibold transition ${
-                            pathname === '/support' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'
-                        }`}
-                    >
+                <nav className="hidden items-center gap-1 sm:flex" aria-label="Điều hướng chính">
+                    <Link href="/support" className={`px-3 py-2 text-xs font-semibold transition ${pathname === '/support' ? 'text-[var(--green)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
                         Trang chủ
                     </Link>
-                    <Link
-                        href="/support/chat"
-                        className={`text-xs font-semibold transition ${
-                            pathname === '/support/chat' ? 'text-indigo-600' : 'text-slate-600 hover:text-indigo-600'
-                        }`}
-                    >
-                        Hỗ trợ Live Chat
+                    <Link href="/support/chat" className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold transition ${pathname === '/support/chat' ? 'text-[var(--green)]' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                        <MessageCircle size={15} strokeWidth={1.8} /> Trò chuyện
                     </Link>
                 </nav>
 
-                {/* CỤM NÚT ĐĂNG NHẬP / ĐĂNG XUẤT */}
-                <div className="flex items-center gap-3">
+                <div className="flex shrink-0 items-center gap-2">
                     {user ? (
-                        <div className="flex items-center gap-3 border-l pl-4 border-slate-200">
-                            <div className="text-right hidden sm:block">
-                                <p className="text-xs font-bold text-slate-800">{user.name}</p>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-semibold border border-indigo-100">
-                  {user.role === 'STAFF' ? '👨‍💼 Nhân viên' : '👤 Khách hàng'}
-                </span>
+                        <>
+                            <div className="hidden items-center gap-2 border-r border-[var(--line)] pr-4 sm:flex">
+                                <UserRound size={15} className="text-[var(--green)]" />
+                                <span className="max-w-28 truncate text-xs font-semibold text-[var(--ink)]">{user.name}</span>
                             </div>
-                            <button
-                                onClick={handleLogout}
-                                className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm"
-                            >
-                                Đăng xuất
+                            <button onClick={handleLogout} className="flex items-center gap-2 px-2 py-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--brick)]" aria-label="Đăng xuất" title="Đăng xuất">
+                                <LogOut size={16} /> <span className="hidden sm:inline">Đăng xuất</span>
                             </button>
-                        </div>
+                        </>
                     ) : (
-                        <div className="flex items-center gap-2">
-                            <Link
-                                href="/support/login"
-                                className="text-xs font-bold text-slate-700 hover:text-indigo-600 px-3 py-2 transition"
-                            >
-                                Đăng nhập
+                        <>
+                            <Link href="/support/login" className="px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--ink)]">Đăng nhập</Link>
+                            <Link href="/support/register" className="flex items-center gap-1.5 bg-[var(--green)] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[var(--green-dark)]">
+                                Tạo tài khoản <ArrowUpRight size={14} />
                             </Link>
-                            <Link
-                                href="/support/register"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
-                            >
-                                Đăng ký
-                            </Link>
-                        </div>
+                        </>
                     )}
                 </div>
             </div>
