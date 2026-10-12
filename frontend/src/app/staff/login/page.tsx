@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function StaffLoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState('staff1@vku.edu.vn');
     const [password, setPassword] = useState('123456');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -28,25 +31,18 @@ export default function StaffLoginPage() {
             }
 
             const data = await res.json();
-            console.log('👉 Phản hồi từ Backend Spring Boot:', data);
-
-            // Bóc tách đối tượng account dù Backend trả về phẳng hay lồng trong data/user/account
             const accountData = data.account || data.user || data;
-
-            // Lấy thuộc tính role và chuẩn hóa thành chuỗi viết hoa
             const rawRole = accountData.role || data.role || '';
             const roleStr = String(rawRole).toUpperCase();
-
-            // Kiểm tra linh hoạt (Chấp nhận: STAFF, ROLE_STAFF, AGENT hoặc ordinal 1)
             const isStaff = roleStr.includes('STAFF') || roleStr.includes('AGENT') || roleStr === '1';
 
             if (!isStaff) {
-                throw new Error(`Tài khoản này không có quyền truy cập CSKH! (Role nhận được: "${rawRole || 'Rỗng'}")`);
+                throw new Error(`Tài khoản này không có quyền truy cập Cổng CSKH! (Role: "${rawRole || 'Rỗng'}")`);
             }
 
-            // Lưu tài khoản đã xác thực và điều hướng sang Dashboard
             localStorage.setItem('user_account', JSON.stringify(accountData));
-            router.push('/staff/chat');
+            localStorage.setItem('user_info', JSON.stringify(accountData));
+            router.push('/staff/dashboard');
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -55,57 +51,126 @@ export default function StaffLoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl space-y-6">
-                <div className="text-center space-y-2">
-                    <div className="w-12 h-12 bg-indigo-600 text-white font-black rounded-xl mx-auto flex items-center justify-center text-sm shadow-lg shadow-indigo-500/30">
-                        VKU
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans antialiased">
+            {/* AMBIENT GLOW BLOBS */}
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-xl relative z-10">
+                {/* LEFT BRAND PROMO PANEL */}
+                <div className="p-8 sm:p-12 bg-gradient-to-br from-indigo-950/70 via-slate-900 to-slate-900 border-b md:border-b-0 md:border-r border-slate-800/80 flex flex-col justify-between">
+                    <div>
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/25 mb-8">
+                            VKU
+                        </div>
+                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-1.5">
+                            Enterprise Portal
+                        </span>
+                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                            Hệ Thống Quản Lý Contact Center AI
+                        </h2>
+                        <p className="text-slate-300 text-sm mt-3 leading-relaxed">
+                            Nền tảng điều phối ticket thông minh, tự động hóa với n8n và hỗ trợ khách hàng đa kênh theo thời gian thực.
+                        </p>
                     </div>
-                    <h2 className="text-xl font-bold text-white">Cổng CSKH Nội Bộ</h2>
-                    <p className="text-xs text-slate-400">Đăng nhập tài khoản nhân viên (/staff)</p>
+
+                    <div className="mt-8 pt-8 border-t border-slate-800/80 space-y-3.5">
+                        <div className="flex items-center gap-3 text-sm text-slate-200">
+                            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                            <span>Tích hợp Trợ lý ảo AI & n8n Workflow</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-200">
+                            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                            <span>Giám sát SLA và tự động định tuyến ticket</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-200">
+                            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                            <span>Báo cáo thời gian thực & đánh giá CSAT</span>
+                        </div>
+                    </div>
                 </div>
 
-                {error && (
-                    <div className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-3 rounded-xl text-xs text-center font-medium">
-                        {error}
-                    </div>
-                )}
-
-                <form onSubmit={handleLogin} className="space-y-4">
+                {/* RIGHT LOGIN FORM */}
+                <div className="p-8 sm:p-12 flex flex-col justify-center space-y-6">
                     <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                            Email Nhân Viên
-                        </label>
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                        />
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-2.5">
+                            <ShieldCheck size={14} />
+                            <span>Quyền truy cập nội bộ</span>
+                        </div>
+                        <h3 className="text-2xl font-black text-white tracking-tight">
+                            Đăng nhập Nhân viên
+                        </h3>
+                        <p className="text-sm text-slate-400 mt-1">
+                            Nhập thông tin xác thực tài khoản chuyên viên CSKH
+                        </p>
                     </div>
 
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                            Mật Khẩu
-                        </label>
-                        <input
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                        />
-                    </div>
+                    {error && (
+                        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-semibold leading-relaxed">
+                            {error}
+                        </div>
+                    )}
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-50"
-                    >
-                        {loading ? 'Đang xác thực...' : 'Đăng Nhập Dashboard'}
-                    </button>
-                </form>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                Email Nhân Viên
+                            </label>
+                            <div className="relative">
+                                <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-medium"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                Mật Khẩu
+                            </label>
+                            <div className="relative">
+                                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full pl-11 pr-11 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-medium"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95 mt-2"
+                        >
+                            {loading ? <span>Đang xác thực quyền...</span> : (
+                                <>
+                                    <span>Vào Bảng Điều Khiển</span>
+                                    <ArrowRight size={16} />
+                                </>
+                            )}
+                        </button>
+                    </form>
+
+                    <div className="pt-2 text-center text-sm text-slate-400">
+                        <Link href="/support" className="hover:text-slate-200 transition">
+                            ← Quay lại trang Cổng Khách Hàng
+                        </Link>
+                    </div>
+                </div>
             </div>
         </div>
     );

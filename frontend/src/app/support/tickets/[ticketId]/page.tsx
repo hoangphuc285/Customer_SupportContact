@@ -2,27 +2,39 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import SupportHeader from '@/components/SupportHeader';
 import { TicketDetail, TicketLog, TICKET_STATUS_MAP } from '@/types/support';
+import { 
+    ArrowLeft, 
+    CheckCircle2, 
+    Clock, 
+    AlertCircle, 
+    ThumbsUp, 
+    ThumbsDown, 
+    Copy, 
+    Check, 
+    Sparkles, 
+    Calendar
+} from 'lucide-react';
+import { formatCategory, formatPriority, formatLogAction } from '@/utils/formatters';
 
 export default function TicketDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const ticketCodeParam = params.ticketId as string; // Giá trị nhập từ URL (ticketCode)
+    const ticketCodeParam = params.ticketId as string;
 
     const [ticket, setTicket] = useState<TicketDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [feedbackText, setFeedbackText] = useState('');
     const [submittingFeedback, setSubmittingFeedback] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    // Hàm lấy thông tin Ticket & Lịch sử Log
     const fetchTicketAndLogs = useCallback(async () => {
         try {
             setLoading(true);
-
-            // 1. Tìm Ticket theo ticketCode (Nếu người dùng nhập ID số thì thử endpoint thường)
             let ticketRes = await fetch(`http://localhost:8080/api/tickets/code/${ticketCodeParam}`);
             if (!ticketRes.ok) {
-                // Fallback nếu người dùng truyền ID dạng số
                 ticketRes = await fetch(`http://localhost:8080/api/tickets/${ticketCodeParam}`);
             }
 
@@ -32,15 +44,12 @@ export default function TicketDetailPage() {
             }
 
             const ticketData: TicketDetail = await ticketRes.json();
-
-            // 2. Lấy danh sách Logs dựa trên numeric ID của ticketData
             const logsRes = await fetch(`http://localhost:8080/api/tickets/${ticketData.id}/logs`);
             let logsData: TicketLog[] = [];
             if (logsRes.ok) {
                 logsData = await logsRes.json();
             }
 
-            // 3. Cập nhật state đầy đủ gồm Ticket + Logs
             setTicket({
                 ...ticketData,
                 logs: logsData,
@@ -58,7 +67,6 @@ export default function TicketDetailPage() {
         }
     }, [ticketCodeParam, fetchTicketAndLogs]);
 
-    // Xử lý gửi feedback của khách hàng
     const handleSendFeedback = async (isSatisfied: boolean) => {
         if (!ticket) return;
         setSubmittingFeedback(true);
@@ -75,9 +83,9 @@ export default function TicketDetailPage() {
             });
 
             if (res.ok) {
-                alert(isSatisfied ? 'Cảm ơn bạn đã phản hồi hài lòng!' : 'Hệ thống đã nhận phản hồi và sẽ phân công xử lý lại.');
+                alert(isSatisfied ? '🎉 Cảm ơn bạn đã gửi phản hồi hài lòng!' : 'Hệ thống đã nhận phản hồi và chuyển chuyên viên xử lý lại.');
                 setFeedbackText('');
-                fetchTicketAndLogs(); // Reload lại dữ liệu và timeline log
+                fetchTicketAndLogs();
             }
         } catch (err) {
             console.error('Lỗi gửi feedback:', err);
@@ -86,23 +94,56 @@ export default function TicketDetailPage() {
         }
     };
 
+    const copyTicketCode = () => {
+        if (ticket?.ticketCode) {
+            navigator.clipboard.writeText(ticket.ticketCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <div className="text-slate-500 font-medium">Đang tra cứu Ticket...</div>
+            <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+                <SupportHeader />
+                <div className="flex-1 flex items-center justify-center p-8">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm font-semibold text-slate-500">Đang tra cứu dữ liệu Ticket...</span>
+                    </div>
+                </div>
             </div>
         );
     }
 
     if (!ticket) {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                <div className="bg-white p-8 rounded-2xl shadow-sm text-center max-w-md border border-slate-200">
-                    <h3 className="text-xl font-bold text-red-600 mb-2">Không tìm thấy Ticket</h3>
-                    <p className="text-sm text-slate-600 mb-6">Mã Ticket <strong>"{ticketCodeParam}"</strong> không tồn tại trong hệ thống.</p>
-                    <button onClick={() => router.push('/support')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition">
-                        Về trang chủ Tra cứu
-                    </button>
+            <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+                <SupportHeader />
+                <div className="flex-1 flex items-center justify-center p-4">
+                    <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-xl text-center max-w-md w-full border border-slate-200/80 space-y-4">
+                        <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
+                            <AlertCircle size={28} />
+                        </div>
+                        <h3 className="text-lg font-black text-slate-900">Không tìm thấy Ticket</h3>
+                        <p className="text-sm text-slate-500 leading-relaxed">
+                            Mã Ticket <strong>"{ticketCodeParam}"</strong> không tồn tại trong hệ thống. Vui lòng kiểm tra lại mã đã nhận qua email.
+                        </p>
+                        <div className="pt-2 flex flex-col gap-2">
+                            <Link
+                                href="/support/tickets"
+                                className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition"
+                            >
+                                Thử tra cứu lại
+                            </Link>
+                            <Link
+                                href="/support"
+                                className="w-full py-2.5 text-slate-600 text-sm font-semibold hover:text-slate-900"
+                            >
+                                Về trang chủ
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -111,92 +152,171 @@ export default function TicketDetailPage() {
     const statusInfo = TICKET_STATUS_MAP[ticket.status] || TICKET_STATUS_MAP.NEW;
 
     return (
-        <div className="min-h-screen bg-slate-50 py-10 px-4">
-            <div className="max-w-3xl mx-auto space-y-6">
-                <button onClick={() => router.push('/support')} className="text-sm text-indigo-600 font-medium flex items-center hover:underline">
-                    ← Về Trang chủ Tra cứu
-                </button>
+        <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+            <SupportHeader />
 
-                {/* Ticket Header */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+                <div className="flex items-center justify-between">
+                    <Link
+                        href="/support"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition"
+                    >
+                        <ArrowLeft size={16} /> Quay lại trang chủ
+                    </Link>
+
+                    <button
+                        onClick={copyTicketCode}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:text-indigo-600 shadow-2xs transition cursor-pointer"
+                    >
+                        {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                        <span>Sao chép mã Ticket</span>
+                    </button>
+                </div>
+
+                {/* TICKET MAIN CARD */}
+                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden p-6 sm:p-8 space-y-6">
+                    {/* TOP STATUS BAR */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-100">
                         <div>
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mã Ticket</span>
-                            <h2 className="text-2xl font-bold text-slate-900">{ticket.ticketCode || `#${ticket.id}`}</h2>
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                                Mã định danh yêu cầu
+                            </span>
+                            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight mt-0.5">
+                                {ticket.ticketCode || `#${ticket.id}`}
+                            </h1>
                         </div>
 
-                        {/* Tag Trạng thái */}
-                        <div className={`px-4 py-1.5 rounded-full border text-sm font-bold ${statusInfo.colorClass}`}>
-                            {statusInfo.label}
+                        <div className={`px-4 py-2 rounded-2xl border text-sm font-bold flex items-center gap-2 ${statusInfo.colorClass}`}>
+                            <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                            <span>{statusInfo.label}</span>
                         </div>
                     </div>
 
-                    <h3 className="text-lg font-semibold text-slate-800 mb-2">{ticket.subject}</h3>
-                    <p className="text-xs text-slate-400">Khởi tạo ngày: {new Date(ticket.createdAt).toLocaleString('vi-VN')}</p>
-                </div>
+                    {/* SUBJECT & METADATA */}
+                    <div className="space-y-3">
+                        <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+                            {ticket.subject}
+                        </h2>
 
-                {/* Khối Giải pháp (Nếu đã RESOLVED) */}
-                {ticket.resolution && (
-                    <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl">
-                        <h4 className="font-bold text-emerald-900 mb-2 flex items-center">
-                            <svg className="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                            Kết quả xử lý từ Nhân viên:
-                        </h4>
-                        <p className="text-sm text-emerald-800 leading-relaxed whitespace-pre-line">{ticket.resolution}</p>
-                    </div>
-                )}
-
-                {/* Khối gửi Feedback khi Ticket ở trạng thái RESOLVED */}
-                {ticket.status === 'RESOLVED' && (
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h4 className="font-bold text-slate-900 mb-2">Đánh giá kết quả hỗ trợ</h4>
-                        <p className="text-sm text-slate-600 mb-4">Bạn có hài lòng với giải pháp đưa ra ở trên không?</p>
-                        <textarea
-                            placeholder="Nhập thêm nhận xét của bạn (nếu có)..."
-                            value={feedbackText}
-                            onChange={(e) => setFeedbackText(e.target.value)}
-                            className="w-full p-3 border border-slate-300 rounded-xl text-sm mb-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        />
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => handleSendFeedback(true)}
-                                disabled={submittingFeedback}
-                                className="flex-1 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:bg-slate-300"
-                            >
-                                👍 Hài lòng (Đóng Ticket)
-                            </button>
-                            <button
-                                onClick={() => handleSendFeedback(false)}
-                                disabled={submittingFeedback}
-                                className="flex-1 py-2.5 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition disabled:bg-slate-300"
-                            >
-                                👎 Chưa hài lòng (Yêu cầu xử lý lại)
-                            </button>
+                        <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-500">
+                            <span className="flex items-center gap-1.5">
+                                <Calendar size={15} className="text-slate-400" />
+                                {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString('vi-VN') : '—'}
+                            </span>
+                            {ticket.category && (
+                                <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold text-xs border border-slate-200">
+                                    {formatCategory(ticket.category)}
+                                </span>
+                            )}
+                            {ticket.priority && (
+                                <span className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-semibold text-xs border border-indigo-200">
+                                    Ưu tiên: {formatPriority(ticket.priority)}
+                                </span>
+                            )}
                         </div>
                     </div>
-                )}
 
-                {/* Lịch sử tiến trình (Logs Timeline) */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h4 className="font-bold text-slate-900 mb-4">Lịch sử tiến trình Ticket</h4>
-                    <div className="space-y-4 border-l-2 border-indigo-100 pl-4">
-                        {ticket.logs && ticket.logs.length > 0 ? (
-                            ticket.logs.map((log: TicketLog) => (
-                                <div key={log.id} className="relative">
-                                    <div className="w-3 h-3 bg-indigo-600 rounded-full absolute -left-[23px] top-1.5 border-2 border-white"></div>
-                                    <div className="text-xs text-slate-400">
-                                        {new Date(log.createdAt).toLocaleString('vi-VN')} — <span className="font-semibold text-slate-600">{log.performedBy}</span>
-                                    </div>
-                                    <div className="text-sm text-slate-800 font-medium mt-0.5">{log.action}</div>
-                                    {log.note && <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg mt-1">{log.note}</p>}
+                    {/* RESOLUTION CALLOUT (NẾU CÓ) */}
+                    {ticket.resolution && (
+                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-6 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-emerald-800 text-xs sm:text-sm font-bold uppercase tracking-wider">
+                                    <CheckCircle2 size={18} className="text-emerald-600" />
+                                    <span>Kết quả xử lý từ Chuyên viên CSKH</span>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-slate-500">Chưa có ghi nhận tiến trình mới.</p>
-                        )}
+                                <span className="text-xs font-semibold text-emerald-700 bg-emerald-100/60 px-3 py-0.5 rounded-full">
+                                    Đã giải quyết
+                                </span>
+                            </div>
+
+                            <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line bg-white/70 p-4 rounded-xl border border-emerald-100 font-medium">
+                                {ticket.resolution}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* FEEDBACK SECTION KHI TICKET RESOLVED */}
+                    {ticket.status === 'RESOLVED' && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
+                            <div>
+                                <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <Sparkles size={16} className="text-indigo-600" />
+                                    <span>Đánh giá mức độ hài lòng của bạn</span>
+                                </h3>
+                                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                                    Giải pháp trên đã giải quyết được vấn đề của bạn chưa? Phản hồi của bạn giúp chúng tôi nâng cao chất lượng dịch vụ.
+                                </p>
+                            </div>
+
+                            <textarea
+                                rows={3}
+                                placeholder="Nhập thêm nhận xét hoặc phản hồi của bạn (không bắt buộc)..."
+                                value={feedbackText}
+                                onChange={(e) => setFeedbackText(e.target.value)}
+                                className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition resize-y font-sans"
+                            />
+
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button
+                                    onClick={() => handleSendFeedback(true)}
+                                    disabled={submittingFeedback}
+                                    className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                                >
+                                    <ThumbsUp size={16} />
+                                    <span>Hài lòng (Xác nhận đóng Ticket)</span>
+                                </button>
+                                <button
+                                    onClick={() => handleSendFeedback(false)}
+                                    disabled={submittingFeedback}
+                                    className="flex-1 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md shadow-orange-600/20 cursor-pointer disabled:opacity-50"
+                                >
+                                    <ThumbsDown size={16} />
+                                    <span>Chưa hài lòng (Yêu cầu xử lý lại)</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TIMELINE LOGS */}
+                    <div className="pt-4 border-t border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                                <Clock size={16} className="text-slate-400" />
+                                <span>Lịch sử xử lý Ticket</span>
+                            </h3>
+                            <span className="text-xs text-slate-400">
+                                {ticket.logs?.length || 0} mốc ghi nhận
+                            </span>
+                        </div>
+
+                        <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-indigo-100">
+                            {ticket.logs && ticket.logs.length > 0 ? (
+                                ticket.logs.map((log: TicketLog) => (
+                                    <div key={log.id} className="relative group">
+                                        <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-indigo-600 border-2 border-white ring-4 ring-indigo-50" />
+                                        <div className="bg-slate-50/70 hover:bg-slate-50 p-4 rounded-2xl border border-slate-200/60 transition space-y-1">
+                                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 font-semibold">
+                                                <span>{log.createdAt ? new Date(log.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                                                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
+                                                    {log.performedBy === 'CUSTOMER' ? 'Khách hàng' : log.performedBy === 'AGENT' ? 'Chuyên viên' : 'Hệ thống AI'}
+                                                </span>
+                                            </div>
+                                            <div className="text-xs sm:text-sm font-bold text-slate-900">{formatLogAction(log.action)}</div>
+                                            {log.note && (
+                                                <p className="text-xs sm:text-sm text-slate-700 bg-white p-3 rounded-xl border border-slate-200/60 mt-1 leading-relaxed">
+                                                    {log.note}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-xs text-slate-400 py-2">Chưa có ghi nhận tiến trình mới.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     );
 }

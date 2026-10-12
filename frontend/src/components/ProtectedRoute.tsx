@@ -9,7 +9,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
     useEffect(() => {
         // 1. Kiểm tra tài khoản đã lưu trong localStorage
-        const savedAccount = localStorage.getItem('user_account');
+        const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
         if (!savedAccount) {
             router.push('/staff/login');
             return;
@@ -35,8 +35,14 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
     if (!authorized) {
         return (
-            <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-500 font-medium">
-                Đang kiểm tra quyền truy cập...
+            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-slate-400 font-sans">
+                <div className="relative mb-4">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                        <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                </div>
+                <p className="text-sm font-semibold text-slate-200">Đang xác thực quyền truy cập...</p>
+                <p className="text-xs text-slate-400 mt-1">Cổng chuyên viên CSKH</p>
             </div>
         );
     }

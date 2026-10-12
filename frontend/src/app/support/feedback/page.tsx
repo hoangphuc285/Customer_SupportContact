@@ -2,6 +2,9 @@
 
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import SupportHeader from '@/components/SupportHeader';
+import { Send, CheckCircle2, MessageSquare, ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 
 function FeedbackForm() {
     const searchParams = useSearchParams();
@@ -42,47 +45,63 @@ function FeedbackForm() {
 
     if (submitted) {
         return (
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 text-center space-y-4 max-w-md w-full">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                    ✓
+            <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-200/90 text-center space-y-4 max-w-md w-full animate-fadeIn">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+                    <CheckCircle2 size={32} />
                 </div>
-                <h2 className="text-xl font-bold text-slate-800">Đã Gửi Phản Hồi!</h2>
-                <p className="text-sm text-slate-600">
-                    Cảm ơn bạn. Hệ thống AI và nhân viên CSKH đã tiếp nhận thông tin và sẽ phản hồi trong thời gian sớm nhất.
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Đã Gửi Phản Hồi Thành Công!</h2>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                    Cảm ơn bạn. Hệ thống AI và nhân viên CSKH đã tiếp nhận thông tin phản hồi của bạn và sẽ cập nhật trong thời gian sớm nhất.
                 </p>
+                <div className="pt-2">
+                    <Link
+                        href={`/support/tickets/${ticketId || ''}`}
+                        className="inline-flex items-center justify-center px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/20"
+                    >
+                        Quay lại xem Ticket
+                    </Link>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 max-w-md w-full space-y-6">
-            <div className="text-center">
-                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Cổng Phản Hồi Khách Hàng</span>
-                <h1 className="text-2xl font-bold text-slate-900 mt-1">Gửi Yêu Cầu Hỗ Trợ Bổ Sung</h1>
-                {ticketId && <p className="text-xs text-slate-500 mt-1">Đang phản hồi cho Ticket #{ticketId}</p>}
+        <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-200/90 max-w-md w-full space-y-6">
+            <div className="text-center space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700">
+                    <Sparkles size={14} />
+                    <span>Cổng Phản Hồi Bổ Sung</span>
+                </div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Gửi Góp Ý / Phản Hồi</h1>
+                {ticketId && (
+                    <p className="text-xs font-semibold text-slate-500">
+                        Đang gửi phản hồi cho Ticket: <span className="font-mono text-indigo-600 font-bold">#{ticketId}</span>
+                    </p>
+                )}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-2">
-                        Nội dung thắc mắc / Phản hồi của bạn:
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                        Nội dung bổ sung / Thắc mắc của bạn:
                     </label>
                     <textarea
                         rows={5}
                         required
-                        placeholder="VD: Tôi vẫn chưa nhận được sản phẩm mới..."
+                        placeholder="Mô tả cụ thể thông tin bạn muốn phản hồi thêm cho chuyên viên..."
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition resize-y"
                     />
                 </div>
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700 transition shadow-md disabled:bg-slate-300"
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md shadow-indigo-600/25 disabled:opacity-50 cursor-pointer active:scale-95"
                 >
-                    {loading ? 'Đang gửi...' : '✉️ Gửi Phản Hồi Cho CSKH'}
+                    <Send size={15} />
+                    <span>{loading ? 'Đang gửi phản hồi...' : 'Gửi Phản Hồi Cho CSKH'}</span>
                 </button>
             </form>
         </div>
@@ -91,10 +110,13 @@ function FeedbackForm() {
 
 export default function CustomerFeedbackPage() {
     return (
-        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-            <Suspense fallback={<div>Đang tải trang...</div>}>
-                <FeedbackForm />
-            </Suspense>
+        <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+            <SupportHeader />
+            <main className="flex-1 flex items-center justify-center p-4 py-12">
+                <Suspense fallback={<div className="text-xs text-slate-400 font-semibold">Đang tải trang phản hồi...</div>}>
+                    <FeedbackForm />
+                </Suspense>
+            </main>
         </div>
     );
 }

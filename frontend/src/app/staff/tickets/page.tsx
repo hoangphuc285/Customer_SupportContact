@@ -3,28 +3,37 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { 
+    Search, 
+    RotateCcw, 
+    ArrowRight, 
+    AlertTriangle, 
+    Clock, 
+    Ticket as TicketIcon 
+} from 'lucide-react';
+import { formatStatus, STATUS_MAP } from '@/utils/formatters';
 
 export default function StaffTicketListPage() {
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
     const [filterOnlyMyTickets, setFilterOnlyMyTickets] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [agentId, setAgentId] = useState<number | null>(null);
 
     useEffect(() => {
-        // 1. Lấy thông tin Agent đang đăng nhập từ LocalStorage
-        const savedInfo = localStorage.getItem('user_info');
+        const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
         if (savedInfo) {
             try {
                 const user = JSON.parse(savedInfo);
-                if (user.id) setAgentId(user.id);
+                const id = user.agentId || user.id || user.accountId;
+                if (id) setAgentId(Number(id));
             } catch (e) {
-                console.error('Lỗi parse user_info:', e);
+                console.error('Lỗi parse user info:', e);
             }
         }
     }, []);
 
-    // 2. Fetch danh sách Ticket thật từ Spring Boot
     const fetchTickets = async () => {
         setLoading(true);
         try {
@@ -39,7 +48,7 @@ export default function StaffTicketListPage() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                setTickets(data);
+                setTickets(Array.isArray(data) ? data : []);
             }
         } catch (err) {
             console.error('Lỗi khi tải danh sách ticket từ DB:', err);
@@ -52,121 +61,188 @@ export default function StaffTicketListPage() {
         fetchTickets();
     }, [agentId, filterStatus, filterOnlyMyTickets]);
 
+    const filteredTickets = tickets.filter((t) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
+            (t.subject && t.subject.toLowerCase().includes(q)) ||
+            (t.customerName && t.customerName.toLowerCase().includes(q))
+        );
+    });
+
+    const statusTabs = [
+        { id: '', label: 'Tất cả trạng thái' },
+        { id: 'NEW', label: 'Mới tiếp nhận' },
+        { id: 'ASSIGNED', label: 'Đã phân công' },
+        { id: 'IN_PROGRESS', label: 'Đang xử lý' },
+        { id: 'RESOLVED', label: 'Đã giải quyết' },
+        { id: 'CLOSED', label: 'Đã đóng' },
+    ];
+
     return (
         <ProtectedRoute>
-            <div className="min-h-screen bg-slate-100 p-6">
-                <div className="max-w-7xl mx-auto space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold text-slate-800">Quản Lý Ticket Nội Bộ (DB Thật)</h1>
-                            <p className="text-xs text-slate-500 mt-1">
-                                {filterOnlyMyTickets ? 'Đang hiển thị Ticket do bạn phụ trách' : 'Hiển thị toàn bộ Ticket trong hệ thống'}
-                            </p>
-                        </div>
-                        <button
-                            onClick={fetchTickets}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition"
-                        >
-                            🔄 Tải lại dữ liệu
-                        </button>
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+                {/* HEADER */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                            Quản lý Ticket Nội bộ
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            {filterOnlyMyTickets ? 'Đang lọc các Ticket do bạn phụ trách' : 'Toàn bộ danh sách Ticket yêu cầu trong hệ thống CSKH'}
+                        </p>
                     </div>
 
-                    {/* Thanh Bộ Lọc */}
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
-                        <div className="flex gap-4 items-center">
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                className="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none"
-                            >
-                                <option value="">-- Tất cả trạng thái --</option>
-                                <option value="NEW">NEW (Mới)</option>
-                                <option value="ASSIGNED">ASSIGNED (Đã gán)</option>
-                                <option value="IN_PROGRESS">IN_PROGRESS (Đang xử lý)</option>
-                                <option value="RESOLVED">RESOLVED (Đã giải quyết)</option>
-                            </select>
+                    <button
+                        onClick={fetchTickets}
+                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer active:scale-95"
+                    >
+                        <RotateCcw size={15} />
+                        <span>Tải lại dữ liệu</span>
+                    </button>
+                </div>
 
-                            <label className="flex items-center text-sm gap-2 font-medium text-slate-700 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={filterOnlyMyTickets}
-                                    onChange={(e) => setFilterOnlyMyTickets(e.target.checked)}
-                                    className="w-4 h-4 text-indigo-600 rounded"
-                                />
-                                Chỉ hiện Ticket của tôi
-                            </label>
+                {/* FILTER TOOLBAR */}
+                <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                        {/* SEARCH INPUT */}
+                        <div className="relative w-full md:w-80">
+                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Tìm theo mã ticket, tiêu đề, tên khách..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                            />
                         </div>
 
-                        <span className="text-xs text-slate-400 font-medium">Tìm thấy {tickets.length} kết quả</span>
+                        {/* TOGGLE ONLY MY TICKETS */}
+                        <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-700 cursor-pointer self-start md:self-auto">
+                            <input
+                                type="checkbox"
+                                checked={filterOnlyMyTickets}
+                                onChange={(e) => setFilterOnlyMyTickets(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                            />
+                            <span>Chỉ hiện Ticket của tôi</span>
+                        </label>
                     </div>
 
-                    {/* Bảng Hiển thị */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        {loading ? (
-                            <div className="p-12 text-center text-slate-400 text-sm">Đang tải dữ liệu từ CSDL...</div>
-                        ) : tickets.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400 text-sm">Không có Ticket nào trong CSDL!</div>
-                        ) : (
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold">
-                                <tr>
-                                    <th className="p-4">Mã Ticket</th>
-                                    <th className="p-4">Tiêu đề</th>
-                                    <th className="p-4">Khách hàng</th>
-                                    <th className="p-4">Nhân viên</th>
-                                    <th className="p-4">SLA</th>
-                                    <th className="p-4">Trạng thái</th>
-                                    <th className="p-4 text-right">Thao tác</th>
-                                </tr>
+                    {/* STATUS PILL TABS */}
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
+                        {statusTabs.map((tab) => {
+                            const isSelected = filterStatus === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setFilterStatus(tab.id)}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                                        isSelected
+                                            ? 'bg-slate-900 text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+
+                        <span className="ml-auto text-xs sm:text-sm font-semibold text-slate-500">
+                            Hiển thị {filteredTickets.length} ticket
+                        </span>
+                    </div>
+                </div>
+
+                {/* TICKETS TABLE */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+                    {loading ? (
+                        <div className="p-16 text-center text-sm font-semibold text-slate-500">
+                            Đang tải danh sách ticket từ CSDL...
+                        </div>
+                    ) : filteredTickets.length === 0 ? (
+                        <div className="p-16 text-center space-y-2">
+                            <TicketIcon size={36} className="mx-auto text-slate-300" />
+                            <p className="text-sm font-bold text-slate-700">Không tìm thấy Ticket nào phù hợp</p>
+                            <p className="text-xs text-slate-400">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50/90 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                        <th className="p-4 pl-6">Mã Ticket</th>
+                                        <th className="p-4">Tiêu đề yêu cầu</th>
+                                        <th className="p-4">Khách hàng</th>
+                                        <th className="p-4">Phụ trách</th>
+                                        <th className="p-4">Hạn mức SLA</th>
+                                        <th className="p-4">Trạng thái</th>
+                                        <th className="p-4 pr-6 text-right">Thao tác</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {tickets.map((t) => (
-                                    <tr key={t.id} className="hover:bg-slate-50 transition">
-                                        <td className="p-4 font-bold text-indigo-600">
-                                            <Link href={`/staff/tickets/${t.id}`}>{t.ticketCode}</Link>
-                                        </td>
-                                        <td className="p-4 font-medium text-slate-900">{t.subject}</td>
-                                        <td className="p-4">{t.customerName}</td>
-                                        <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            t.agentName === 'Chưa phân công' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'
-                        }`}>
-                          {t.agentName}
-                        </span>
-                                        </td>
-                                        <td className="p-4">
-                                            {t.isSlaOverdue ? (
-                                                <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md">
-                            Quá hạn {Math.abs(t.slaRemainingMinutes)}p
-                          </span>
-                                            ) : (
-                                                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-                            Còn {t.slaRemainingMinutes}p
-                          </span>
-                                            )}
-                                        </td>
-                                        <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            t.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-700' :
-                                t.status === 'NEW' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {t.status}
-                        </span>
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <Link
-                                                href={`/staff/tickets/${t.id}`}
-                                                className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 shadow-sm"
-                                            >
-                                                Xử lý
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
+                                    {filteredTickets.map((t) => {
+                                        const statusMeta = STATUS_MAP[String(t.status || '').toUpperCase()];
+                                        const statusLabel = statusMeta?.label || formatStatus(t.status);
+                                        const statusBg = statusMeta?.bg || 'bg-slate-100';
+                                        const statusColor = statusMeta?.color || 'text-slate-700';
+                                        const statusBorder = statusMeta?.border || 'border-slate-200';
+
+                                        return (
+                                            <tr key={t.id} className="hover:bg-slate-50/80 transition group">
+                                                <td className="p-4 pl-6 font-mono font-bold text-indigo-600">
+                                                    <Link href={`/staff/tickets/${t.id}`} className="hover:underline">
+                                                        {t.ticketCode || `#${t.id}`}
+                                                    </Link>
+                                                </td>
+                                                <td className="p-4 font-semibold text-slate-900 max-w-xs truncate" title={t.subject}>
+                                                    {t.subject}
+                                                </td>
+                                                <td className="p-4 text-slate-600 font-medium">
+                                                    {t.customerName || 'Khách vãng lai'}
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                        !t.agentName || t.agentName === 'Chưa phân công'
+                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
+                                                    }`}>
+                                                        {t.agentName || 'Chưa phân công'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    {t.isSlaOverdue ? (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
+                                                            <AlertTriangle size={13} /> Quá {Math.abs(t.slaRemainingMinutes || 0)}p
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                                                            <Clock size={13} /> Còn {t.slaRemainingMinutes || 0}p
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${statusBg} ${statusColor} ${statusBorder}`}>
+                                                        {statusLabel}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 pr-6 text-right">
+                                                    <Link
+                                                        href={`/staff/tickets/${t.id}`}
+                                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                                                    >
+                                                        <span>Xử lý</span>
+                                                        <ArrowRight size={14} />
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </ProtectedRoute>
