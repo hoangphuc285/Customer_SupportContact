@@ -10,7 +10,7 @@ export default function StaffHeader() {
     const [staff, setStaff] = useState<any>(null);
 
     useEffect(() => {
-        const savedAccount = localStorage.getItem('user_account');
+        const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
         if (!savedAccount) {
             router.push('/staff/login');
             return;
@@ -34,6 +34,7 @@ export default function StaffHeader() {
     const handleLogout = () => {
         if (confirm('Bạn có chắc muốn đăng xuất khỏi Cổng CSKH Nội bộ?')) {
             localStorage.removeItem('user_account');
+            localStorage.removeItem('user_info');
             sessionStorage.removeItem('vku_chat_id');
             router.push('/staff/login');
         }

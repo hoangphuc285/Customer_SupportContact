@@ -1,251 +1,526 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import {
+  Inbox,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  RefreshCw,
+  Ticket,
+  MessageSquare,
+  BarChart3,
+  Users,
+  BookOpen,
+  ArrowUpRight,
+  Bot,
+  ChevronRight,
+} from "lucide-react";
 
 export default function StaffDashboardPage() {
-    const router = useRouter();
-    const pathname = usePathname();
-    const [userInfo, setUserInfo] = useState<{ name: string; email: string } | null>(null);
+  const [stats, setStats] = useState({
+    totalTickets: 0,
+    openTickets: 0,
+    inProgressTickets: 0,
+    resolvedTickets: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
 
-    useEffect(() => {
-        // Lấy thông tin nhân viên đã đăng nhập từ localStorage
-        const savedInfo = localStorage.getItem('user_info');
-        if (savedInfo) {
-            try {
-                setUserInfo(JSON.parse(savedInfo));
-            } catch (e) {
-                console.error('Lỗi parse thông tin user:', e);
-            }
-        }
-    }, []);
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        "http://localhost:8080/api/support/dashboard/stats",
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setStats({
+          totalTickets: data.totalTickets ?? 0,
+          openTickets: data.openTickets ?? 0,
+          inProgressTickets: data.inProgressTickets ?? 0,
+          resolvedTickets: data.resolvedTickets ?? 0,
+        });
+        setLastUpdated(
+          new Date().toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        );
+      }
+    } catch (err) {
+      console.error("Không thể tải thống kê thời gian thực:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleLogout = () => {
-        localStorage.removeItem('jwt_token');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('user_info');
-        router.push('/staff/login');
-    };
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
-    // Danh sách các mục Sidebar theo thiết kế
-    const menuItems = [
-        { name: 'Dashboard', href: '/staff/dashboard', icon: '📊' },
-        { name: 'Tickets', href: '/staff/tickets', icon: '🎫' },
-        { name: 'Customers', href: '/staff/customers', icon: '👥' },
-        { name: 'Chat', href: '/staff/chat', icon: '💬' },
-        { name: 'Reports', href: '/staff/reports', icon: '📈' },
-        { name: 'Knowledge', href: '/staff/knowledge', icon: '📚' },
-    ];
+  const total = stats.totalTickets || 1;
+  const newPercent = Math.round((stats.openTickets / total) * 100);
+  const inProgressPercent = Math.round((stats.inProgressTickets / total) * 100);
+  const resolvedPercent = Math.round((stats.resolvedTickets / total) * 100);
 
-    return (
-        <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-            {/* ────────────────────────────────────────────────────────────── */}
-            {/* TOP HEADER: LOGO | CUSTOMER SUPPORT | Nhân viên | Đăng xuất    */}
-            {/* ────────────────────────────────────────────────────────────── */}
-            <header className="bg-slate-900 text-white h-16 px-6 flex items-center justify-between border-b border-slate-800 shadow-sm sticky top-0 z-50">
-                <div className="flex items-center space-x-4">
-                    {/* LOGO */}
-                    <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-lg shadow-md">
-                        VKU
-                    </div>
-                    {/* HEADING */}
-                    <span className="font-bold tracking-wider text-sm md:text-base text-slate-200 uppercase">
-            CUSTOMER SUPPORT
-          </span>
-                </div>
-
-                {/* THÔNG TIN NHÂN VIÊN & ĐĂNG XUẤT */}
-                <div className="flex items-center space-x-4 text-xs md:text-sm">
-                    <div className="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-slate-300 font-medium">
-              {userInfo ? userInfo.name : 'Nhân viên CSKH'}
-            </span>
-                    </div>
-
-                    <button
-                        onClick={handleLogout}
-                        className="bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg font-semibold transition border border-red-500/30 flex items-center gap-1"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Đăng xuất
-                    </button>
-                </div>
-            </header>
-
-            {/* BODY CONTENT (SIDEBAR + MAIN DASHBOARD) */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* ────────────────────────────── */}
-                {/* LEFT SIDEBAR                   */}
-                {/* ────────────────────────────── */}
-                <aside className="w-56 bg-white border-r border-slate-200 flex flex-col shrink-0">
-                    <nav className="p-4 space-y-1.5 flex-1">
-                        {menuItems.map((item) => {
-                            const isActive = pathname === item.href;
-                            return (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={`flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-sm transition ${
-                                        isActive
-                                            ? 'bg-indigo-600 text-white shadow-sm font-semibold'
-                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                    }`}
-                                >
-                                    <span className="text-base">{item.icon}</span>
-                                    <span>{item.name}</span>
-                                </Link>
-                            );
-                        })}
-                    </nav>
-
-                    <div className="p-4 border-t border-slate-100 text-center text-[11px] text-slate-400">
-                        VKU Support v2.5
-                    </div>
-                </aside>
-
-                {/* ─────────────────────────────────────────────── */}
-                {/* MAIN DASHBOARD CONTENT AREA                     */}
-                {/* ─────────────────────────────────────────────── */}
-                <main className="flex-1 p-8 overflow-y-auto space-y-8">
-                    {/* TITLE */}
-                    <div>
-                        <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">DASHBOARD</h1>
-                        <p className="text-xs text-slate-500 mt-1">Tổng quan chỉ số xử lý yêu cầu khách hàng hôm nay</p>
-                    </div>
-
-                    {/* HÀNG 1: 3 THẺ THỐNG KÊ (Tổng Ticket, Ticket mới, Quá hạn SLA) */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* THẺ 1: Tổng Ticket */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-indigo-200 transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng Ticket</span>
-                                <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold">ALL</span>
-                            </div>
-                            <div className="text-4xl font-extrabold text-slate-900">150</div>
-                            <p className="text-[11px] text-slate-400 mt-2">↑ 8% so với tuần trước</p>
-                        </div>
-
-                        {/* THẺ 2: Ticket Mới */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-purple-200 transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ticket Mới</span>
-                                <span className="p-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold">NEW</span>
-                            </div>
-                            <div className="text-4xl font-extrabold text-purple-600">18</div>
-                            <p className="text-[11px] text-slate-400 mt-2">Cần gán nhân viên xử lý</p>
-                        </div>
-
-                        {/* THẺ 3: Quá Hạn SLA */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between border-l-4 border-l-red-500 hover:border-red-200 transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Quá Hạn SLA</span>
-                                <span className="p-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold">URGENT</span>
-                            </div>
-                            <div className="text-4xl font-extrabold text-red-600">4</div>
-                            <p className="text-[11px] text-red-400 font-medium mt-2">⚠️ Cần ưu tiên giải quyết ngay</p>
-                        </div>
-                    </div>
-
-                    {/* HÀNG 2: 2 KHỐI BIỂU ĐỒ (Ticket theo trạng thái & Ticket theo mức ưu tiên) */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* KHỐI 1: Ticket Theo Trạng Thái */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-slate-800 text-sm">Ticket theo trạng thái</h3>
-                                <span className="text-xs text-slate-400">150 lượt ghi nhận</span>
-                            </div>
-
-                            {/* Giả lập biểu đồ trạng thái dạng Progress Bars */}
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">New (Mới)</span>
-                                        <span className="font-bold text-purple-600">18 (12%)</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-purple-600 h-2.5 rounded-full" style={{ width: '12%' }}></div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">In Progress (Đang xử lý)</span>
-                                        <span className="font-bold text-amber-500">42 (28%)</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-amber-500 h-2.5 rounded-full" style={{ width: '28%' }}></div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">Resolved (Đã giải quyết)</span>
-                                        <span className="font-bold text-indigo-600">30 (20%)</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: '20%' }}></div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">Closed (Đã đóng)</span>
-                                        <span className="font-bold text-emerald-600">60 (40%)</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: '40%' }}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* KHỐI 2: Ticket Theo Mức Ưu Tiên */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-slate-800 text-sm">Ticket theo mức ưu tiên</h3>
-                                <span className="text-xs text-slate-400">Độ khẩn cấp</span>
-                            </div>
-
-                            {/* Giả lập biểu đồ dạng Cột phân bổ */}
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">HIGH / URGENT (Cao)</span>
-                                        <span className="font-bold text-red-600">25 Ticket</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-red-500 h-2.5 rounded-full" style={{ width: '25%' }}></div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">MEDIUM (Trung bình)</span>
-                                        <span className="font-bold text-indigo-600">85 Ticket</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: '55%' }}></div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                        <span className="font-semibold text-slate-700">LOW (Thấp)</span>
-                                        <span className="font-bold text-slate-500">40 Ticket</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                                        <div className="bg-slate-400 h-2.5 rounded-full" style={{ width: '20%' }}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
+  return (
+    <ProtectedRoute>
+      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+        {/* TOP HEADER & ACTIONS */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                Trung tâm Điều phối CSKH
+              </span>
+              {lastUpdated && (
+                <span className="text-xs text-slate-500 font-medium">
+                  Cập nhật lúc: {lastUpdated}
+                </span>
+              )}
             </div>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+              Tổng quan hoạt động
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Theo dõi tình trạng yêu cầu, tải công việc chuyên viên và chỉ số
+              chất lượng dịch vụ
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={fetchStats}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 shadow-sm transition active:scale-95 disabled:opacity-60"
+            >
+              <RefreshCw
+                size={15}
+                className={
+                  loading ? "animate-spin text-indigo-600" : "text-slate-500"
+                }
+              />
+              <span>{loading ? "Đang đồng bộ..." : "Đồng bộ dữ liệu"}</span>
+            </button>
+            <Link
+              href="/staff/tickets"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 transition active:scale-95"
+            >
+              <Ticket size={15} />
+              <span>Xem Ticket</span>
+            </Link>
+          </div>
         </div>
-    );
+
+        {/* 4 STAT METRICS CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* THẺ 1: Tổng Ticket
+           */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-indigo-50/60 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-indigo-100/70 transition" />
+            <div className="flex items-center justify-between relative z-10 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Tổng yêu cầu
+              </span>
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition">
+                <Inbox size={20} />
+              </div>
+            </div>
+            <div className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+              {loading ? (
+                <span className="inline-block w-14 h-9 bg-slate-100 animate-pulse rounded-lg" />
+              ) : (
+                stats.totalTickets
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+              <span>Toàn bộ các kênh hỗ trợ</span>
+              <span className="font-bold text-indigo-600">100%</span>
+            </div>
+          </div>
+
+          {/* THẺ 2: Mới tiếp nhận */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-purple-50/60 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-purple-100/70 transition" />
+            <div className="flex items-center justify-between relative z-10 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Mới / Đang chờ
+              </span>
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition">
+                <AlertCircle size={20} />
+              </div>
+            </div>
+            <div className="text-3xl md:text-4xl font-black text-purple-600 tracking-tight">
+              {loading ? (
+                <span className="inline-block w-14 h-9 bg-slate-100 animate-pulse rounded-lg" />
+              ) : (
+                stats.openTickets
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Cần phân công xử lý</span>
+              <span className="font-bold text-purple-600">{newPercent}%</span>
+            </div>
+          </div>
+
+          {/* THẺ 3: Đang xử lý */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-amber-50/60 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-amber-100/70 transition" />
+            <div className="flex items-center justify-between relative z-10 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Đang xử lý
+              </span>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition">
+                <Clock size={20} />
+              </div>
+            </div>
+            <div className="text-3xl md:text-4xl font-black text-amber-600 tracking-tight">
+              {loading ? (
+                <span className="inline-block w-14 h-9 bg-slate-100 animate-pulse rounded-lg" />
+              ) : (
+                stats.inProgressTickets
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Chuyên viên đang tư vấn</span>
+              <span className="font-bold text-amber-600">
+                {inProgressPercent}%
+              </span>
+            </div>
+          </div>
+
+          {/* THẺ 4: Đã hoàn tất */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-50/60 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-emerald-100/70 transition" />
+            <div className="flex items-center justify-between relative z-10 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Đã giải quyết
+              </span>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
+                <CheckCircle2 size={20} />
+              </div>
+            </div>
+            <div className="text-3xl md:text-4xl font-black text-emerald-600 tracking-tight">
+              {loading ? (
+                <span className="inline-block w-14 h-9 bg-slate-100 animate-pulse rounded-lg" />
+              ) : (
+                stats.resolvedTickets
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Tỷ lệ hoàn thành</span>
+              <span className="font-bold text-emerald-600">
+                {resolvedPercent}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* HÀNG 2: TIẾN ĐỘ XỬ LÝ & TRUY CẬP NHANH */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* CỘT 1 & 2: PHÂN BỐ VÀ TIẾN ĐỘ XỬ LÝ */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 md:p-8 space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base md:text-lg">
+                  Phân bố trạng thái và Tỷ lệ xử lý
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                  Tỷ lệ hoàn thành trên tổng số {stats.totalTickets} yêu cầu đã
+                  tiếp nhận
+                </p>
+              </div>
+              <span className="px-3.5 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold">
+                {stats.totalTickets} Ticket
+              </span>
+            </div>
+
+            {/* THANH SEGMENTED TOÀN CẢNH */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between text-xs sm:text-sm font-semibold text-slate-700">
+                <span>Tiến trình xử lý chung</span>
+                <span className="font-bold text-slate-900">
+                  {resolvedPercent}% hoàn thành
+                </span>
+              </div>
+              <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5">
+                <div
+                  className="bg-emerald-500 rounded-l-full transition-all duration-500"
+                  style={{ width: `${Math.max(0, resolvedPercent)}%` }}
+                  title={`Đã giải quyết: ${stats.resolvedTickets}`}
+                />
+                <div
+                  className="bg-amber-400 transition-all duration-500"
+                  style={{ width: `${Math.max(0, inProgressPercent)}%` }}
+                  title={`Đang xử lý: ${stats.inProgressTickets}`}
+                />
+                <div
+                  className="bg-purple-500 rounded-r-full transition-all duration-500"
+                  style={{ width: `${Math.max(0, newPercent)}%` }}
+                  title={`Chờ xử lý: ${stats.openTickets}`}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span>Đã xử lý ({stats.resolvedTickets})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                  <span>Đang hỗ trợ ({stats.inProgressTickets})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                  <span>Chờ tiếp nhận ({stats.openTickets})</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CÁC THANH CHI TIẾT */}
+            <div className="space-y-4 pt-2">
+              {/* NEW */}
+              <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-100/90">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
+                    <span className="font-bold text-slate-900">
+                      Mới tiếp nhận
+                    </span>
+                  </div>
+                  <span className="font-extrabold text-purple-700">
+                    {stats.openTickets} ({newPercent}%)
+                  </span>
+                </div>
+                <div className="w-full bg-purple-100/70 rounded-full h-2.5">
+                  <div
+                    className="bg-purple-600 h-2.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, newPercent))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* IN PROGRESS */}
+              <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100/90">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <span className="font-bold text-slate-900">
+                      Đang xử lý
+                    </span>
+                  </div>
+                  <span className="font-extrabold text-amber-700">
+                    {stats.inProgressTickets} ({inProgressPercent}%)
+                  </span>
+                </div>
+                <div className="w-full bg-amber-100/70 rounded-full h-2.5">
+                  <div
+                    className="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, inProgressPercent))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* RESOLVED */}
+              <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100/90">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                    <span className="font-bold text-slate-900">
+                      Đã giải quyết hoàn tất
+                    </span>
+                  </div>
+                  <span className="font-extrabold text-emerald-700">
+                    {stats.resolvedTickets} ({resolvedPercent}%)
+                  </span>
+                </div>
+                <div className="w-full bg-emerald-100/70 rounded-full h-2.5">
+                  <div
+                    className="bg-emerald-600 h-2.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, resolvedPercent))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CỘT 3: TRUY CẬP NHANH VÀ HỆ THỐNG */}
+          <div className="space-y-6">
+            {/* TRUY CẬP NHANH */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="font-bold text-slate-900 text-sm md:text-base">
+                  Thao tác nhanh
+                </h3>
+                <span className="text-xs text-slate-400">5 phân hệ</span>
+              </div>
+
+              <div className="space-y-2.5">
+                <Link
+                  href="/staff/chat"
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+                      <MessageSquare size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
+                        Live Chat CSKH
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Tư vấn trực tiếp theo phiên
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition"
+                  />
+                </Link>
+
+                <Link
+                  href="/staff/tickets"
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+                      <Ticket size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
+                        Quản lý Ticket
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Phân công và soạn giải pháp
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition"
+                  />
+                </Link>
+
+                <Link
+                  href="/staff/reports"
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+                      <BarChart3 size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
+                        Báo cáo & SLA
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Chỉ số hiệu suất CSKH
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition"
+                  />
+                </Link>
+
+                <Link
+                  href="/staff/customers"
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+                      <Users size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
+                        Hồ sơ Khách hàng
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Tra cứu thông tin liên hệ
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition"
+                  />
+                </Link>
+
+                <Link
+                  href="/staff/knowledge"
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+                      <BookOpen size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
+                        Kho tri thức AI RAG
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Qdrant Vector Database
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition"
+                  />
+                </Link>
+              </div>
+            </div>
+
+            {/* TRẠNG THÁI HỆ THỐNG / AI BOT */}
+            <div className="bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 rounded-2xl p-6 text-white shadow-lg space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center">
+                    <Bot size={18} />
+                  </div>
+                  <span className="font-bold text-xs uppercase tracking-wider text-indigo-200">
+                    Trợ lý AI & n8n
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Hoạt động
+                </span>
+              </div>
+
+              <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed">
+                AI Tự động trả lời tức thì các câu hỏi chuẩn FAQ và chuyển giao
+                cho chuyên viên khi nhận diện yêu cầu phức tạp.
+              </p>
+
+              <div className="pt-3 border-t border-indigo-800/60 flex items-center justify-between text-xs text-indigo-300">
+                <span>
+                  Tỷ lệ tự động hoá:{" "}
+                  <strong className="text-white font-bold">~68%</strong>
+                </span>
+                <Link
+                  href="/staff/knowledge"
+                  className="text-indigo-300 hover:text-white inline-flex items-center gap-1 font-semibold transition"
+                >
+                  Cấu hình <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
 }

@@ -1,25 +1,44 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { 
+    ArrowLeft, 
+    Save, 
+    Sparkles, 
+    Clock, 
+    User, 
+    Mail, 
+    Phone, 
+    FileText
+} from 'lucide-react';
+import { 
+    formatStatus, 
+    formatPriority, 
+    formatCategory, 
+    formatLogAction,
+    STATUS_MAP,
+    PRIORITY_MAP
+} from '@/utils/formatters';
 
 export default function ProcessTicketDetailPage() {
     const params = useParams();
     const ticketId = params.ticketId as string;
-    const router = useRouter();
 
     const [ticket, setTicket] = useState<any>(null);
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [resolutionText, setResolutionText] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [agentName, setAgentName] = useState('Agent');
+    const [generatingDraft, setGeneratingDraft] = useState(false);
+    const [agentName, setAgentName] = useState('Chuyên viên CSKH');
 
     useEffect(() => {
         if (!ticketId) return;
 
-        const savedInfo = localStorage.getItem('user_info');
+        const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
         if (savedInfo) {
             try {
                 const user = JSON.parse(savedInfo);
@@ -32,7 +51,6 @@ export default function ProcessTicketDetailPage() {
         fetchTicketAndLogs();
     }, [ticketId]);
 
-    // Tải đồng thời Thông tin Ticket và Danh sách Logs từ 2 API riêng biệt
     const fetchTicketAndLogs = async () => {
         setLoading(true);
         try {
@@ -49,7 +67,7 @@ export default function ProcessTicketDetailPage() {
 
             if (resLogs.ok) {
                 const logsData = await resLogs.json();
-                setLogs(logsData);
+                setLogs(Array.isArray(logsData) ? logsData : []);
             }
         } catch (err) {
             console.error('Lỗi khi tải dữ liệu Ticket và Logs:', err);
@@ -58,8 +76,36 @@ export default function ProcessTicketDetailPage() {
         }
     };
 
+    const handleGenerateAiDraft = async () => {
+        setGeneratingDraft(true);
+        try {
+            const res = await fetch(`http://localhost:8080/api/agent/tickets/${ticketId}/generate-ai-draft`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rawAgentNote: 'Đã kiểm tra và xử lý xong sự cố cho khách hàng' }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.aiDraft) {
+                    setResolutionText(data.aiDraft);
+                }
+            } else {
+                setResolutionText(
+                    `Kính gửi quý khách,\n\nBộ phận hỗ trợ VKU đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nNếu cần hỗ trợ thêm thông tin, xin vui lòng phản hồi lại ticket này.\n\nTrân trọng,\nĐội ngũ CSKH VKU Support Center.`
+                );
+            }
+        } catch (err) {
+            setResolutionText(
+                `Kính gửi quý khách,\n\nBộ phận hỗ trợ VKU đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nTrân trọng,\nĐội ngũ CSKH VKU Support Center.`
+            );
+        } finally {
+            setGeneratingDraft(false);
+        }
+    };
+
     const handleSaveAndTriggerN8n = async () => {
-        if (!resolutionText.trim()) return alert('Vui lòng nhập nội dung phản hồi xử lý!');
+        if (!resolutionText.trim()) return alert('Vui lòng nhập nội dung giải pháp xử lý!');
         setSubmitting(true);
 
         try {
@@ -74,7 +120,7 @@ export default function ProcessTicketDetailPage() {
 
             if (res.ok) {
                 alert('✅ Đã lưu kết quả vào CSDL, ghi log và kích hoạt n8n Luồng 3 thành công!');
-                fetchTicketAndLogs(); // Reload lại cả ticket và logs mới
+                fetchTicketAndLogs();
             } else {
                 alert('Lưu kết quả thất bại!');
             }
@@ -94,133 +140,214 @@ export default function ProcessTicketDetailPage() {
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
-            second: '2-digit',
         });
     };
 
     if (loading) {
         return (
             <ProtectedRoute>
-                <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-500">
-                    Đang tải dữ liệu...
+                <div className="p-16 text-center text-sm font-semibold text-slate-500">
+                    Đang tải thông tin chi tiết ticket...
                 </div>
             </ProtectedRoute>
         );
     }
 
+    const statusMeta = STATUS_MAP[String(ticket?.status || '').toUpperCase()];
+    const statusLabel = statusMeta?.label || formatStatus(ticket?.status);
+    const statusBg = statusMeta?.bg || 'bg-slate-100';
+    const statusColor = statusMeta?.color || 'text-slate-700';
+    const statusBorder = statusMeta?.border || 'border-slate-200';
+
+    const priorityMeta = PRIORITY_MAP[String(ticket?.priority || '').toUpperCase()];
+    const priorityLabel = priorityMeta?.label || formatPriority(ticket?.priority);
+    const priorityBg = priorityMeta?.bg || 'bg-slate-100';
+    const priorityColor = priorityMeta?.color || 'text-slate-700';
+    const priorityBorder = priorityMeta?.border || 'border-slate-200';
+
     return (
         <ProtectedRoute>
-            <div className="min-h-screen bg-slate-100 p-6">
-                <div className="max-w-6xl mx-auto space-y-6">
-                    <button onClick={() => router.push('/staff/tickets')} className="text-sm text-indigo-600 font-semibold flex items-center hover:underline">
-                        ← Quay lại danh sách Ticket
-                    </button>
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+                <div className="flex items-center justify-between">
+                    <Link
+                        href="/staff/tickets"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition"
+                    >
+                        <ArrowLeft size={16} /> Quay lại danh sách Ticket
+                    </Link>
 
-                    {/* TIÊU ĐỀ TICKET */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm text-slate-500 font-medium">Trạng thái:</span>
+                        <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold border ${statusBg} ${statusColor} ${statusBorder}`}>
+                            {statusLabel}
+                        </span>
+                    </div>
+                </div>
+
+                {/* TICKET HEADER OVERVIEW */}
+                <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{ticket?.ticketCode}</span>
-                            <h1 className="text-2xl font-bold text-slate-900 mt-1">{ticket?.subject}</h1>
-                            <p className="text-sm text-slate-600 mt-1">
-                                Khách hàng: <strong>{ticket?.customerName || 'N/A'}</strong> ({ticket?.customerEmail || 'N/A'})
-                            </p>
+                            <span className="font-mono text-xs sm:text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">
+                                {ticket?.ticketCode || `#${ticket?.id}`}
+                            </span>
+                            <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-2.5">
+                                {ticket?.subject}
+                            </h1>
                         </div>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 font-bold rounded-full text-xs">
-              {ticket?.status}
-            </span>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                            {ticket?.priority && (
+                                <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold border ${priorityBg} ${priorityColor} ${priorityBorder}`}>
+                                    Ưu tiên: {priorityLabel}
+                                </span>
+                            )}
+                            {ticket?.category && (
+                                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                    {formatCategory(ticket.category)}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-6 text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
+                            <User size={16} className="text-slate-400" />
+                            <span>Khách hàng: <strong className="text-slate-800">{ticket?.customerName || 'Khách vãng lai'}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Mail size={16} className="text-slate-400" />
+                            <span>{ticket?.customerEmail || 'Chưa có email'}</span>
+                        </div>
+                        {ticket?.customerPhone && (
+                            <div className="flex items-center gap-2">
+                                <Phone size={16} className="text-slate-400" />
+                                <span>{ticket.customerPhone}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-                        {/* CỘT TRÁI: NỘI DUNG YÊU CẦU BAN ĐẦU + DANH SÁCH LOGS TỪ API RIÊNG */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                {/* 2-COLUMN WORKBENCH */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* LEFT COLUMN: REQUEST & TIMELINE */}
+                    <div className="space-y-6">
+                        {/* INITIAL DESCRIPTION */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <FileText size={16} />
+                                <span>Nội dung yêu cầu ban đầu</span>
+                            </h3>
+                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 text-sm text-slate-800 leading-relaxed whitespace-pre-line font-medium">
+                                {ticket?.description || ticket?.subject}
+                            </div>
+                        </div>
+
+                        {/* ACTIVITY LOGS */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                    <Clock size={16} />
+                                    <span>Lịch sử Log & Phản hồi</span>
+                                </h3>
+                                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                    {logs.length} bản ghi
+                                </span>
+                            </div>
+
+                            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                                {logs.length === 0 ? (
+                                    <p className="text-xs text-slate-400 italic py-4 text-center">Chưa có lịch sử ghi nhận.</p>
+                                ) : (
+                                    logs.map((log: any) => {
+                                        const isCustomer = log.performedBy === 'CUSTOMER';
+                                        const isAgent = log.performedBy === 'AGENT';
+
+                                        return (
+                                            <div
+                                                key={log.id}
+                                                className={`p-3.5 rounded-xl border space-y-1.5 ${
+                                                    isCustomer
+                                                        ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+                                                        : isAgent
+                                                        ? 'bg-indigo-50/70 border-indigo-200 text-indigo-900'
+                                                        : 'bg-slate-50 border-slate-200 text-slate-700'
+                                                }`}
+                                            >
+                                                <div className="flex justify-between items-center text-xs font-bold">
+                                                    <span className="flex items-center gap-1.5">
+                                                        {isCustomer ? '👤 Khách hàng' : isAgent ? '👨‍💼 Nhân viên' : '🤖 Hệ thống AI (n8n)'}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400 font-normal">
+                                                        {formatDateTime(log.createdAt)}
+                                                    </span>
+                                                </div>
+
+                                                <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
+                                                    {log.note || 'Không có ghi chú thêm.'}
+                                                </p>
+
+                                                <div className="text-xs text-slate-400 pt-0.5">
+                                                    Hành động: <strong className="text-slate-600 font-semibold">{formatLogAction(log.action)}</strong>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT COLUMN: RESOLUTION COMPOSER */}
+                    <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 h-fit">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                             <div>
-                                <h3 className="font-bold text-slate-800 text-sm border-b pb-2">Yêu cầu ban đầu</h3>
-                                <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-3">
-                                    {ticket?.description || ticket?.subject}
+                                <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                                    Biên Soạn Phương Án Giải Quyết
+                                </h3>
+                                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                                    Kết quả này sẽ lưu vào CSDL và kích hoạt n8n Luồng 3 gửi email thông báo khách hàng.
                                 </p>
                             </div>
 
-                            {/* LỊCH SỬ TRAO ĐỔI & LOGS */}
-                            <div className="space-y-3">
-                                <h3 className="font-bold text-slate-800 text-sm border-b pb-2 flex justify-between items-center">
-                                    <span>Nhật ký xử lý & Feedback</span>
-                                    <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-normal">
-                    {logs.length} bản ghi
-                  </span>
-                                </h3>
-
-                                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
-                                    {logs.length === 0 ? (
-                                        <p className="text-xs text-slate-400 italic">Chưa có lịch sử log nào.</p>
-                                    ) : (
-                                        logs.map((log: any) => {
-                                            const isCustomer = log.performedBy === 'CUSTOMER';
-                                            const isAgent = log.performedBy === 'AGENT';
-
-                                            return (
-                                                <div
-                                                    key={log.id}
-                                                    className={`p-3 rounded-xl border text-xs space-y-1 ${
-                                                        isCustomer
-                                                            ? 'bg-amber-50/60 border-amber-200 text-amber-900'
-                                                            : isAgent
-                                                                ? 'bg-indigo-50/60 border-indigo-200 text-indigo-900'
-                                                                : 'bg-slate-50 border-slate-200 text-slate-700'
-                                                    }`}
-                                                >
-                                                    <div className="flex justify-between items-center font-bold">
-                            <span className="flex items-center gap-1">
-                              {isCustomer && '👤 Khách hàng'}
-                                {isAgent && '👨‍💼 Nhân viên'}
-                                {!isCustomer && !isAgent && '🤖 Hệ thống / AI'}
-                            </span>
-                                                        <span className="text-[10px] text-slate-400 font-normal">
-                              {formatDateTime(log.createdAt)}
-                            </span>
-                                                    </div>
-
-                                                    <p className="whitespace-pre-wrap leading-relaxed text-[12px]">
-                                                        {log.note}
-                                                    </p>
-
-                                                    <div className="text-[10px] text-slate-400 pt-1 font-mono">
-                                                        Action: {log.action}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* CỘT PHẢI: FORM NHẬP KẾT QUẢ CỦA NHÂN VIÊN */}
-                        <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 h-fit">
-                            <h3 className="font-bold text-slate-900 text-sm border-b pb-2">Nhập kết quả xử lý của Nhân viên</h3>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-600 mb-2">
-                                    Nội dung phản hồi (Hệ thống sẽ ghi log và n8n AI sẽ gửi mail cho khách):
-                                </label>
-                                <textarea
-                                    rows={6}
-                                    placeholder="VD: Tôi sẽ hoàn tiền cho bạn trong vòng 24h..."
-                                    value={resolutionText}
-                                    onChange={(e) => setResolutionText(e.target.value)}
-                                    className="w-full p-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-
                             <button
-                                onClick={handleSaveAndTriggerN8n}
-                                disabled={submitting}
-                                className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition shadow-md disabled:bg-slate-300"
+                                type="button"
+                                onClick={handleGenerateAiDraft}
+                                disabled={generatingDraft}
+                                className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
-                                {submitting ? 'Đang lưu CSDL & Kích hoạt Luồng 3...' : '💾 Lưu Kết Quả & Kích Hoạt n8n Gửi Mail AI'}
+                                <Sparkles size={15} className="text-indigo-600" />
+                                <span>{generatingDraft ? 'AI đang soạn...' : '✨ AI Soạn bản nháp'}</span>
                             </button>
                         </div>
 
+                        <div className="space-y-2">
+                            <label className="block text-xs sm:text-sm font-bold text-slate-700">
+                                Nội dung phản hồi chính thức cho khách hàng:
+                            </label>
+                            <textarea
+                                rows={8}
+                                placeholder="Nhập chi tiết giải pháp xử lý hoặc hướng dẫn khắc phục cho khách hàng..."
+                                value={resolutionText}
+                                onChange={(e) => setResolutionText(e.target.value)}
+                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition resize-y leading-relaxed font-sans"
+                            />
+                        </div>
+
+                        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <span className="text-xs sm:text-sm text-slate-500">
+                                Chuyên viên xử lý: <strong className="text-slate-800 font-bold">{agentName}</strong>
+                            </span>
+
+                            <button
+                                onClick={handleSaveAndTriggerN8n}
+                                disabled={submitting || !resolutionText.trim()}
+                                className="w-full sm:w-auto px-7 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95"
+                            >
+                                <Save size={16} />
+                                <span>{submitting ? 'Đang lưu & kích hoạt n8n...' : 'Lưu Kết Quả & Kích Hoạt n8n Gửi Mail'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
