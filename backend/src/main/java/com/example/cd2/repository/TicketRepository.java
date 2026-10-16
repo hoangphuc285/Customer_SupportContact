@@ -31,18 +31,24 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     // Lọc theo khách hàng
     List<Ticket> findByCustomerId(Long customerId);
     List<Ticket> findByCustomerIdOrderByIdDesc(Long customerId);
-    List<Ticket> findByCustomerIdInOrderByIdDesc(List<Long> customerIds);
     List<Ticket> findByTicketCodeInOrderByIdDesc(List<String> ticketCodes);
 
-    // Lọc theo Customer ID hoặc Email (case-insensitive) sắp xếp mới nhất lên đầu
+    // Lọc toàn bộ ticket theo Email khách hàng (sắp xếp ID giảm dần - mới nhất lên trên)
+    @Query("SELECT t FROM Ticket t WHERE t.customerId IN (" +
+            "  SELECT c.id FROM Customer c WHERE LOWER(TRIM(c.email)) = LOWER(TRIM(:email))" +
+            ") ORDER BY t.id DESC")
+    List<Ticket> findTicketsByEmail(@Param("email") String email);
+
+    // Lọc toàn bộ ticket theo Email hoặc Customer ID (sắp xếp ID giảm dần - mới nhất lên trên)
     @Query("SELECT t FROM Ticket t WHERE " +
-            "(:customerId IS NOT NULL AND t.customerId = :customerId) OR " +
             "(:email IS NOT NULL AND :email <> '' AND t.customerId IN (" +
             "  SELECT c.id FROM Customer c WHERE LOWER(TRIM(c.email)) = LOWER(TRIM(:email))" +
-            ")) ORDER BY t.id DESC")
-    List<Ticket> findTicketsByCustomerOrEmail(
-            @Param("customerId") Long customerId,
-            @Param("email") String email
+            ")) OR " +
+            "(:customerId IS NOT NULL AND t.customerId = :customerId) " +
+            "ORDER BY t.id DESC")
+    List<Ticket> findTicketsByEmailOrCustomerId(
+            @Param("email") String email,
+            @Param("customerId") Long customerId
     );
 
     // Lọc linh hoạt theo agentId, status, priority (sắp xếp t.id DESC mới nhất lên trên)

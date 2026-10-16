@@ -178,7 +178,7 @@ public class AgentTicketController {
                         "Ghi chú xử lý từ nhân viên: \"%s\".\n\n" +
                         "Chúng tôi xin phản hồi như sau:\n" +
                         "Yêu cầu của bạn đã được cập nhật và xử lý thành công theo đúng chính sách của hệ thống.\n\n" +
-                        "Trân trọng,\nĐội ngũ CSKH VKU Support Center.",
+                        "Trân trọng,\nĐội ngũ CSKH Support Center.",
                 ticket.getSubject(),
                 ticket.getTicketCode(),
                 rawAgentNote

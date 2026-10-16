@@ -46,6 +46,7 @@ export default function SupportHeader() {
             localStorage.removeItem('user_account');
             localStorage.removeItem('user_info');
             sessionStorage.removeItem('support_chat_id');
+            localStorage.removeItem('customer_ticket_history');
             setUser(null);
             router.push('/support/login');
             router.refresh();
@@ -64,7 +65,7 @@ export default function SupportHeader() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
                 {/* BRAND LOGO */}
                 <Link href="/support" className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-600 flex items-center justify-center text-white font-black text-sm tracking-wider shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-all">
                         <Headphones size={20} />
                     </div>
                     <div>
@@ -77,7 +78,7 @@ export default function SupportHeader() {
                                 Online
                             </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 hidden sm:block">Cổng Hỗ trợ Khách hàng Trực tuyến</p>
+                        <p className="text-[11px] text-slate-500 hidden sm:block">Trung tâm Hỗ trợ Khách hàng 24/7</p>
                     </div>
                 </Link>
 

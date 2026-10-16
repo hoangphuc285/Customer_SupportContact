@@ -188,7 +188,7 @@ export default function SupportHomePage() {
                         </div>
                     </Link>
 
-                    {/* CARD 3: LỊCH SỬ & TRA CỨU TIẾN ĐỘ TICKET */}
+                    {/* CARD 3: LỊCH SỬ & TIẾN ĐỘ TICKET */}
                     <Link
                         href="/support/tickets"
                         className="group bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between"
@@ -206,7 +206,7 @@ export default function SupportHomePage() {
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 leading-relaxed">
-                                Xem danh sách toàn bộ ticket bạn đã tạo, theo dõi tiến độ xử lý và phản hồi chuyên viên.
+                                Xem danh sách toàn bộ ticket bạn đã gửi, theo dõi tiến độ xử lý và phản hồi chất lượng giải pháp.
                             </p>
                         </div>
                         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-amber-600 group-hover:translate-x-1 transition-transform">

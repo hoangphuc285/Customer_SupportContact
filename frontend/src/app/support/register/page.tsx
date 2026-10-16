@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SupportHeader from '@/components/SupportHeader';
-import { User, Mail, Phone, Lock, ArrowRight, AlertCircle, Sparkles, Headphones } from 'lucide-react';
+import { User, Mail, Phone, Lock, ArrowRight, AlertCircle, Sparkles, UserPlus } from 'lucide-react';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -50,6 +50,7 @@ export default function RegisterPage() {
             if (res.ok && data.success) {
                 localStorage.setItem('user_account', JSON.stringify(data.account));
                 localStorage.setItem('user_info', JSON.stringify(data.account));
+                localStorage.removeItem('customer_ticket_history');
                 router.push('/support/chat');
             } else {
                 setError(data.message || 'Đăng ký không thành công!');
@@ -71,8 +72,8 @@ export default function RegisterPage() {
 
                 <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/90 p-8 sm:p-10 space-y-6 relative z-10">
                     <div className="text-center space-y-2">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25">
-                            <Headphones size={24} />
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25">
+                            <UserPlus size={24} />
                         </div>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                             Tạo Tài Khoản Khách Hàng

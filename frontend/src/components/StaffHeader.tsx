@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Headphones } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export default function StaffHeader() {
     const router = useRouter();
@@ -56,8 +56,8 @@ export default function StaffHeader() {
                 {/* LOGO NỘI BỘ */}
                 <div className="flex items-center gap-6">
                     <Link href="/staff/dashboard" className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                            <Headphones size={18} />
+                        <div className="w-9 h-9 bg-indigo-600 text-white font-black rounded-xl flex items-center justify-center text-xs shadow-lg shadow-indigo-500/20">
+                            <ShieldCheck size={20} />
                         </div>
                         <div>
                             <h1 className="font-bold text-white text-xs tracking-wide">STAFF PORTAL</h1>

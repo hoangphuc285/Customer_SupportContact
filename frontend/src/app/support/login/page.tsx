@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SupportHeader from '@/components/SupportHeader';
-import { Lock, Mail, ArrowRight, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck, Headphones } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -33,6 +33,7 @@ export default function LoginPage() {
 
                 localStorage.setItem('user_account', JSON.stringify(userAccount));
                 localStorage.setItem('user_info', JSON.stringify(userAccount));
+                localStorage.removeItem('customer_ticket_history');
 
                 if (userAccount.role === 'STAFF') {
                     router.push('/staff/dashboard');
@@ -50,7 +51,7 @@ export default function LoginPage() {
     };
 
     const fillSampleStaff = () => {
-        setEmail('staff1@vku.edu.vn');
+        setEmail('staff1@support.com');
         setPassword('123456');
     };
 
@@ -65,8 +66,8 @@ export default function LoginPage() {
 
                 <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/90 p-8 sm:p-10 space-y-6 relative z-10">
                     <div className="text-center space-y-2">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25">
-                            <Headphones size={24} />
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25">
+                            <ShieldCheck size={24} />
                         </div>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                             Đăng Nhập Tài Khoản

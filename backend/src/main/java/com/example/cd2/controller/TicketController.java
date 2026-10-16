@@ -66,12 +66,12 @@ public class TicketController {
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) String email) {
         String cleanEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
-        if (customerId == null && cleanEmail == null) {
-            return ResponseEntity.ok(Collections.emptyList());
+        if (cleanEmail != null) {
+            return ResponseEntity.ok(ticketRepository.findTicketsByEmail(cleanEmail));
+        } else if (customerId != null) {
+            return ResponseEntity.ok(ticketRepository.findByCustomerIdOrderByIdDesc(customerId));
         }
-
-        List<Ticket> tickets = ticketRepository.findTicketsByCustomerOrEmail(customerId, cleanEmail);
-        return ResponseEntity.ok(tickets);
+        return ResponseEntity.ok(Collections.emptyList());
     }
 
     /**
@@ -294,14 +294,11 @@ public class TicketController {
                                     parsedDue = OffsetDateTime.parse(slaStr).atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
                                 } else {
                                     parsedDue = LocalDateTime.parse(slaStr);
-                                    // Nếu n8n gửi giờ theo UTC mà Spring Boot chạy UTC+7:
-                                    // Nếu parsedDue nhỏ hơn createdAtBase (hoặc now), đây chính là giờ UTC bị lệch
                                     if (parsedDue.isBefore(createdAtBase)) {
                                         parsedDue = parsedDue.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
                                     }
                                 }
 
-                                // Nếu sau khi parse vẫn bị nhỏ hơn createdAtBase (hoặc quá khứ vô lý), tính lại theo priority
                                 if (parsedDue.isBefore(createdAtBase)) {
                                     parsedDue = createdAtBase.plusHours(defaultSlaHours);
                                 }
@@ -351,7 +348,23 @@ public class TicketController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+    
+// [LUỒNG MỚI]: API quét các ticket đang xử lý (ASSIGNED) nhưng sắp hoặc quá hạn SLA
+    @GetMapping("/sla-check")
+    public ResponseEntity<List<Ticket>> checkSlaTickets() {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Lấy các ticket có trạng thái là ASSIGNED
+        List<Ticket> activeTickets = ticketRepository.findByStatus("ASSIGNED");
+        
+        List<Ticket> warningOrOverdueTickets = activeTickets.stream().filter(ticket -> {
+            if (ticket.getSlaDueAt() == null) return false;
+            // Lọc các ticket đã quá hạn hoặc còn dưới 15 phút nữa là hết hạn
+            return ticket.getSlaDueAt().isBefore(now.plusMinutes(15));
+        }).collect(Collectors.toList());
 
+        return ResponseEntity.ok(warningOrOverdueTickets);
+    }
     // [LUỒNG 3]: API gộp cập nhật kết quả đánh giá và ĐÓNG Ticket
     @PatchMapping("/{id}/close")
     public ResponseEntity<?> closeTicketWithFeedback(

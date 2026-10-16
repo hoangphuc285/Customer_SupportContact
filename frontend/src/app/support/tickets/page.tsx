@@ -22,12 +22,16 @@ import {
     Inbox,
     Tag,
     ChevronRight,
+    Smartphone,
+    Mail,
+    SlidersHorizontal,
     ExternalLink,
-    Smartphone
+    HelpCircle
 } from 'lucide-react';
 import { 
     STATUS_MAP, 
     PRIORITY_MAP, 
+    CATEGORY_MAP,
     formatStatus, 
     formatPriority, 
     formatCategory 
@@ -52,23 +56,28 @@ function TicketsLookupContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // Tra cứu mã thủ công
+    // 1. Tra cứu trực tiếp theo mã ticket
     const [ticketInput, setTicketInput] = useState('');
 
-    // Người dùng hiện tại
+    // 2. Thông tin người dùng đăng nhập
     const [currentUser, setCurrentUser] = useState<any>(null);
 
-    // Lịch sử tickets của khách hàng
+    // 3. Khách vãng lai: Tìm theo email thủ công
+    const [guestEmailInput, setGuestEmailInput] = useState('');
+    const [guestActiveEmail, setGuestActiveEmail] = useState<string | null>(null);
+
+    // 4. Danh sách dữ liệu tickets
     const [tickets, setTickets] = useState<TicketItem[]>([]);
     const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
     const [historyError, setHistoryError] = useState<string | null>(null);
 
-    // Bộ lọc và tìm kiếm trong danh sách lịch sử
+    // 5. Bộ lọc & tìm kiếm trong danh sách
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [historySearchQuery, setHistorySearchQuery] = useState<string>('');
+    const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST'>('NEWEST');
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-    // Kiểm tra query parameter ?id=... để chuyển tiếp nhanh
+    // Tự động chuyển hướng nếu URL có ?id=...
     useEffect(() => {
         const queryId = searchParams.get('id');
         if (queryId && queryId.trim()) {
@@ -77,13 +86,14 @@ function TicketsLookupContent() {
         }
     }, [searchParams, router]);
 
-    // Đọc thông tin người dùng từ localStorage
+    // Kiểm tra tài khoản trong localStorage
     useEffect(() => {
         const checkAuth = () => {
             const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
             if (savedAccount) {
                 try {
-                    setCurrentUser(JSON.parse(savedAccount));
+                    const parsed = JSON.parse(savedAccount);
+                    setCurrentUser(parsed);
                 } catch {
                     setCurrentUser(null);
                 }
@@ -97,7 +107,7 @@ function TicketsLookupContent() {
         return () => window.removeEventListener('storage', checkAuth);
     }, []);
 
-    // Tải danh sách ticket của khách hàng (kết hợp cả tài khoản & các mã đã tạo trên trình duyệt)
+    // Tải lịch sử ticket: kết hợp tài khoản, email khách vãng lai, và mã đã lưu ở trình duyệt
     const fetchCustomerTickets = useCallback(async () => {
         try {
             setLoadingHistory(true);
@@ -105,62 +115,73 @@ function TicketsLookupContent() {
 
             const ticketMap = new Map<number, TicketItem>();
 
-            // 1. Tải theo tài khoản đăng nhập (nếu có)
-            if (currentUser) {
-                const customerIdParam = currentUser.id ? `customerId=${currentUser.id}` : '';
-                const emailParam = currentUser.email ? `email=${encodeURIComponent(currentUser.email)}` : '';
-                const queryParams = [customerIdParam, emailParam].filter(Boolean).join('&');
-
-                if (queryParams) {
-                    try {
-                        const res = await fetch(`http://localhost:8080/api/tickets/by-customer?${queryParams}`);
-                        if (res.ok) {
-                            const data: TicketItem[] = await res.json();
-                            if (Array.isArray(data)) {
-                                data.forEach(t => ticketMap.set(t.id, t));
-                            }
+            // A. Nếu đã đăng nhập: lấy theo email người dùng
+            if (currentUser && currentUser.email) {
+                try {
+                    const res = await fetch(`http://localhost:8080/api/tickets/by-customer?email=${encodeURIComponent(currentUser.email.trim())}`);
+                    if (res.ok) {
+                        const data: TicketItem[] = await res.json();
+                        if (Array.isArray(data)) {
+                            data.forEach(t => ticketMap.set(t.id, t));
                         }
-                    } catch (e) {
-                        console.error('Lỗi tải ticket theo tài khoản:', e);
                     }
+                } catch (e) {
+                    console.error('Lỗi tải ticket theo tài khoản:', e);
                 }
             }
 
-            // 2. Tải thêm từ các mã ticket lưu trên thiết bị / trình duyệt này
-            try {
-                const rawCodes = localStorage.getItem('customer_ticket_history');
-                if (rawCodes) {
-                    const localCodes: string[] = JSON.parse(rawCodes);
-                    if (Array.isArray(localCodes) && localCodes.length > 0) {
-                        const resCodes = await fetch(`http://localhost:8080/api/tickets/by-codes?codes=${encodeURIComponent(localCodes.join(','))}`);
-                        if (resCodes.ok) {
-                            const dataCodes: TicketItem[] = await resCodes.json();
-                            if (Array.isArray(dataCodes)) {
-                                dataCodes.forEach(t => ticketMap.set(t.id, t));
+            // B. Nếu khách vãng lai tra cứu bằng Email cụ thể
+            if (!currentUser && guestActiveEmail) {
+                try {
+                    const res = await fetch(`http://localhost:8080/api/tickets/by-customer?email=${encodeURIComponent(guestActiveEmail.trim())}`);
+                    if (res.ok) {
+                        const data: TicketItem[] = await res.json();
+                        if (Array.isArray(data)) {
+                            data.forEach(t => ticketMap.set(t.id, t));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Lỗi tải ticket theo email khách:', e);
+                }
+            }
+
+            // C. Chỉ khi là Khách vãng lai (CHƯA ĐĂNG NHẬP), mới lấy ticket từ mã cục bộ trên thiết bị
+            if (!currentUser) {
+                try {
+                    const rawCodes = localStorage.getItem('customer_ticket_history');
+                    if (rawCodes) {
+                        const localCodes: string[] = JSON.parse(rawCodes);
+                        if (Array.isArray(localCodes) && localCodes.length > 0) {
+                            const resCodes = await fetch(`http://localhost:8080/api/tickets/by-codes?codes=${encodeURIComponent(localCodes.join(','))}`);
+                            if (resCodes.ok) {
+                                const dataCodes: TicketItem[] = await resCodes.json();
+                                if (Array.isArray(dataCodes)) {
+                                    dataCodes.forEach(t => ticketMap.set(t.id, t));
+                                }
                             }
                         }
                     }
+                } catch (e) {
+                    console.error('Lỗi tải ticket theo mã cục bộ:', e);
                 }
-            } catch (e) {
-                console.error('Lỗi tải ticket theo mã cục bộ:', e);
             }
 
-            const sorted = Array.from(ticketMap.values()).sort((a, b) => b.id - a.id);
-            setTickets(sorted);
+            const list = Array.from(ticketMap.values()).sort((a, b) => b.id - a.id);
+            setTickets(list);
         } catch (err: any) {
             console.error('Lỗi khi tải lịch sử ticket:', err);
             setHistoryError('Không thể kết nối đến máy chủ để tải lịch sử ticket.');
         } finally {
             setLoadingHistory(false);
         }
-    }, [currentUser]);
+    }, [currentUser, guestActiveEmail]);
 
     useEffect(() => {
         fetchCustomerTickets();
     }, [fetchCustomerTickets]);
 
     // Xử lý tìm kiếm mã trực tiếp
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearchCode = (e: React.FormEvent) => {
         e.preventDefault();
         const clean = ticketInput.trim().replace(/^#/, '');
         if (clean) {
@@ -168,14 +189,23 @@ function TicketsLookupContent() {
         }
     };
 
-    // Copy mã ticket vào clipboard
+    // Khách vãng lai gửi email để tìm ticket
+    const handleGuestEmailSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const email = guestEmailInput.trim();
+        if (email) {
+            setGuestActiveEmail(email);
+        }
+    };
+
+    // Copy mã ticket
     const handleCopy = (code: string) => {
         navigator.clipboard.writeText(code);
         setCopiedCode(code);
         setTimeout(() => setCopiedCode(null), 2000);
     };
 
-    // Thống kê nhanh
+    // Thống kê nhanh KPI
     const stats = useMemo(() => {
         const total = tickets.length;
         const processing = tickets.filter(t => 
@@ -186,9 +216,9 @@ function TicketsLookupContent() {
         return { total, processing, resolved, closed };
     }, [tickets]);
 
-    // Lọc tickets theo trạng thái và từ khóa tìm kiếm
+    // Lọc và sắp xếp tickets
     const filteredTickets = useMemo(() => {
-        return tickets.filter(ticket => {
+        let result = tickets.filter(ticket => {
             // Lọc trạng thái
             if (statusFilter === 'PROCESSING') {
                 if (!['NEW', 'ASSIGNED', 'IN_PROGRESS', 'REOPENED'].includes((ticket.status || '').toUpperCase())) {
@@ -200,27 +230,37 @@ function TicketsLookupContent() {
                 if ((ticket.status || '').toUpperCase() !== 'CLOSED') return false;
             }
 
-            // Tìm kiếm theo từ khóa (Mã hoặc tiêu đề)
+            // Tìm kiếm theo từ khóa
             if (historySearchQuery.trim()) {
                 const q = historySearchQuery.toLowerCase().trim();
                 const matchCode = (ticket.ticketCode || '').toLowerCase().includes(q);
                 const matchSubject = (ticket.subject || '').toLowerCase().includes(q);
-                const matchCategory = (ticket.category || '').toLowerCase().includes(q);
-                if (!matchCode && !matchSubject && !matchCategory) return false;
+                const matchCat = (ticket.category || '').toLowerCase().includes(q);
+                const matchCatVi = formatCategory(ticket.category).toLowerCase().includes(q);
+                if (!matchCode && !matchSubject && !matchCat && !matchCatVi) return false;
             }
 
             return true;
         });
-    }, [tickets, statusFilter, historySearchQuery]);
 
-    const hasTicketsOrUser = currentUser || tickets.length > 0;
+        // Sắp xếp
+        if (sortBy === 'OLDEST') {
+            result = [...result].sort((a, b) => a.id - b.id);
+        } else {
+            result = [...result].sort((a, b) => b.id - a.id);
+        }
+
+        return result;
+    }, [tickets, statusFilter, historySearchQuery, sortBy]);
+
+    const hasTicketsOrUser = currentUser || guestActiveEmail || tickets.length > 0;
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
             <SupportHeader />
 
             <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-                {/* THANH ĐIỀU HƯỚNG QUAY LẠI */}
+                {/* THANH ĐIỀU HƯỚNG QUAY LẠI & NÚT TẠO MỚI */}
                 <div className="flex items-center justify-between">
                     <Link 
                         href="/support" 
@@ -238,7 +278,7 @@ function TicketsLookupContent() {
                     </Link>
                 </div>
 
-                {/* KHU VỰC TRA CỨU NHANH BẰNG MÃ */}
+                {/* KHU VỰC TRA CỨU NHANH BẰNG MÃ TICKET */}
                 <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                         <div>
@@ -247,10 +287,10 @@ function TicketsLookupContent() {
                                 <span>Tra cứu nhanh mã Ticket</span>
                             </div>
                             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                                Tra Cứu Trạng Thái & Lịch Sử Xử Lý
+                                Lịch Sử & Theo Dõi Tiến Độ Ticket
                             </h1>
                             <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-                                Nhập mã định danh ticket bạn đã nhận được sau khi gửi yêu cầu hỗ trợ.
+                                Nhập mã định danh ticket bạn đã nhận để xem chi tiết hoặc theo dõi danh sách lịch sử bên dưới.
                             </p>
                         </div>
 
@@ -259,7 +299,7 @@ function TicketsLookupContent() {
                         </div>
                     </div>
 
-                    <form onSubmit={handleSearch} className="space-y-3">
+                    <form onSubmit={handleSearchCode} className="space-y-3">
                         <div className="flex flex-col sm:flex-row gap-3">
                             <div className="relative flex-1">
                                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -267,8 +307,8 @@ function TicketsLookupContent() {
                                     type="text"
                                     value={ticketInput}
                                     onChange={(e) => setTicketInput(e.target.value)}
-                                    placeholder="Nhập mã Ticket (Ví dụ: TK-5F9A28D1 hoặc ID)..."
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    placeholder="Nhập mã Ticket cần tra cứu (Ví dụ: TK-F9EC552B hoặc ID)..."
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition font-mono"
                                     required
                                 />
                             </div>
@@ -281,23 +321,97 @@ function TicketsLookupContent() {
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                            <span>Mã mẫu thử nghiệm:</span>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                            <span>Mã mẫu có sẵn trong hệ thống:</span>
                             <button
                                 type="button"
-                                onClick={() => setTicketInput('TK-5F9A28D1')}
+                                onClick={() => setTicketInput('TK-F9EC552B')}
                                 className="font-mono font-bold text-indigo-600 hover:underline cursor-pointer"
                             >
-                                TK-5F9A28D1
+                                TK-F9EC552B
+                            </button>
+                            <span>·</span>
+                            <button
+                                type="button"
+                                onClick={() => setTicketInput('TK-23F86851')}
+                                className="font-mono font-bold text-indigo-600 hover:underline cursor-pointer"
+                            >
+                                TK-23F86851
                             </button>
                         </div>
                     </form>
                 </div>
 
-                {/* KHU VỰC LỊCH SỬ TICKET */}
+                {/* KHU VỰC THÔNG TIN NGƯỜI DÙNG & TÙY CHỌN TRA CỨU THEO EMAIL (CHO KHÁCH VÃNG LAI) */}
+                {!currentUser && (
+                    <div className="bg-gradient-to-r from-indigo-50 via-violet-50 to-slate-50 rounded-3xl border border-indigo-100 p-6 sm:p-7 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-indigo-700 border border-indigo-200">
+                                    <Mail size={12} />
+                                    <span>Tra cứu lịch sử theo Email</span>
+                                </div>
+                                <h3 className="text-base font-bold text-slate-900">
+                                    Bạn chưa đăng nhập? Tra cứu tất cả ticket đã gửi qua Email
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Nhập địa chỉ email bạn đã sử dụng khi gửi ticket để xem lại toàn bộ các yêu cầu của bạn.
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Link
+                                    href="/support/login"
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                                >
+                                    <LogIn size={14} />
+                                    <span>Đăng nhập</span>
+                                </Link>
+                                <Link
+                                    href="/support/register"
+                                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition"
+                                >
+                                    <span>Đăng ký</span>
+                                </Link>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleGuestEmailSearch} className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                            <div className="relative flex-1">
+                                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="email"
+                                    value={guestEmailInput}
+                                    onChange={(e) => setGuestEmailInput(e.target.value)}
+                                    placeholder="Nhập email của bạn (Ví dụ: phuc@gmail.com)..."
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    required
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                            >
+                                <span>Lấy danh sách ticket</span>
+                                <ArrowRight size={14} />
+                            </button>
+                            {guestActiveEmail && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setGuestActiveEmail(null); setGuestEmailInput(''); }}
+                                    className="px-3.5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition"
+                                >
+                                    Hủy lọc email
+                                </button>
+                            )}
+                        </form>
+                    </div>
+                )}
+
+                {/* KHU VỰC BẢNG LỊCH SỬ TICKET */}
                 {hasTicketsOrUser ? (
                     <div className="space-y-6">
-                        {/* THÔNG TIN TÀI KHOẢN VÀ THỐNG KÊ */}
+                        {/* THÔNG TIN TÀI KHOẢN VÀ THỐNG KÊ KPI */}
                         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                                 <div className="flex items-center gap-3.5">
@@ -307,23 +421,33 @@ function TicketsLookupContent() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h2 className="text-lg sm:text-xl font-black text-slate-900">
-                                                {currentUser ? 'Lịch Sử Ticket Của Bạn' : 'Lịch Sử Ticket Trên Thiết Bị Này'}
+                                                {currentUser 
+                                                    ? 'Lịch Sử Ticket Của Bạn' 
+                                                    : guestActiveEmail 
+                                                    ? `Ticket Của Email: ${guestActiveEmail}` 
+                                                    : 'Lịch Sử Ticket Trên Thiết Bị Này'}
                                             </h2>
                                             {currentUser ? (
                                                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                                                     {currentUser.role === 'CUSTOMER' ? 'Khách hàng' : currentUser.role || 'Thành viên'}
                                                 </span>
+                                            ) : guestActiveEmail ? (
+                                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                                                    Theo Email
+                                                </span>
                                             ) : (
                                                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
-                                                    Khách vãng lai
+                                                    Khách vãng lai (Thiết bị)
                                                 </span>
                                             )}
                                         </div>
                                         <p className="text-xs text-slate-500 mt-0.5">
                                             {currentUser ? (
                                                 <>Tài khoản: <strong className="text-slate-700">{currentUser.name || 'Khách hàng'}</strong> ({currentUser.email || 'Chưa có email'})</>
+                                            ) : guestActiveEmail ? (
+                                                <>Đang hiển thị các ticket gắn với email <strong className="text-slate-700">{guestActiveEmail}</strong></>
                                             ) : (
-                                                <>Đang hiển thị các ticket bạn đã gửi từ trình duyệt này. <Link href="/support/login" className="text-indigo-600 font-bold hover:underline">Đăng nhập</Link> để lưu trữ lâu dài.</>
+                                                <>Đang hiển thị các ticket bạn đã gửi từ trình duyệt này. Nhập email ở trên hoặc <Link href="/support/login" className="text-indigo-600 font-bold hover:underline">Đăng nhập</Link> để lưu trữ lâu dài.</>
                                             )}
                                         </p>
                                     </div>
@@ -336,7 +460,7 @@ function TicketsLookupContent() {
                                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-95 cursor-pointer disabled:opacity-50"
                                         title="Làm mới danh sách"
                                     >
-                                        <RefreshCw size={14} className={loadingHistory ? 'animate-spin' : ''} />
+                                        <RefreshCw size={14} className={loadingHistory ? 'animate-spin text-indigo-600' : ''} />
                                         <span>Làm mới</span>
                                     </button>
                                 </div>
@@ -352,33 +476,33 @@ function TicketsLookupContent() {
                                     <div className="text-2xl font-black text-slate-900">{stats.total}</div>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80">
+                                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/70">
                                     <div className="flex items-center justify-between text-amber-700 mb-1">
-                                        <span className="text-xs font-medium">Đang xử lý</span>
+                                        <span className="text-xs font-bold">Đang Xử Lý</span>
                                         <Clock size={16} className="text-amber-500" />
                                     </div>
                                     <div className="text-2xl font-black text-amber-900">{stats.processing}</div>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80">
+                                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/70">
                                     <div className="flex items-center justify-between text-emerald-700 mb-1">
-                                        <span className="text-xs font-medium">Đã giải quyết</span>
+                                        <span className="text-xs font-bold">Đã Giải Quyết</span>
                                         <CheckCircle2 size={16} className="text-emerald-500" />
                                     </div>
                                     <div className="text-2xl font-black text-emerald-900">{stats.resolved}</div>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-slate-100 border border-slate-300/80">
+                                <div className="p-4 rounded-2xl bg-slate-100/70 border border-slate-300/70">
                                     <div className="flex items-center justify-between text-slate-600 mb-1">
-                                        <span className="text-xs font-medium">Đã đóng</span>
+                                        <span className="text-xs font-bold">Đã Đóng</span>
                                         <TicketCheck size={16} className="text-slate-500" />
                                     </div>
-                                    <div className="text-2xl font-black text-slate-800">{stats.closed}</div>
+                                    <div className="text-2xl font-black text-slate-900">{stats.closed}</div>
                                 </div>
                             </div>
 
-                            {/* BỘ LỌC VÀ TÌM KIẾM DANH SÁCH */}
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                            {/* BỘ LỌC VÀ Ô TÌM KIẾM TRONG DANH SÁCH */}
+                            <div className="pt-2 flex flex-col md:flex-row md:items-center justify-between gap-3 border-t border-slate-100">
                                 <div className="flex flex-wrap items-center gap-1.5">
                                     <button
                                         type="button"
@@ -426,15 +550,26 @@ function TicketsLookupContent() {
                                     </button>
                                 </div>
 
-                                <div className="relative min-w-[240px]">
-                                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        value={historySearchQuery}
-                                        onChange={(e) => setHistorySearchQuery(e.target.value)}
-                                        placeholder="Tìm mã hoặc tiêu đề..."
-                                        className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
-                                    />
+                                <div className="flex items-center gap-2">
+                                    <div className="relative min-w-[200px] flex-1">
+                                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={historySearchQuery}
+                                            onChange={(e) => setHistorySearchQuery(e.target.value)}
+                                            placeholder="Tìm mã hoặc tiêu đề..."
+                                            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                        />
+                                    </div>
+
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e: any) => setSortBy(e.target.value)}
+                                        className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+                                    >
+                                        <option value="NEWEST">Mới nhất trước</option>
+                                        <option value="OLDEST">Cũ nhất trước</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -463,12 +598,12 @@ function TicketsLookupContent() {
                                 </div>
                                 <div className="space-y-1 max-w-sm mx-auto">
                                     <h3 className="text-base font-bold text-slate-900">
-                                        {tickets.length === 0 ? 'Bạn chưa gửi yêu cầu hỗ trợ nào' : 'Không tìm thấy ticket phù hợp'}
+                                        {tickets.length === 0 ? 'Bạn chưa có yêu cầu hỗ trợ nào' : 'Không tìm thấy ticket phù hợp'}
                                     </h3>
                                     <p className="text-xs text-slate-500 leading-relaxed">
                                         {tickets.length === 0 
-                                            ? 'Khi bạn tạo yêu cầu, toàn bộ lịch sử trao đổi và tiến độ xử lý của ticket sẽ hiển thị tại đây.'
-                                            : 'Hãy thử đổi trạng thái lọc hoặc xóa từ khóa tìm kiếm để hiển thị các ticket khác.'}
+                                            ? 'Khi bạn gửi yêu cầu hỗ trợ qua cổng này, danh sách ticket và tiến độ xử lý sẽ xuất hiện đầy đủ ở đây.'
+                                            : 'Hãy thử đổi trạng thái lọc hoặc xóa từ khóa tìm kiếm để xem các ticket khác.'}
                                     </p>
                                 </div>
                                 {tickets.length === 0 ? (
@@ -477,7 +612,7 @@ function TicketsLookupContent() {
                                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition"
                                     >
                                         <FilePlus2 size={15} />
-                                        <span>Gửi yêu cầu hỗ trợ đầu tiên</span>
+                                        <span>Gửi yêu cầu hỗ trợ ngay</span>
                                     </Link>
                                 ) : (
                                     <button
@@ -501,26 +636,29 @@ function TicketsLookupContent() {
 
                                     const priorityInfo = PRIORITY_MAP[(ticket.priority || '').toUpperCase()] || {
                                         label: ticket.priority || 'Bình thường',
-                                        color: 'text-slate-600',
-                                        bg: 'bg-slate-50',
+                                        color: 'text-slate-700',
+                                        bg: 'bg-slate-100',
                                         border: 'border-slate-200',
                                     };
+
+                                    const isResolved = (ticket.status || '').toUpperCase() === 'RESOLVED';
 
                                     return (
                                         <div
                                             key={ticket.id}
-                                            className="group bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all duration-200 p-5 sm:p-6"
+                                            className="group bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-300 p-5 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200"
                                         >
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-                                                <div className="flex flex-wrap items-center gap-2.5">
-                                                    {/* MÃ TICKET VÀ NÚT COPY */}
-                                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200/80 text-xs font-mono font-bold text-slate-800">
-                                                        <span>#{ticket.ticketCode}</span>
+                                            {/* HÀNG TRÊN: MÃ TICKET, BADGES VÀ THỜI GIAN */}
+                                            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    {/* MÃ TICKET */}
+                                                    <div className="flex items-center gap-1.5 font-mono font-bold text-xs sm:text-sm text-slate-900 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                                                        <span>{ticket.ticketCode || `#${ticket.id}`}</span>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleCopy(ticket.ticketCode)}
-                                                            className="text-slate-400 hover:text-indigo-600 transition cursor-pointer"
-                                                            title="Sao chép mã Ticket"
+                                                            className="text-slate-400 hover:text-indigo-600 transition p-0.5"
+                                                            title="Sao chép mã"
                                                         >
                                                             {copiedCode === ticket.ticketCode ? (
                                                                 <Check size={13} className="text-emerald-600" />
@@ -532,7 +670,7 @@ function TicketsLookupContent() {
 
                                                     {/* BADGE TRẠNG THÁI */}
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80"></span>
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80 animate-pulse"></span>
                                                         {statusInfo.label}
                                                     </span>
 
@@ -570,7 +708,7 @@ function TicketsLookupContent() {
                                                     <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
                                                         <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
                                                         <div>
-                                                            <strong className="font-bold">Giải pháp xử lý: </strong>
+                                                            <strong className="font-bold">Giải pháp xử lý từ CSKH: </strong>
                                                             <span>{ticket.resolution}</span>
                                                         </div>
                                                     </div>
@@ -583,13 +721,20 @@ function TicketsLookupContent() {
                                                     {ticket.updatedAt ? `Cập nhật: ${new Date(ticket.updatedAt).toLocaleString('vi-VN')}` : ''}
                                                 </span>
 
-                                                <Link
-                                                    href={`/support/tickets/${encodeURIComponent(ticket.ticketCode)}`}
-                                                    className="inline-flex items-center gap-1.5 font-bold text-indigo-600 hover:text-indigo-800 transition group-hover:translate-x-0.5"
-                                                >
-                                                    <span>Xem chi tiết & tiến độ</span>
-                                                    <ChevronRight size={15} />
-                                                </Link>
+                                                <div className="flex items-center gap-3">
+                                                    {isResolved && (
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                                            <Sparkles size={12} /> Cần bạn đánh giá
+                                                        </span>
+                                                    )}
+                                                    <Link
+                                                        href={`/support/tickets/${encodeURIComponent(ticket.ticketCode || ticket.id)}`}
+                                                        className="inline-flex items-center gap-1.5 font-bold text-indigo-600 hover:text-indigo-800 transition group-hover:translate-x-0.5"
+                                                    >
+                                                        <span>Xem chi tiết & tiến độ</span>
+                                                        <ChevronRight size={15} />
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -598,7 +743,7 @@ function TicketsLookupContent() {
                         )}
                     </div>
                 ) : (
-                    /* BANNER KÊU GỌI ĐĂNG NHẬP NẾU CHƯA ĐĂNG NHẬP */
+                    /* BANNER KÊU GỌI ĐĂNG NHẬP HOẶC TẠO YÊU CẦU NẾU CHƯA CÓ GÌ */
                     <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-3xl p-8 sm:p-10 text-white shadow-xl relative overflow-hidden">
                         <div className="absolute right-0 top-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
                         
@@ -613,7 +758,7 @@ function TicketsLookupContent() {
                             </h2>
 
                             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-                                Đăng nhập tài khoản để tự động xem danh sách tất cả các ticket bạn đã gửi, nhận thông báo tiến độ xử lý và phản hồi chất lượng giải pháp trực tiếp.
+                                Đăng nhập tài khoản để tự động đồng bộ tất cả các ticket bạn đã gửi, nhận thông báo tiến độ xử lý và phản hồi chất lượng giải pháp trực tiếp.
                             </p>
 
                             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -631,6 +776,14 @@ function TicketsLookupContent() {
                                 >
                                     <User size={15} />
                                     <span>Đăng ký tài khoản</span>
+                                </Link>
+
+                                <Link
+                                    href="/support/new"
+                                    className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-bold rounded-xl border border-slate-700 transition flex items-center gap-2"
+                                >
+                                    <FilePlus2 size={15} />
+                                    <span>Gửi yêu cầu mới</span>
                                 </Link>
                             </div>
                         </div>
