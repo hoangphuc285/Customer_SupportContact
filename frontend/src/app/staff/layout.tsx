@@ -19,12 +19,12 @@ import {
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const [agentName, setAgentName] = useState('Chuyên viên CSKH');
+    const [agentName, setAgentName] = useState('Chuyên viên chăm sóc khách hàng');
 
     useEffect(() => {
         if (pathname === '/staff/login') return;
 
-        const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+        const savedInfo = localStorage.getItem('staff_account') || localStorage.getItem('user_account');
         if (!savedInfo) {
             router.push('/staff/login');
             return;
@@ -46,13 +46,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     }, [pathname, router]);
 
     const handleLogout = () => {
-        if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi Cổng CSKH?')) {
-            localStorage.removeItem('user_account');
-            localStorage.removeItem('user_info');
+        if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi Cổng Chăm Sóc Khách Hàng?')) {
+            localStorage.removeItem('staff_account');
             localStorage.removeItem('agent_token');
             localStorage.removeItem('jwt_token');
             localStorage.removeItem('user_role');
-            sessionStorage.removeItem('support_chat_id');
             router.push('/staff/login');
         }
     };
@@ -63,11 +61,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
     const menuItems = [
         { name: 'Dashboard', path: '/staff/dashboard', icon: LayoutDashboard },
-        { name: 'Quản lý Ticket', path: '/staff/tickets', icon: Ticket },
-        { name: 'Live Chat CSKH', path: '/staff/chat', icon: MessageSquare, badge: 'Live' },
+        { name: 'Quản lý phiếu hỗ trợ', path: '/staff/tickets', icon: Ticket },
+        { name: 'Trò chuyện trực tuyến', path: '/staff/chat', icon: MessageSquare, badge: 'Trực tiếp' },
         { name: 'Khách hàng', path: '/staff/customers', icon: Users },
-        { name: 'Báo cáo & SLA', path: '/staff/reports', icon: BarChart3 },
-        { name: 'Kho Tri thức RAG', path: '/staff/knowledge', icon: BookOpen },
+        { name: 'Báo cáo & Cam kết chất lượng dịch vụ', path: '/staff/reports', icon: BarChart3 },
+        { name: 'Kho Tri thức & Hướng dẫn', path: '/staff/knowledge', icon: BookOpen },
     ];
 
     return (

@@ -50,11 +50,12 @@ export default function StaffLoginPage() {
             const isStaff = roleStr.includes('STAFF') || roleStr.includes('AGENT') || roleStr === '1';
 
             if (!isStaff) {
-                throw new Error(`Tài khoản này không có quyền truy cập Cổng CSKH! (Role: "${rawRole || 'Rỗng'}")`);
+                throw new Error(`Tài khoản này không có quyền truy cập Cổng Chăm Sóc Khách Hàng! (Role: "${rawRole || 'Rỗng'}")`);
             }
 
-            localStorage.setItem('user_account', JSON.stringify(accountData));
-            localStorage.setItem('user_info', JSON.stringify(accountData));
+            localStorage.setItem('staff_account', JSON.stringify(accountData));
+            localStorage.removeItem('user_account');
+            localStorage.removeItem('user_info');
             router.push('/staff/dashboard');
         } catch (err: any) {
             setServerError(err.message || 'Lỗi kết nối tới máy chủ!');
@@ -73,17 +74,17 @@ export default function StaffLoginPage() {
                 {/* LEFT BRAND PROMO PANEL */}
                 <div className="p-8 sm:p-12 bg-gradient-to-br from-indigo-950/70 via-slate-900 to-slate-900 border-b md:border-b-0 md:border-r border-slate-800/80 flex flex-col justify-between">
                     <div>
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 mb-8">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 mb-8">
                             <ShieldCheck size={24} />
                         </div>
-                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-1.5">
+                        <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider block mb-1.5">
                             Enterprise Portal
                         </span>
-                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
                             Hệ Thống Quản Lý Contact Center AI
                         </h2>
                         <p className="text-slate-300 text-sm mt-3 leading-relaxed">
-                            Nền tảng điều phối ticket thông minh, tự động hóa với n8n và hỗ trợ khách hàng đa kênh theo thời gian thực.
+                            Nền tảng điều phối phiếu hỗ trợ thông minh, tự động hóa với n8n và hỗ trợ khách hàng đa kênh theo thời gian thực.
                         </p>
                     </div>
 
@@ -94,11 +95,11 @@ export default function StaffLoginPage() {
                         </div>
                         <div className="flex items-center gap-3 text-sm text-slate-200">
                             <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-                            <span>Giám sát SLA và tự động định tuyến ticket</span>
+                            <span>Giám sát cam kết chất lượng dịch vụ và tự động định tuyến phiếu hỗ trợ</span>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-slate-200">
                             <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-                            <span>Báo cáo thời gian thực & đánh giá CSAT</span>
+                            <span>Báo cáo thời gian thực & đánh giá độ hài lòng của khách hàng</span>
                         </div>
                     </div>
                 </div>
@@ -106,20 +107,20 @@ export default function StaffLoginPage() {
                 {/* RIGHT LOGIN FORM */}
                 <div className="p-8 sm:p-12 flex flex-col justify-center space-y-6">
                     <div>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-2.5">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-2.5">
                             <ShieldCheck size={14} />
                             <span>Quyền truy cập nội bộ</span>
                         </div>
-                        <h3 className="text-2xl font-black text-white tracking-tight">
+                        <h3 className="text-2xl font-bold text-white tracking-tight">
                             Đăng nhập Nhân viên
                         </h3>
                         <p className="text-sm text-slate-400 mt-1">
-                            Nhập thông tin xác thực tài khoản chuyên viên CSKH
+                            Nhập thông tin xác thực tài khoản chuyên viên chăm sóc khách hàng
                         </p>
                     </div>
 
                     {serverError && (
-                        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-semibold leading-relaxed flex items-center gap-2">
+                        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-medium leading-relaxed flex items-center gap-2">
                             <AlertCircle size={18} className="text-rose-400 shrink-0" />
                             <span>{serverError}</span>
                         </div>
@@ -128,7 +129,7 @@ export default function StaffLoginPage() {
                     <form onSubmit={handleLogin} className="space-y-4" noValidate>
                         {/* Email */}
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                            <label className="block text-sm font-medium text-slate-300">
                                 Email Nhân Viên <span className="text-rose-400">*</span>
                             </label>
                             <div className="relative">
@@ -158,7 +159,7 @@ export default function StaffLoginPage() {
 
                         {/* Mật khẩu */}
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                            <label className="block text-sm font-medium text-slate-300">
                                 Mật Khẩu <span className="text-rose-400">*</span>
                             </label>
                             <div className="relative">
@@ -196,7 +197,7 @@ export default function StaffLoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95 mt-2"
+                            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-semibold text-sm transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95 mt-2"
                         >
                             {loading ? <span>Đang xác thực quyền...</span> : (
                                 <>

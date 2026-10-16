@@ -8,8 +8,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     const [authorized, setAuthorized] = useState(false);
 
     useEffect(() => {
-        // 1. Kiểm tra tài khoản đã lưu trong localStorage
-        const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+        // 1. Kiểm tra tài khoản nhân viên đã lưu trong localStorage (khóa riêng biệt staff_account)
+        const savedAccount = localStorage.getItem('staff_account') || localStorage.getItem('user_account');
         if (!savedAccount) {
             router.push('/staff/login');
             return;
@@ -27,6 +27,11 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
                 return;
             }
 
+            // Đồng bộ sang key staff_account nếu trước đó dùng key cũ
+            if (!localStorage.getItem('staff_account')) {
+                localStorage.setItem('staff_account', JSON.stringify(user));
+            }
+
             setAuthorized(true);
         } catch {
             router.push('/staff/login');
@@ -42,7 +47,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
                     </div>
                 </div>
                 <p className="text-sm font-semibold text-slate-200">Đang xác thực quyền truy cập...</p>
-                <p className="text-xs text-slate-400 mt-1">Cổng chuyên viên CSKH</p>
+                <p className="text-xs text-slate-400 mt-1">Cổng chuyên viên chăm sóc khách hàng</p>
             </div>
         );
     }

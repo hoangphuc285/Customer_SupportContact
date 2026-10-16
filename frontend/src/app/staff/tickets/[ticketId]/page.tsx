@@ -33,12 +33,12 @@ export default function ProcessTicketDetailPage() {
     const [resolutionText, setResolutionText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [generatingDraft, setGeneratingDraft] = useState(false);
-    const [agentName, setAgentName] = useState('Chuyên viên CSKH');
+    const [agentName, setAgentName] = useState('Chuyên viên chăm sóc khách hàng');
 
     useEffect(() => {
         if (!ticketId) return;
 
-        const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+        const savedInfo = localStorage.getItem('staff_account') || localStorage.getItem('user_account');
         if (savedInfo) {
             try {
                 const user = JSON.parse(savedInfo);
@@ -92,12 +92,12 @@ export default function ProcessTicketDetailPage() {
                 }
             } else {
                 setResolutionText(
-                    `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nNếu cần hỗ trợ thêm thông tin, xin vui lòng phản hồi lại ticket này.\n\nTrân trọng,\nĐội ngũ CSKH Support Center.`
+                    `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nNếu cần hỗ trợ thêm thông tin, xin vui lòng phản hồi lại phiếu hỗ trợ này.\n\nTrân trọng,\nĐội ngũ Chăm sóc khách hàng Support Center.`
                 );
             }
         } catch (err) {
             setResolutionText(
-                `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nTrân trọng,\nĐội ngũ CSKH Support Center.`
+                `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nTrân trọng,\nĐội ngũ Chăm sóc khách hàng Support Center.`
             );
         } finally {
             setGeneratingDraft(false);
@@ -147,7 +147,7 @@ export default function ProcessTicketDetailPage() {
         return (
             <ProtectedRoute>
                 <div className="p-16 text-center text-sm font-semibold text-slate-500">
-                    Đang tải thông tin chi tiết ticket...
+                    Đang tải thông tin chi tiết phiếu hỗ trợ...
                 </div>
             </ProtectedRoute>
         );
@@ -173,7 +173,7 @@ export default function ProcessTicketDetailPage() {
                         href="/staff/tickets"
                         className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition"
                     >
-                        <ArrowLeft size={16} /> Quay lại danh sách Ticket
+                        <ArrowLeft size={16} /> Quay lại danh sách phiếu hỗ trợ
                     </Link>
 
                     <div className="flex items-center gap-2">
@@ -188,22 +188,22 @@ export default function ProcessTicketDetailPage() {
                 <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <span className="font-mono text-xs sm:text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">
+                            <span className="font-mono text-xs sm:text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">
                                 {ticket?.ticketCode || `#${ticket?.id}`}
                             </span>
-                            <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-2.5">
+                            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2.5">
                                 {ticket?.subject}
                             </h1>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
                             {ticket?.priority && (
-                                <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold border ${priorityBg} ${priorityColor} ${priorityBorder}`}>
+                                <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${priorityBg} ${priorityColor} ${priorityBorder}`}>
                                     Ưu tiên: {priorityLabel}
                                 </span>
                             )}
                             {ticket?.category && (
-                                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                     {formatCategory(ticket.category)}
                                 </span>
                             )}

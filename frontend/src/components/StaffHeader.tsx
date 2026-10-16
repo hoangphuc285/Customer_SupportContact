@@ -11,7 +11,7 @@ export default function StaffHeader() {
     const [staff, setStaff] = useState<any>(null);
 
     useEffect(() => {
-        const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+        const savedAccount = localStorage.getItem('staff_account') || localStorage.getItem('user_account');
         if (!savedAccount) {
             router.push('/staff/login');
             return;
@@ -33,10 +33,8 @@ export default function StaffHeader() {
     }, [router]);
 
     const handleLogout = () => {
-        if (confirm('Bạn có chắc muốn đăng xuất khỏi Cổng CSKH Nội bộ?')) {
-            localStorage.removeItem('user_account');
-            localStorage.removeItem('user_info');
-            sessionStorage.removeItem('support_chat_id');
+        if (confirm('Bạn có chắc muốn đăng xuất khỏi Cổng Chăm Sóc Khách Hàng Nội bộ?')) {
+            localStorage.removeItem('staff_account');
             router.push('/staff/login');
         }
     };
@@ -44,9 +42,9 @@ export default function StaffHeader() {
     if (!staff) return null;
 
     const navLinks = [
-        { href: '/staff/chat', label: '💬 Live Chat' },
+        { href: '/staff/chat', label: '💬 Trò chuyện trực tuyến' },
         { href: '/staff/dashboard', label: '📊 Tổng quan' },
-        { href: '/staff/tickets', label: '🎫 Quản lý Ticket' },
+        { href: '/staff/tickets', label: '🎫 Quản lý phiếu hỗ trợ' },
         { href: '/staff/reports', label: '📈 Báo cáo' },
     ];
 
@@ -56,12 +54,12 @@ export default function StaffHeader() {
                 {/* LOGO NỘI BỘ */}
                 <div className="flex items-center gap-6">
                     <Link href="/staff/dashboard" className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-600 text-white font-black rounded-xl flex items-center justify-center text-xs shadow-lg shadow-indigo-500/20">
+                        <div className="w-9 h-9 bg-indigo-600 text-white font-bold rounded-xl flex items-center justify-center text-xs shadow-lg shadow-indigo-500/20">
                             <ShieldCheck size={20} />
                         </div>
                         <div>
-                            <h1 className="font-bold text-white text-xs tracking-wide">STAFF PORTAL</h1>
-                            <p className="text-[10px] text-indigo-400 font-semibold">Cổng Nhân Viên CSKH</p>
+                            <h1 className="font-bold text-white text-sm tracking-normal">STAFF PORTAL</h1>
+                            <p className="text-xs text-indigo-300 font-medium">Cổng Nhân Viên Chăm Sóc Khách Hàng</p>
                         </div>
                     </Link>
 
@@ -73,9 +71,9 @@ export default function StaffHeader() {
                                 <Link
                                     key={link.href}
                                     href={link.href}
-                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                                    className={`px-3.5 py-2 rounded-xl text-sm font-medium transition ${
                                         isActive
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-semibold'
                                             : 'text-slate-400 hover:text-white hover:bg-slate-800'
                                     }`}
                                 >
@@ -89,12 +87,12 @@ export default function StaffHeader() {
                 {/* THÔNG TIN NHÂN VIÊN & ĐĂNG XUẤT */}
                 <div className="flex items-center gap-4">
                     <div className="text-right hidden sm:block">
-                        <p className="text-xs font-bold text-white">{staff.name || 'Nhân viên CSKH'}</p>
-                        <p className="text-[10px] text-slate-400">{staff.email}</p>
+                        <p className="text-sm font-semibold text-white">{staff.name || 'Nhân viên chăm sóc khách hàng'}</p>
+                        <p className="text-xs text-slate-400">{staff.email}</p>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-xl text-xs font-bold transition"
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition"
                     >
                         Đăng xuất
                     </button>

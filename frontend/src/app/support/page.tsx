@@ -42,9 +42,9 @@ export default function SupportHomePage() {
 
     const faqData = [
         {
-            category: 'Quy trình & SLA',
-            question: 'Quy trình tiếp nhận và xử lý yêu cầu (Ticket) mất bao lâu?',
-            answer: 'Hệ thống AI sẽ phản hồi tức thì với các thắc mắc thông thường. Với các yêu cầu cần nhân viên kỹ thuật hoặc CSKH kiểm tra, thời gian phản hồi cam kết trong vòng 15 – 30 phút trong giờ làm việc.',
+            category: 'Quy trình & Cam kết chất lượng dịch vụ',
+            question: 'Quy trình tiếp nhận và xử lý phiếu hỗ trợ mất bao lâu?',
+            answer: 'Hệ thống trí tuệ nhân tạo sẽ phản hồi tức thì với các thắc mắc thông thường. Với các yêu cầu cần nhân viên kỹ thuật hoặc chuyên viên chăm sóc khách hàng kiểm tra, thời gian phản hồi cam kết trong vòng 15 – 30 phút trong giờ làm việc.',
         },
         {
             category: 'Chính sách',
@@ -53,13 +53,13 @@ export default function SupportHomePage() {
         },
         {
             category: 'Tra cứu & Theo dõi',
-            question: 'Làm thế nào để theo dõi tiến độ giải quyết Ticket của tôi?',
-            answer: 'Bạn chỉ cần nhập Mã Ticket (ví dụ: TK-9B1A2C3D) vào ô tra cứu ở trên trang này, hoặc đăng nhập tài khoản để xem danh sách toàn bộ yêu cầu của mình.',
+            question: 'Làm thế nào để theo dõi tiến độ giải quyết phiếu hỗ trợ của tôi?',
+            answer: 'Bạn chỉ cần nhập Mã phiếu hỗ trợ (ví dụ: TK-9B1A2C3D) vào ô tra cứu ở trên trang này, hoặc đăng nhập tài khoản để xem danh sách toàn bộ yêu cầu của mình.',
         },
         {
             category: 'Hỗ trợ trực tiếp',
             question: 'Tôi có thể trò chuyện trực tiếp với Nhân viên hỗ trợ không?',
-            answer: 'Hoàn toàn được! Tại trang Live Chat AI, nếu trợ lý ảo chưa giải quyết thỏa đáng thắc mắc của bạn, hệ thống sẽ tự động chuyển kết nối trực tiếp đến Nhân viên trực tổng đài.',
+            answer: 'Hoàn toàn được! Tại trang Trò chuyện trực tuyến, nếu trợ lý ảo chưa giải quyết thỏa đáng thắc mắc của bạn, hệ thống sẽ tự động chuyển kết nối trực tiếp đến Nhân viên trực tổng đài.',
         },
     ];
 
@@ -67,29 +67,47 @@ export default function SupportHomePage() {
         <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans">
             <SupportHeader />
 
-            {/* HERO SECTION WITH MESH GRADIENT */}
-            <section className="relative overflow-hidden bg-gradient-to-b from-indigo-900 via-slate-900 to-slate-900 text-white py-16 sm:py-24">
-                {/* AMBIENT GLOW BLOBS */}
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl pointer-events-none" />
+            {/* HERO SECTION WITH IMAGE BACKGROUND */}
+            <section 
+                className="relative overflow-hidden bg-slate-950 text-white py-20 sm:py-28 bg-cover bg-center bg-no-repeat"
+                style={{
+                    backgroundImage: `url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80')`,
+                }}
+            >
+                {/* DARK GRADIENT & BACKDROP OVERLAY */}
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-900/85 to-slate-950/95 backdrop-blur-[2px]" />
 
-                <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-400/20 text-indigo-300">
+                {/* COLORFUL MESH LIGHTING ACCENTS */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-600/30 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/25 rounded-full blur-3xl pointer-events-none animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl pointer-events-none" />
+
+                {/* SUBTLE GRID PATTERN OVERLAY */}
+                <div 
+                    className="absolute inset-0 opacity-15 pointer-events-none"
+                    style={{
+                        backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px)`,
+                        backgroundSize: '28px 28px',
+                    }}
+                />
+
+                <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 z-10">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-white/10 backdrop-blur-md border border-white/20 text-indigo-200 shadow-lg shadow-indigo-950/30">
                         <Sparkles size={14} className="text-indigo-400" />
-                        <span>Hệ thống Chăm sóc Khách hàng Tích hợp AI</span>
+                        <span>Hệ thống Chăm sóc Khách hàng Trí tuệ nhân tạo</span>
                     </div>
 
-                    <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight max-w-3xl mx-auto">
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight max-w-3xl mx-auto drop-shadow-sm">
                         Chúng tôi có thể hỗ trợ gì <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-pink-300 bg-clip-text text-transparent">cho bạn hôm nay?</span>
                     </h1>
 
-                    <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-                        Tra cứu tiến độ ticket, hỏi đáp với AI thông minh hoặc kết nối trực tiếp với đội ngũ chuyên viên hỗ trợ 24/7.
+                    <p className="text-slate-200 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed drop-shadow">
+                        Tra cứu tiến độ phiếu hỗ trợ, hỏi đáp với Trợ lý ảo thông minh hoặc kết nối trực tiếp với đội ngũ chuyên viên hỗ trợ 24/7.
                     </p>
 
                     {/* SEARCH / LOOKUP BAR */}
                     <div className="max-w-2xl mx-auto pt-4">
-                        <form onSubmit={handleTicketSearch} className="relative flex items-center bg-white rounded-2xl p-2 shadow-2xl shadow-indigo-950/50 border border-white/20">
+                        <form onSubmit={handleTicketSearch} className="relative flex items-center bg-white/95 backdrop-blur-xl rounded-2xl p-2.5 shadow-2xl shadow-black/50 border border-white/40 ring-4 ring-white/10 transition-all hover:bg-white hover:ring-indigo-500/30">
                             <div className="pl-3.5 text-slate-400">
                                 <Search size={20} />
                             </div>
@@ -97,33 +115,37 @@ export default function SupportHomePage() {
                                 type="text"
                                 value={ticketSearchId}
                                 onChange={(e) => setTicketSearchId(e.target.value)}
-                                placeholder="Nhập mã Ticket để tra cứu tiến độ (VD: TK-9B1A2C3D)..."
-                                className="w-full px-3 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none bg-transparent"
+                                placeholder="Nhập mã phiếu hỗ trợ để tra cứu tiến độ (Ví dụ: TK-9B1A2C3D)..."
+                                className="w-full px-3 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none bg-transparent font-medium"
                             />
                             <button
                                 type="submit"
-                                className="shrink-0 flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-indigo-600/30 cursor-pointer active:scale-95"
+                                className="shrink-0 flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-indigo-600/30 cursor-pointer active:scale-95"
                             >
                                 <span>Tra cứu</span>
                                 <ArrowRight size={15} />
                             </button>
                         </form>
 
-                        <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs text-slate-400">
-                            <span>Gợi ý nhanh:</span>
+                        <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5 text-xs text-slate-300 font-medium">
+                            <span className="text-slate-400">Gợi ý nhanh:</span>
                             <button
                                 type="button"
                                 onClick={() => setTicketSearchId('TK-9B1A2C3D')}
-                                className="hover:text-indigo-300 underline underline-offset-4 cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white transition backdrop-blur-sm border border-white/10 cursor-pointer text-xs"
                             >
                                 TK-9B1A2C3D
                             </button>
-                            <span>·</span>
-                            <Link href="/support/chat" className="hover:text-indigo-300 underline underline-offset-4">
-                                Chatbot AI
+                            <Link 
+                                href="/support/chat" 
+                                className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white transition backdrop-blur-sm border border-white/10 text-xs"
+                            >
+                                Trò chuyện trực tuyến
                             </Link>
-                            <span>·</span>
-                            <Link href="/support/new" className="hover:text-indigo-300 underline underline-offset-4">
+                            <Link 
+                                href="/support/new" 
+                                className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white transition backdrop-blur-sm border border-white/10 text-xs"
+                            >
                                 Gửi yêu cầu mới
                             </Link>
                         </div>
@@ -144,18 +166,18 @@ export default function SupportHomePage() {
                                 <MessageSquare size={22} />
                             </div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <h3 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">
+                                <h3 className="font-semibold text-slate-900 text-base group-hover:text-indigo-600 transition-colors">
                                     Live Chat AI 24/7
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
                                     Phản hồi ngay
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 leading-relaxed">
+                            <p className="text-sm text-slate-600 leading-relaxed">
                                 Trò chuyện với Trợ lý ảo AI và tự động chuyển sang Nhân viên tư vấn khi cần.
                             </p>
                         </div>
-                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
+                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-sm font-semibold text-indigo-600 group-hover:translate-x-1 transition-transform">
                             <span>Bắt đầu chat</span>
                             <ArrowRight size={14} className="ml-1" />
                         </div>
@@ -171,24 +193,24 @@ export default function SupportHomePage() {
                                 <FileText size={22} />
                             </div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <h3 className="font-bold text-slate-900 text-sm group-hover:text-violet-600 transition-colors">
+                                <h3 className="font-semibold text-slate-900 text-base group-hover:text-violet-600 transition-colors">
                                     Gửi Yêu cầu Hỗ trợ
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-700">
-                                    Cam kết SLA
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
+                                    Cam kết chất lượng dịch vụ
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 leading-relaxed">
+                            <p className="text-sm text-slate-600 leading-relaxed">
                                 Gửi mô tả sự cố kỹ thuật hoặc yêu cầu dịch vụ để được xếp hàng xử lý tự động.
                             </p>
                         </div>
-                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-violet-600 group-hover:translate-x-1 transition-transform">
-                            <span>Tạo ticket</span>
+                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-sm font-semibold text-violet-600 group-hover:translate-x-1 transition-transform">
+                            <span>Tạo phiếu hỗ trợ</span>
                             <ArrowRight size={14} className="ml-1" />
                         </div>
                     </Link>
 
-                    {/* CARD 3: LỊCH SỬ & TIẾN ĐỘ TICKET */}
+                    {/* CARD 3: LỊCH SỬ & TIẾN ĐỘ PHIẾU HỖ TRỢ */}
                     <Link
                         href="/support/tickets"
                         className="group bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between"
@@ -198,19 +220,19 @@ export default function SupportHomePage() {
                                 <Clock size={22} />
                             </div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <h3 className="font-bold text-slate-900 text-sm group-hover:text-amber-600 transition-colors">
-                                    Lịch sử & Tiến độ Ticket
+                                <h3 className="font-semibold text-slate-900 text-base group-hover:text-amber-600 transition-colors">
+                                    Lịch sử & Tiến độ Phiếu hỗ trợ
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
                                     Thời gian thực
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 leading-relaxed">
-                                Xem danh sách toàn bộ ticket bạn đã gửi, theo dõi tiến độ xử lý và phản hồi chất lượng giải pháp.
+                            <p className="text-sm text-slate-600 leading-relaxed">
+                                Xem danh sách toàn bộ phiếu hỗ trợ bạn đã gửi, theo dõi tiến độ xử lý và phản hồi chất lượng giải pháp.
                             </p>
                         </div>
-                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-amber-600 group-hover:translate-x-1 transition-transform">
-                            <span>Xem lịch sử ticket</span>
+                        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-sm font-semibold text-amber-600 group-hover:translate-x-1 transition-transform">
+                            <span>Xem lịch sử phiếu hỗ trợ</span>
                             <ArrowRight size={14} className="ml-1" />
                         </div>
                     </Link>
@@ -228,14 +250,14 @@ export default function SupportHomePage() {
                                 <HelpCircle size={22} />
                             </div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <h3 className="font-bold text-slate-900 text-sm group-hover:text-blue-600 transition-colors">
-                                    Kho Tri thức & FAQ
+                                <h3 className="font-semibold text-slate-900 text-base group-hover:text-blue-600 transition-colors">
+                                    Kho Tri thức & Câu hỏi thường gặp
                                 </h3>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                                     Hữu ích
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 leading-relaxed">
+                            <p className="text-sm text-slate-600 leading-relaxed">
                                 Tổng hợp câu hỏi và hướng dẫn nhanh về các vấn đề phổ biến nhất.
                             </p>
                         </div>
@@ -253,10 +275,10 @@ export default function SupportHomePage() {
                             <HelpCircle size={14} />
                             <span>Hỏi đáp phổ biến</span>
                         </div>
-                        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                            Câu hỏi thường gặp (FAQ)
+                        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+                            Câu hỏi thường gặp
                         </h2>
-                        <p className="text-slate-500 text-sm mt-2">
+                        <p className="text-slate-600 text-sm sm:text-base mt-2 leading-relaxed">
                             Những câu hỏi thường được người dùng quan tâm nhất trước khi gửi yêu cầu hỗ trợ.
                         </p>
                     </div>
@@ -269,10 +291,10 @@ export default function SupportHomePage() {
                                     <button
                                         type="button"
                                         onClick={() => toggleFaq(index)}
-                                        className="w-full flex items-center justify-between gap-4 text-left font-bold text-sm sm:text-base text-slate-900 hover:text-indigo-600 transition-colors py-2 cursor-pointer"
+                                        className="w-full flex items-center justify-between gap-4 text-left font-medium text-sm sm:text-base text-slate-900 hover:text-indigo-600 transition-colors py-2 cursor-pointer"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600">
                                                 {faq.category}
                                             </span>
                                             <span>{faq.question}</span>
@@ -285,7 +307,7 @@ export default function SupportHomePage() {
                                         />
                                     </button>
                                     {isOpen && (
-                                        <div className="pt-2 pb-3 pr-8 text-xs sm:text-sm text-slate-600 leading-relaxed animate-fadeIn">
+                                        <div className="pt-2 pb-3 pr-8 text-sm text-slate-600 leading-relaxed animate-fadeIn">
                                             {faq.answer}
                                         </div>
                                     )}
@@ -298,12 +320,12 @@ export default function SupportHomePage() {
                 {/* FOOTER HELPLINE CARD */}
                 <section className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 sm:p-10 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
                     <div className="space-y-2 text-center md:text-left">
-                        <div className="flex items-center justify-center md:justify-start gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                        <div className="flex items-center justify-center md:justify-start gap-2 text-indigo-300 text-xs font-medium">
                             <Headphones size={16} />
                             <span>Hỗ trợ trực tiếp từ Tổng đài</span>
                         </div>
-                        <h3 className="text-xl sm:text-2xl font-black">Bạn vẫn cần sự trợ giúp đặc biệt?</h3>
-                        <p className="text-slate-400 text-xs sm:text-sm max-w-md">
+                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight">Bạn vẫn cần sự trợ giúp đặc biệt?</h3>
+                        <p className="text-slate-300 text-sm max-w-md leading-relaxed">
                             Đội ngũ chuyên viên Support Center luôn sẵn sàng lắng nghe và đồng hành cùng bạn.
                         </p>
                     </div>
@@ -311,14 +333,14 @@ export default function SupportHomePage() {
                     <div className="flex flex-wrap items-center justify-center gap-3">
                         <Link
                             href="/support/chat"
-                            className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/30 flex items-center gap-2"
+                            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all shadow-md shadow-indigo-600/30 flex items-center gap-2"
                         >
                             <MessageSquare size={16} />
                             <span>Bắt đầu Live Chat</span>
                         </Link>
                         <a
                             href="tel:02363667117"
-                            className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold border border-white/15 transition-all flex items-center gap-2"
+                            className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all flex items-center gap-2"
                         >
                             <PhoneCall size={16} />
                             <span>Hotline: (0236) 3667.117</span>

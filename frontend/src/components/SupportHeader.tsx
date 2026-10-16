@@ -24,27 +24,37 @@ export default function SupportHeader() {
 
     useEffect(() => {
         const checkAuth = () => {
-            const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            const savedAccount = localStorage.getItem('customer_account');
             if (savedAccount) {
                 try {
-                    setUser(JSON.parse(savedAccount));
+                    const parsed = JSON.parse(savedAccount);
+                    // Không nạp thông tin nếu là tài khoản nhân viên
+                    if (parsed && parsed.role !== 'STAFF') {
+                        setUser(parsed);
+                        return;
+                    }
                 } catch {
                     setUser(null);
                 }
-            } else {
-                setUser(null);
             }
+            setUser(null);
         };
 
         checkAuth();
-        window.addEventListener('storage', checkAuth);
-        return () => window.removeEventListener('storage', checkAuth);
+        const onStorage = (e: StorageEvent) => {
+            // Chỉ đồng bộ khi sự kiện liên quan đến customer_account (không bị ảnh hưởng khi nhân viên đăng nhập)
+            if (!e.key || e.key === 'customer_account') {
+                checkAuth();
+            }
+        };
+
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
     }, [pathname]);
 
     const handleLogout = () => {
-        if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-            localStorage.removeItem('user_account');
-            localStorage.removeItem('user_info');
+        if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi Cổng Khách Hàng?')) {
+            localStorage.removeItem('customer_account');
             sessionStorage.removeItem('support_chat_id');
             localStorage.removeItem('customer_ticket_history');
             setUser(null);
@@ -55,8 +65,8 @@ export default function SupportHeader() {
 
     const navLinks = [
         { href: '/support', label: 'Trang chủ', icon: null },
-        { href: '/support/chat', label: 'Live Chat AI', icon: MessageSquare, badge: '24/7' },
-        { href: '/support/tickets', label: 'Lịch sử & Tra cứu Ticket', icon: Search },
+        { href: '/support/chat', label: 'Trò chuyện trực tuyến', icon: MessageSquare, badge: '24/7' },
+        { href: '/support/tickets', label: 'Lịch sử & Tra cứu phiếu hỗ trợ', icon: Search },
         { href: '/support/new', label: 'Gửi yêu cầu', icon: PlusCircle },
     ];
 
@@ -64,21 +74,21 @@ export default function SupportHeader() {
         <header className="sticky top-0 z-50 glass-nav border-b border-slate-200/80 transition-all">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
                 {/* BRAND LOGO */}
-                <Link href="/support" className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-600 flex items-center justify-center text-white font-black text-sm tracking-wider shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-all">
+                <Link href="/support" className="flex items-center gap-3 group">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-600 flex items-center justify-center text-white font-bold text-sm tracking-wider shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-all">
                         <Headphones size={20} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-slate-900 text-sm tracking-tight group-hover:text-indigo-600 transition-colors">
+                            <span className="font-bold text-slate-900 text-base tracking-tight group-hover:text-indigo-600 transition-colors">
                                 Support Center
                             </span>
-                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 Online
                             </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 hidden sm:block">Trung tâm Hỗ trợ Khách hàng 24/7</p>
+                        <p className="text-xs text-slate-500 hidden sm:block">Trung tâm Hỗ trợ Khách hàng 24/7</p>
                     </div>
                 </Link>
 
@@ -91,16 +101,16 @@ export default function SupportHeader() {
                             <Link
                                 key={link.href}
                                 href={link.href}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
                                     isActive
-                                        ? 'bg-indigo-50 text-indigo-700 shadow-xs'
+                                        ? 'bg-indigo-50 text-indigo-700 shadow-xs font-semibold'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                                 }`}
                             >
-                                {Icon && <Icon size={15} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />}
+                                {Icon && <Icon size={16} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />}
                                 <span>{link.label}</span>
                                 {link.badge && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-indigo-100 text-indigo-700">
+                                    <span className="px-1.5 py-0.2 rounded-md text-[10px] font-semibold bg-indigo-100 text-indigo-700">
                                         {link.badge}
                                     </span>
                                 )}
@@ -118,10 +128,10 @@ export default function SupportHeader() {
                                     {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                                 <div className="hidden sm:block text-left">
-                                    <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
+                                    <div className="text-sm font-semibold text-slate-800 leading-tight truncate max-w-[120px]">
                                         {user.name}
                                     </div>
-                                    <span className="text-[10px] text-indigo-600 font-semibold block">
+                                    <span className="text-xs text-indigo-600 font-medium block">
                                         {user.role === 'STAFF' ? '👨‍💼 Nhân viên' : '👤 Khách hàng'}
                                     </span>
                                 </div>
@@ -149,13 +159,13 @@ export default function SupportHeader() {
                         <div className="flex items-center gap-2">
                             <Link
                                 href="/support/login"
-                                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100/60 rounded-xl transition-all"
+                                className="px-3.5 py-2 text-sm font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-100/60 rounded-xl transition-all"
                             >
                                 Đăng nhập
                             </Link>
                             <Link
                                 href="/support/register"
-                                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-xl shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all active:scale-[0.98]"
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-xl shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all active:scale-[0.98]"
                             >
                                 <Sparkles size={13} />
                                 <span>Tạo tài khoản</span>

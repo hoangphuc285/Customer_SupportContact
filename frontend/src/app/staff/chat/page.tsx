@@ -114,10 +114,10 @@ export default function StaffChatPage() {
 
     // Phím tắt câu trả lời mẫu
     const quickReplies = [
-        'Chào bạn, chuyên viên CSKH đã tiếp nhận. Bạn cần hỗ trợ gì ạ?',
+        'Chào bạn, chuyên viên chăm sóc khách hàng đã tiếp nhận. Bạn cần hỗ trợ gì ạ?',
         'Dạ bạn vui lòng chờ giây lát, mình đang kiểm tra hệ thống giúp bạn nhé.',
-        'Vấn đề của bạn đã được ghi nhận vào Ticket xử lý chi tiết.',
-        'Cảm ơn bạn đã liên hệ với trung tâm hỗ trợ CSKH!',
+        'Vấn đề của bạn đã được ghi nhận vào phiếu hỗ trợ để xử lý chi tiết.',
+        'Cảm ơn bạn đã liên hệ với trung tâm hỗ trợ chăm sóc khách hàng!',
     ];
 
     const filteredConversations = conversations.filter((c) => {
@@ -134,10 +134,10 @@ export default function StaffChatPage() {
             {/* TOP HEADER */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
-                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
                         <MessageSquare className="text-indigo-600" size={24} />
-                        <span>Live Chat CSKH</span>
-                        <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-bold flex items-center gap-1.5">
+                        <span>Trò chuyện trực tuyến Chăm sóc Khách hàng</span>
+                        <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-medium flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                             Thời gian thực
                         </span>
@@ -307,7 +307,7 @@ export default function StaffChatPage() {
                                                 <div className={`max-w-[80%] md:max-w-[70%] flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
                                                     <div className="flex items-center gap-2 mb-1 px-1">
                                                         <span className="text-xs font-bold text-slate-600">
-                                                            {isAgent ? 'Bạn (Chuyên viên CSKH)' : isAI ? 'Trợ lý AI' : 'Khách hàng'}
+                                                            {isAgent ? 'Bạn (Chuyên viên chăm sóc khách hàng)' : isAI ? 'Trợ lý trí tuệ nhân tạo' : 'Khách hàng'}
                                                         </span>
                                                         {msg.createdAt && (
                                                             <span className="text-xs text-slate-400">

@@ -81,7 +81,7 @@ export const LOG_ACTION_MAP: Record<string, string> = {
     AUTOMATION_PROCESS_COMPLETED: 'Phân loại tự động (n8n AI)',
     CUSTOMER_FEEDBACK: 'Khách hàng phản hồi',
     REASSIGN_TICKET: 'Chuyển giao chuyên viên',
-    ASSIGN_TICKET: 'Phân công ticket',
+    ASSIGN_TICKET: 'Phân công phiếu hỗ trợ',
     STATUS_CHANGED: 'Cập nhật giải pháp',
 };
 

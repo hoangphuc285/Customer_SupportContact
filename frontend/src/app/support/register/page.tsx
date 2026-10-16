@@ -52,7 +52,7 @@ export default function RegisterPage() {
         e.preventDefault();
         setServerError('');
 
-        // 1. Kiểm tra validation phía Client (đúng định dạng Email, SĐT, Mật khẩu)
+        // 1. Kiểm tra validation phía Client (đúng định dạng Email, Số điện thoại, Mật khẩu)
         const validation = validateRegistrationForm(formData);
         if (!validation.isValid) {
             setFieldErrors(validation.errors);
@@ -82,8 +82,9 @@ export default function RegisterPage() {
             const data = await res.json();
 
             if (data.success) {
-                localStorage.setItem('user_account', JSON.stringify(data.account));
-                localStorage.setItem('user_info', JSON.stringify(data.account));
+                localStorage.setItem('customer_account', JSON.stringify(data.account));
+                localStorage.removeItem('user_account');
+                localStorage.removeItem('user_info');
                 localStorage.removeItem('customer_ticket_history');
                 router.push('/support/chat');
             } else {
@@ -104,21 +105,21 @@ export default function RegisterPage() {
                 <div className="absolute top-1/4 left-1/3 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200/90 p-8 sm:p-10 space-y-6 relative z-10">
+                <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-200/90 p-8 sm:p-10 space-y-6 relative z-10">
                     <div className="text-center space-y-2">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/25">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-bold flex items-center justify-center mx-auto shadow-md shadow-indigo-500/20">
                             <UserPlus size={24} />
                         </div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                             Tạo Tài Khoản Khách Hàng
                         </h1>
-                        <p className="text-xs text-slate-500">
-                            Tạo tài khoản để theo dõi lịch sử ticket và trò chuyện với trợ lý AI
+                        <p className="text-sm text-slate-500">
+                            Tạo tài khoản để theo dõi lịch sử phiếu hỗ trợ và trò chuyện với trợ lý ảo
                         </p>
                     </div>
 
                     {serverError && (
-                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium flex items-center gap-2">
+                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 font-medium flex items-center gap-2">
                             <AlertCircle size={16} className="text-rose-500 shrink-0" />
                             <span>{serverError}</span>
                         </div>
@@ -127,7 +128,7 @@ export default function RegisterPage() {
                     <form onSubmit={handleRegister} className="space-y-4" noValidate>
                         {/* Họ và tên */}
                         <div className="space-y-1">
-                            <label className="block text-xs font-bold text-slate-700">
+                            <label className="block text-sm font-medium text-slate-700">
                                 Họ và tên <span className="text-rose-500">*</span>
                             </label>
                             <div className="relative">
@@ -138,7 +139,7 @@ export default function RegisterPage() {
                                     value={formData.name}
                                     onChange={handleChange}
                                     placeholder="Nguyễn Văn A"
-                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:bg-white transition ${
                                         fieldErrors.name 
                                             ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
                                             : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
@@ -146,15 +147,15 @@ export default function RegisterPage() {
                                 />
                             </div>
                             {fieldErrors.name && (
-                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
-                                    <AlertCircle size={12} /> {fieldErrors.name}
+                                <p className="text-xs text-rose-500 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.name}
                                 </p>
                             )}
                         </div>
 
                         {/* Email */}
                         <div className="space-y-1">
-                            <label className="block text-xs font-bold text-slate-700">
+                            <label className="block text-sm font-medium text-slate-700">
                                 Email <span className="text-rose-500">*</span>
                             </label>
                             <div className="relative">
@@ -165,7 +166,7 @@ export default function RegisterPage() {
                                     value={formData.email}
                                     onChange={handleChange}
                                     placeholder="example@gmail.com"
-                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:bg-white transition ${
                                         fieldErrors.email 
                                             ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
                                             : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
@@ -173,15 +174,15 @@ export default function RegisterPage() {
                                 />
                             </div>
                             {fieldErrors.email && (
-                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
-                                    <AlertCircle size={12} /> {fieldErrors.email}
+                                <p className="text-xs text-rose-500 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.email}
                                 </p>
                             )}
                         </div>
 
                         {/* Số điện thoại */}
                         <div className="space-y-1">
-                            <label className="block text-xs font-bold text-slate-700">
+                            <label className="block text-sm font-medium text-slate-700">
                                 Số điện thoại <span className="text-rose-500">*</span>
                             </label>
                             <div className="relative">
@@ -192,7 +193,7 @@ export default function RegisterPage() {
                                     value={formData.phone}
                                     onChange={handleChange}
                                     placeholder="0905123456 (10 chữ số)"
-                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:bg-white transition ${
                                         fieldErrors.phone 
                                             ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
                                             : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
@@ -200,15 +201,15 @@ export default function RegisterPage() {
                                 />
                             </div>
                             {fieldErrors.phone && (
-                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
-                                    <AlertCircle size={12} /> {fieldErrors.phone}
+                                <p className="text-xs text-rose-500 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.phone}
                                 </p>
                             )}
                         </div>
 
                         {/* Mật khẩu */}
                         <div className="space-y-1">
-                            <label className="block text-xs font-bold text-slate-700">
+                            <label className="block text-sm font-medium text-slate-700">
                                 Mật khẩu <span className="text-rose-500">*</span>
                             </label>
                             <div className="relative">
@@ -219,7 +220,7 @@ export default function RegisterPage() {
                                     value={formData.password}
                                     onChange={handleChange}
                                     placeholder="Tối thiểu 6 ký tự"
-                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:bg-white transition ${
                                         fieldErrors.password 
                                             ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
                                             : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
@@ -234,15 +235,15 @@ export default function RegisterPage() {
                                 </button>
                             </div>
                             {fieldErrors.password && (
-                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
-                                    <AlertCircle size={12} /> {fieldErrors.password}
+                                <p className="text-xs text-rose-500 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.password}
                                 </p>
                             )}
                         </div>
 
                         {/* Xác nhận mật khẩu */}
                         <div className="space-y-1">
-                            <label className="block text-xs font-bold text-slate-700">
+                            <label className="block text-sm font-medium text-slate-700">
                                 Xác nhận mật khẩu <span className="text-rose-500">*</span>
                             </label>
                             <div className="relative">
@@ -253,7 +254,7 @@ export default function RegisterPage() {
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
                                     placeholder="Nhập lại mật khẩu"
-                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:bg-white transition ${
                                         fieldErrors.confirmPassword 
                                             ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
                                             : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
@@ -268,8 +269,8 @@ export default function RegisterPage() {
                                 </button>
                             </div>
                             {fieldErrors.confirmPassword && (
-                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
-                                    <AlertCircle size={12} /> {fieldErrors.confirmPassword}
+                                <p className="text-xs text-rose-500 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.confirmPassword}
                                 </p>
                             )}
                         </div>
@@ -277,7 +278,7 @@ export default function RegisterPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95 mt-2"
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95 mt-2"
                         >
                             {loading ? <span>Đang khởi tạo tài khoản...</span> : (
                                 <>
@@ -288,9 +289,9 @@ export default function RegisterPage() {
                         </button>
                     </form>
 
-                    <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
+                    <div className="text-center text-sm text-slate-500 pt-2 border-t border-slate-100">
                         Đã có tài khoản?{' '}
-                        <Link href="/support/login" className="text-indigo-600 font-bold hover:underline">
+                        <Link href="/support/login" className="text-indigo-600 font-semibold hover:underline">
                             Đăng nhập ngay
                         </Link>
                     </div>

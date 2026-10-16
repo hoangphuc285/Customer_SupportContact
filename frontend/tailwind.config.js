@@ -6,7 +6,17 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: [
+          'var(--font-inter)',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          '"SF Pro Display"',
+          '"Helvetica Neue"',
+          'Arial',
+          'sans-serif',
+        ],
       },
     },
   },

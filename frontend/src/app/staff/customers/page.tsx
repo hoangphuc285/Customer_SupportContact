@@ -97,12 +97,12 @@ export default function StaffCustomersPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-1.5">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                                 <Users size={14} />
                                 Quản Lý Hồ Sơ Khách Hàng
                             </span>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
                             Danh Sách Khách Hàng
                         </h1>
                         <p className="text-sm text-slate-500 mt-1">
@@ -114,14 +114,14 @@ export default function StaffCustomersPage() {
                         <button
                             onClick={fetchCustomers}
                             disabled={loading}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 shadow-sm transition active:scale-95 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 shadow-sm transition active:scale-95 disabled:opacity-60"
                         >
                             <RefreshCw size={15} className={loading ? 'animate-spin text-indigo-600' : 'text-slate-500'} />
                             <span>Tải lại</span>
                         </button>
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 transition active:scale-95"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition active:scale-95"
                         >
                             <UserPlus size={15} />
                             <span>Thêm Khách Hàng</span>
@@ -238,7 +238,7 @@ export default function StaffCustomersPage() {
                             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Tìm theo tên, email, SĐT..."
+                                placeholder="Tìm theo tên, email, số điện thoại..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full sm:w-80 bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"

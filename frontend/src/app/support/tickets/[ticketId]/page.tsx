@@ -105,7 +105,7 @@ export default function TicketDetailPage() {
                 });
             }
 
-            alert(isSatisfied ? '🎉 Cảm ơn bạn đã xác nhận và đánh giá hài lòng! Ticket đã được đóng hoàn tất.' : 'Hệ thống đã nhận phản hồi chưa hài lòng và chuyển chuyên viên hỗ trợ lại.');
+            alert(isSatisfied ? '🎉 Cảm ơn bạn đã xác nhận và đánh giá hài lòng! Phiếu hỗ trợ đã được đóng hoàn tất.' : 'Hệ thống đã nhận phản hồi chưa hài lòng và chuyển chuyên viên hỗ trợ lại.');
             setFeedbackText('');
             fetchTicketAndLogs();
         } catch (err) {
@@ -131,7 +131,7 @@ export default function TicketDetailPage() {
                 <div className="flex-1 flex items-center justify-center p-8">
                     <div className="flex flex-col items-center gap-3">
                         <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm font-semibold text-slate-500">Đang tra cứu dữ liệu Ticket...</span>
+                        <span className="text-sm font-semibold text-slate-500">Đang tra cứu dữ liệu phiếu hỗ trợ...</span>
                     </div>
                 </div>
             </div>
@@ -147,9 +147,9 @@ export default function TicketDetailPage() {
                         <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
                             <AlertCircle size={28} />
                         </div>
-                        <h3 className="text-lg font-black text-slate-900">Không tìm thấy Ticket</h3>
-                        <p className="text-sm text-slate-500 leading-relaxed">
-                            Mã Ticket <strong>"{ticketCodeParam}"</strong> không tồn tại trong hệ thống. Vui lòng kiểm tra lại mã đã nhận qua email.
+                        <h3 className="text-lg font-bold text-slate-900">Không tìm thấy phiếu hỗ trợ</h3>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                            Mã phiếu hỗ trợ <strong>"{ticketCodeParam}"</strong> không tồn tại trong hệ thống. Vui lòng kiểm tra lại mã đã nhận qua email.
                         </p>
                         <div className="pt-2 flex flex-col gap-2">
                             <Link
@@ -191,7 +191,7 @@ export default function TicketDetailPage() {
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 hover:text-indigo-600 shadow-2xs transition cursor-pointer"
                     >
                         {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                        <span>Sao chép mã Ticket</span>
+                        <span>Sao chép mã phiếu hỗ trợ</span>
                     </button>
                 </div>
 
@@ -200,15 +200,15 @@ export default function TicketDetailPage() {
                     {/* TOP STATUS BAR */}
                     <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-100">
                         <div>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">
                                 Mã định danh yêu cầu
                             </span>
-                            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight mt-0.5">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-mono tracking-tight mt-0.5">
                                 {ticket.ticketCode || `#${ticket.id}`}
                             </h1>
                         </div>
 
-                        <div className={`px-4 py-2 rounded-2xl border text-sm font-bold flex items-center gap-2 ${statusInfo.colorClass}`}>
+                        <div className={`px-3.5 py-1.5 rounded-2xl border text-sm font-semibold flex items-center gap-2 ${statusInfo.colorClass}`}>
                             <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
                             <span>{statusInfo.label}</span>
                         </div>
@@ -244,7 +244,7 @@ export default function TicketDetailPage() {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-emerald-800 text-xs sm:text-sm font-bold uppercase tracking-wider">
                                     <CheckCircle2 size={18} className="text-emerald-600" />
-                                    <span>Kết quả xử lý từ Chuyên viên CSKH</span>
+                                    <span>Kết quả xử lý từ Chuyên viên chăm sóc khách hàng</span>
                                 </div>
                                 <span className="text-xs font-semibold text-emerald-700 bg-emerald-100/60 px-3 py-0.5 rounded-full">
                                     Đã giải quyết
@@ -285,7 +285,7 @@ export default function TicketDetailPage() {
                                     className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
                                 >
                                     <ThumbsUp size={16} />
-                                    <span>Hài lòng (Xác nhận đóng Ticket)</span>
+                                    <span>Hài lòng (Xác nhận đóng phiếu hỗ trợ)</span>
                                 </button>
                                 <button
                                     onClick={() => handleSendFeedback(false)}
@@ -304,7 +304,7 @@ export default function TicketDetailPage() {
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                                 <Clock size={16} className="text-slate-400" />
-                                <span>Lịch sử xử lý Ticket</span>
+                                <span>Lịch sử xử lý phiếu hỗ trợ</span>
                             </h3>
                             <span className="text-xs text-slate-400">
                                 {ticket.logs?.length || 0} mốc ghi nhận

@@ -59,7 +59,7 @@ export default function StaffReportsPage() {
         );
     });
 
-    // CSAT calculation
+    // Tính toán tỷ lệ hài lòng của khách hàng
     const satisfiedCount = charts.satisfactionDistribution?.['SATISFIED'] || charts.satisfactionDistribution?.['Hài lòng'] || 0;
     const totalRated = Object.values(charts.satisfactionDistribution || {}).reduce((acc: number, val: any) => acc + Number(val || 0), 0) as number;
     const csatRate = totalRated > 0 ? Math.round((satisfiedCount / totalRated) * 100) : 100;
@@ -71,16 +71,16 @@ export default function StaffReportsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-1.5">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                                 <BarChart3 size={14} />
-                                Báo Cáo Hiệu Suất & SLA
+                                Báo Cáo Hiệu Suất & Cam Kết Chất Lượng Dịch Vụ
                             </span>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                            Chỉ số Vận hành CSKH
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+                            Chỉ số Vận hành Chăm sóc Khách hàng
                         </h1>
                         <p className="text-sm text-slate-500 mt-1">
-                            Theo dõi mức độ tuân thủ SLA, khối lượng tiếp nhận và phản hồi từ khách hàng
+                            Theo dõi mức độ tuân thủ cam kết chất lượng dịch vụ, khối lượng tiếp nhận và phản hồi từ khách hàng
                         </p>
                     </div>
 
@@ -88,7 +88,7 @@ export default function StaffReportsPage() {
                         <button
                             onClick={fetchDashboardData}
                             disabled={loading}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 shadow-sm transition active:scale-95 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 shadow-sm transition active:scale-95 disabled:opacity-60"
                         >
                             <RefreshCw size={15} className={loading ? 'animate-spin text-indigo-600' : 'text-slate-500'} />
                             <span>{loading ? 'Đang cập nhật...' : 'Cập nhật số liệu'}</span>
@@ -101,26 +101,26 @@ export default function StaffReportsPage() {
                     {/* TỔNG TICKET */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Tổng Yêu Cầu</span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tổng Yêu Cầu</span>
                             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <Layers size={18} />
                             </div>
                         </div>
-                        <div className="text-3xl font-black text-slate-900">
+                        <div className="text-3xl font-bold text-slate-900">
                             {loading ? '...' : stats.totalTickets}
                         </div>
-                        <p className="text-xs text-slate-500 mt-2">Tổng ticket đã ghi nhận trong kỳ</p>
+                        <p className="text-xs text-slate-500 mt-2">Tổng phiếu hỗ trợ đã ghi nhận trong kỳ</p>
                     </div>
 
                     {/* ĐÃ ĐÓNG */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Đã Hoàn Tất</span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Đã Hoàn Tất</span>
                             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                                 <CheckCircle2 size={18} />
                             </div>
                         </div>
-                        <div className="text-3xl font-black text-emerald-600">
+                        <div className="text-3xl font-bold text-emerald-600">
                             {loading ? '...' : stats.closedTickets}
                         </div>
                         <p className="text-xs text-slate-500 mt-2">
@@ -131,26 +131,26 @@ export default function StaffReportsPage() {
                     {/* ĐANG XỬ LÝ */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Đang Giải Quyết</span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Đang Giải Quyết</span>
                             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                                 <Clock size={18} />
                             </div>
                         </div>
-                        <div className="text-3xl font-black text-blue-600">
+                        <div className="text-3xl font-bold text-blue-600">
                             {loading ? '...' : stats.inProgressTickets}
                         </div>
                         <p className="text-xs text-slate-500 mt-2">Đang có chuyên viên xử lý</p>
                     </div>
 
-                    {/* QUÁ HẠN SLA */}
+                    {/* QUÁ HẠN CAM KẾT CHẤT LƯỢNG DỊCH VỤ */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Vi Phạm SLA</span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Vi Phạm Cam Kết Chất Lượng Dịch Vụ</span>
                             <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                                 <AlertOctagon size={18} />
                             </div>
                         </div>
-                        <div className="text-3xl font-black text-rose-600">
+                        <div className="text-3xl font-bold text-rose-600">
                             {loading ? '...' : stats.slaOverdueTickets}
                         </div>
                         <p className="text-xs text-slate-500 mt-2">Cần ưu tiên xử lý khẩn cấp</p>
@@ -164,7 +164,7 @@ export default function StaffReportsPage() {
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div className="flex items-center gap-2">
                                 <Calendar size={18} className="text-indigo-600" />
-                                <h3 className="font-bold text-slate-900 text-sm md:text-base">Khối Lượng Tiếp Nhận Theo Ngày</h3>
+                                <h3 className="font-semibold text-slate-900 text-base">Khối Lượng Tiếp Nhận Theo Ngày</h3>
                             </div>
                             <span className="text-xs text-slate-500 font-medium">Theo thời gian</span>
                         </div>
@@ -179,7 +179,7 @@ export default function StaffReportsPage() {
                                         <div key={date} className="space-y-1.5">
                                             <div className="flex justify-between text-xs sm:text-sm font-medium text-slate-700">
                                                 <span className="font-mono">{date}</span>
-                                                <span className="font-bold text-indigo-600">{count} Ticket ({percent}%)</span>
+                                                <span className="font-semibold text-indigo-600">{count} Phiếu ({percent}%)</span>
                                             </div>
                                             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                                                 <div
@@ -199,7 +199,7 @@ export default function StaffReportsPage() {
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div className="flex items-center gap-2">
                                 <PieChart size={18} className="text-amber-500" />
-                                <h3 className="font-bold text-slate-900 text-sm md:text-base">Phân Loại Theo Danh Mục Yêu Cầu</h3>
+                                <h3 className="font-semibold text-slate-900 text-base">Phân Loại Theo Danh Mục Yêu Cầu</h3>
                             </div>
                             <span className="text-xs text-slate-500 font-medium">Chủ đề</span>
                         </div>
@@ -213,8 +213,8 @@ export default function StaffReportsPage() {
                                     return (
                                         <div key={cat} className="space-y-1.5">
                                             <div className="flex justify-between text-xs sm:text-sm font-medium text-slate-700">
-                                                <span className="font-semibold text-slate-800">{formatCategory(cat)}</span>
-                                                <span className="font-bold text-amber-600">{count} Ticket ({percent}%)</span>
+                                                <span className="font-medium text-slate-800">{formatCategory(cat)}</span>
+                                                <span className="font-semibold text-amber-600">{count} Phiếu ({percent}%)</span>
                                             </div>
                                             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                                                 <div
@@ -234,7 +234,7 @@ export default function StaffReportsPage() {
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div className="flex items-center gap-2">
                                 <CheckCircle2 size={18} className="text-purple-600" />
-                                <h3 className="font-bold text-slate-900 text-sm md:text-base">Phân Bố Trạng Thái Xử Lý</h3>
+                                <h3 className="font-semibold text-slate-900 text-base">Phân Bố Trạng Thái Xử Lý</h3>
                             </div>
                             <span className="text-xs text-slate-500 font-medium">Trạng thái</span>
                         </div>
@@ -248,8 +248,8 @@ export default function StaffReportsPage() {
                                     return (
                                         <div key={st} className="space-y-1.5">
                                             <div className="flex justify-between text-xs sm:text-sm font-medium text-slate-700">
-                                                <span className="font-semibold text-slate-800">{formatStatus(st)}</span>
-                                                <span className="font-bold text-purple-600">{count} Ticket ({percent}%)</span>
+                                                <span className="font-medium text-slate-800">{formatStatus(st)}</span>
+                                                <span className="font-semibold text-purple-600">{count} Phiếu ({percent}%)</span>
                                             </div>
                                             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                                                 <div
@@ -264,14 +264,14 @@ export default function StaffReportsPage() {
                         </div>
                     </div>
 
-                    {/* 4. CHỈ SỐ HÀI LÒNG CSAT */}
+                    {/* 4. CHỈ SỐ ĐÁNH GIÁ ĐỘ HÀI LÒNG CỦA KHÁCH HÀNG */}
                     <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div className="flex items-center gap-2">
                                 <Smile size={18} className="text-emerald-600" />
-                                <h3 className="font-bold text-slate-900 text-sm md:text-base">Chỉ Số Hài Lòng Khách Hàng (CSAT)</h3>
+                                <h3 className="font-semibold text-slate-900 text-base">Chỉ Số Đánh Giá Độ Hài Lòng Của Khách Hàng</h3>
                             </div>
-                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs sm:text-sm font-extrabold">
+                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs sm:text-sm font-semibold">
                                 {csatRate}% Hài lòng
                             </span>
                         </div>
@@ -310,11 +310,11 @@ export default function StaffReportsPage() {
                 <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
                     <div className="p-5 md:p-6 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60">
                         <div>
-                            <h3 className="font-bold text-slate-900 text-base md:text-lg">
-                                Chi Tiết Hồ Sơ Xử Lý Ticket
+                            <h3 className="font-semibold text-slate-900 text-base md:text-lg">
+                                Chi Tiết Hồ Sơ Xử Lý Phiếu Hỗ Trợ
                             </h3>
                             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                                Danh sách các ticket đã ghi nhận cùng chuyên viên phụ trách và thời gian phản hồi
+                                Danh sách các phiếu hỗ trợ đã ghi nhận cùng chuyên viên phụ trách và thời gian phản hồi
                             </p>
                         </div>
 
@@ -326,7 +326,7 @@ export default function StaffReportsPage() {
                                 placeholder="Tìm mã, chuyên viên..."
                                 value={searchTable}
                                 onChange={(e) => setSearchTable(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                className="bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                             />
                         </div>
                     </div>
@@ -334,8 +334,8 @@ export default function StaffReportsPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm border-collapse">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200/80 text-xs uppercase tracking-wider text-slate-500 font-bold">
-                                    <th className="p-4">Mã Ticket</th>
+                                <tr className="bg-slate-50 border-b border-slate-200/80 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                                    <th className="p-4">Mã phiếu hỗ trợ</th>
                                     <th className="p-4">Phân loại</th>
                                     <th className="p-4">Chuyên viên</th>
                                     <th className="p-4">Thời gian xử lý</th>
@@ -357,11 +357,11 @@ export default function StaffReportsPage() {
 
                                         return (
                                             <tr key={idx} className="hover:bg-slate-50/80 transition">
-                                                <td className="p-4 font-bold font-mono text-indigo-600">
+                                                <td className="p-4 font-semibold font-mono text-indigo-600">
                                                     {row.ticketCode}
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                                                    <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                                                         {formatCategory(row.category)}
                                                     </span>
                                                 </td>
@@ -372,16 +372,16 @@ export default function StaffReportsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-lg">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
                                                         <Timer size={13} className="text-slate-500" />
                                                         <span>{row.handlingTimeMinutes ?? 0} phút</span>
                                                     </span>
                                                 </td>
-                                                <td className="p-4 max-w-xs truncate text-slate-600 text-xs sm:text-sm" title={row.resolution}>
+                                                <td className="p-4 max-w-xs truncate text-slate-600 text-sm" title={row.resolution}>
                                                     {row.resolution || 'Chưa có tóm tắt'}
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 ${
                                                         isSat
                                                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                                             : isDissat
