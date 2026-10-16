@@ -72,23 +72,45 @@ export default function TicketDetailPage() {
         setSubmittingFeedback(true);
 
         try {
-            const res = await fetch(`http://localhost:8080/api/tickets/${ticket.id}/logs`, {
+            // 1. Ghi log lịch sử phản hồi
+            await fetch(`http://localhost:8080/api/tickets/${ticket.id}/logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'CUSTOMER_FEEDBACK',
-                    note: feedbackText || (isSatisfied ? 'Khách hàng hài lòng với giải pháp' : 'Khách hàng chưa hài lòng với giải pháp'),
+                    note: feedbackText || (isSatisfied ? 'Khách hàng hài lòng với giải pháp' : 'Khách hàng chưa hài lòng với giải pháp và yêu cầu xử lý lại'),
                     performedBy: 'CUSTOMER',
                 }),
             });
 
-            if (res.ok) {
-                alert(isSatisfied ? '🎉 Cảm ơn bạn đã gửi phản hồi hài lòng!' : 'Hệ thống đã nhận phản hồi và chuyển chuyên viên xử lý lại.');
-                setFeedbackText('');
-                fetchTicketAndLogs();
+            // 2. Cập nhật trạng thái và kích hoạt quy trình tự động
+            if (isSatisfied) {
+                await fetch(`http://localhost:8080/api/tickets/${ticket.id}/close`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: 'CLOSED',
+                        satisfaction: 'SATISFIED',
+                        result: 'RESOLVED',
+                    }),
+                });
+            } else {
+                await fetch(`http://localhost:8080/api/tickets/${ticket.id}/customer-feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: feedbackText || 'Khách hàng chưa hài lòng với giải pháp và yêu cầu xử lý lại',
+                        customerId: ticket.customerId,
+                    }),
+                });
             }
+
+            alert(isSatisfied ? '🎉 Cảm ơn bạn đã xác nhận và đánh giá hài lòng! Ticket đã được đóng hoàn tất.' : 'Hệ thống đã nhận phản hồi chưa hài lòng và chuyển chuyên viên hỗ trợ lại.');
+            setFeedbackText('');
+            fetchTicketAndLogs();
         } catch (err) {
             console.error('Lỗi gửi feedback:', err);
+            alert('Gửi phản hồi thất bại, vui lòng thử lại sau.');
         } finally {
             setSubmittingFeedback(false);
         }

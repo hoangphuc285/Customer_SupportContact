@@ -3,16 +3,23 @@ package com.example.cd2.controller;
 import com.example.cd2.entity.CreateTicketDTO;
 import com.example.cd2.entity.Ticket;
 import com.example.cd2.entity.TicketMessage;
+import com.example.cd2.repository.CustomerRepository;
 import com.example.cd2.repository.TicketMessageRepository;
 import com.example.cd2.repository.TicketRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -21,20 +28,69 @@ public class TicketController {
 
     private final TicketRepository ticketRepository;
     private final TicketMessageRepository messageRepository;
+    private final CustomerRepository customerRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     // URL Webhook n8n nhận sự kiện tin nhắn mới
     private static final String N8N_WEBHOOK_URL = "http://localhost:5678/webhook/chat-message";
 
-    public TicketController(TicketRepository ticketRepository, TicketMessageRepository messageRepository) {
+    public TicketController(TicketRepository ticketRepository,
+                            TicketMessageRepository messageRepository,
+                            CustomerRepository customerRepository) {
         this.ticketRepository = ticketRepository;
         this.messageRepository = messageRepository;
+        this.customerRepository = customerRepository;
     }
 
-    // 1. Lấy danh sách Ticket
+    // 1. Lấy danh sách Ticket (sắp xếp ID giảm dần - mới nhất lên trên)
     @GetMapping
     public ResponseEntity<List<Ticket>> getAllTickets() {
-        return ResponseEntity.ok(ticketRepository.findAll());
+        return ResponseEntity.ok(ticketRepository.findAll(Sort.by(Sort.Direction.DESC, "id")));
+    }
+
+    /**
+     * Lấy danh sách Ticket theo ID khách hàng
+     * GET /api/tickets/customer/{customerId}
+     */
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<List<Ticket>> getTicketsByCustomerId(@PathVariable Long customerId) {
+        return ResponseEntity.ok(ticketRepository.findByCustomerIdOrderByIdDesc(customerId));
+    }
+
+    /**
+     * Lấy danh sách Ticket theo ID hoặc Email khách hàng
+     * GET /api/tickets/by-customer?customerId=...&email=...
+     */
+    @GetMapping("/by-customer")
+    public ResponseEntity<List<Ticket>> getTicketsByCustomerOrEmail(
+            @RequestParam(required = false) Long customerId,
+            @RequestParam(required = false) String email) {
+        String cleanEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
+        if (customerId == null && cleanEmail == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        List<Ticket> tickets = ticketRepository.findTicketsByEmailOrCustomerId(cleanEmail, customerId);
+        return ResponseEntity.ok(tickets);
+    }
+
+    /**
+     * Lấy danh sách Ticket theo danh sách mã Code (Dùng cho lịch sử lưu tại trình duyệt)
+     * GET /api/tickets/by-codes?codes=TK-1,TK-2
+     */
+    @GetMapping("/by-codes")
+    public ResponseEntity<List<Ticket>> getTicketsByCodes(@RequestParam List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        List<String> cleanCodes = codes.stream()
+                .map(c -> c.trim().replace("#", ""))
+                .filter(c -> !c.isEmpty())
+                .collect(Collectors.toList());
+        if (cleanCodes.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(ticketRepository.findByTicketCodeInOrderByIdDesc(cleanCodes));
     }
 
     /**
@@ -221,9 +277,40 @@ public class TicketController {
                     if (payload.containsKey("assignedAgentId")) {
                         ticket.setAssignedAgentId(Long.parseLong(payload.get("assignedAgentId").toString()));
                     }
-                    // Cập nhật hạn SLA nếu n8n truyền sang
-                    if (payload.containsKey("slaDueAt")) {
-                        ticket.setSlaDueAt(LocalDateTime.parse((String) payload.get("slaDueAt")));
+
+                    // Cập nhật hạn SLA chính xác, xử lý timezone n8n (UTC -> Local)
+                    LocalDateTime createdAtBase = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : LocalDateTime.now();
+                    int defaultSlaHours = "URGENT".equalsIgnoreCase(ticket.getPriority()) || "HIGH".equalsIgnoreCase(ticket.getPriority()) ? 2 :
+                            "MEDIUM".equalsIgnoreCase(ticket.getPriority()) ? 8 : 24;
+
+                    if (payload.containsKey("slaDueAt") && payload.get("slaDueAt") != null) {
+                        String slaStr = payload.get("slaDueAt").toString().trim();
+                        if (!slaStr.isEmpty() && !"null".equalsIgnoreCase(slaStr)) {
+                            try {
+                                LocalDateTime parsedDue;
+                                if (slaStr.endsWith("Z")) {
+                                    parsedDue = Instant.parse(slaStr).atZone(ZoneId.systemDefault()).toLocalDateTime();
+                                } else if (slaStr.contains("+") || (slaStr.length() > 19 && (slaStr.charAt(19) == '-' || slaStr.charAt(19) == '+'))) {
+                                    parsedDue = OffsetDateTime.parse(slaStr).atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+                                } else {
+                                    parsedDue = LocalDateTime.parse(slaStr);
+                                    if (parsedDue.isBefore(createdAtBase)) {
+                                        parsedDue = parsedDue.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+                                    }
+                                }
+
+                                if (parsedDue.isBefore(createdAtBase)) {
+                                    parsedDue = createdAtBase.plusHours(defaultSlaHours);
+                                }
+                                ticket.setSlaDueAt(parsedDue);
+                            } catch (Exception e) {
+                                ticket.setSlaDueAt(createdAtBase.plusHours(defaultSlaHours));
+                            }
+                        } else {
+                            ticket.setSlaDueAt(createdAtBase.plusHours(defaultSlaHours));
+                        }
+                    } else if (ticket.getSlaDueAt() == null) {
+                        ticket.setSlaDueAt(createdAtBase.plusHours(defaultSlaHours));
                     }
 
                     ticket.setUpdatedAt(LocalDateTime.now());
@@ -292,7 +379,9 @@ public class TicketController {
     // Tra cứu Ticket bằng ticketCode (Ví dụ: GET /api/tickets/code/TK-F9EC552B)
     @GetMapping("/code/{ticketCode}")
     public ResponseEntity<Ticket> getTicketByCode(@PathVariable String ticketCode) {
-        return ticketRepository.findByTicketCode(ticketCode)
+        String cleanCode = ticketCode.trim().replace("#", "");
+        return ticketRepository.findByTicketCodeIgnoreCase(cleanCode)
+                .or(() -> ticketRepository.findByTicketCode(cleanCode))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

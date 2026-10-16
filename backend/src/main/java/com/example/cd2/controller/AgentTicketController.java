@@ -76,20 +76,24 @@ public class AgentTicketController {
                 map.put("department", "Chưa gán");
             }
 
-            // Tính toán SLA dựa trên cột sla_due_at
+            // Tính toán SLA dựa trên cột sla_due_at, bù lệch múi giờ nếu có
             LocalDateTime slaDeadline = ticket.getSlaDueAt();
-            if (slaDeadline == null && ticket.getCreatedAt() != null) {
-                slaDeadline = ticket.getCreatedAt().plusHours(2);
+            LocalDateTime createdAt = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : now;
+
+            int defaultSlaHours = "URGENT".equalsIgnoreCase(ticket.getPriority()) || "HIGH".equalsIgnoreCase(ticket.getPriority()) ? 2 :
+                    "MEDIUM".equalsIgnoreCase(ticket.getPriority()) ? 8 : 24;
+
+            if (slaDeadline != null && slaDeadline.isBefore(createdAt)) {
+                LocalDateTime adjusted = slaDeadline.plusHours(7);
+                slaDeadline = adjusted.isAfter(createdAt) ? adjusted : createdAt.plusHours(defaultSlaHours);
+            } else if (slaDeadline == null) {
+                slaDeadline = createdAt.plusHours(defaultSlaHours);
             }
 
-            if (slaDeadline != null) {
-                long remainingMinutes = Duration.between(now, slaDeadline).toMinutes();
-                map.put("slaRemainingMinutes", remainingMinutes);
-                map.put("isSlaOverdue", remainingMinutes < 0 && !"CLOSED".equals(ticket.getStatus()) && !"RESOLVED".equals(ticket.getStatus()));
-            } else {
-                map.put("slaRemainingMinutes", 120);
-                map.put("isSlaOverdue", false);
-            }
+            long remainingMinutes = Duration.between(now, slaDeadline).toMinutes();
+            boolean isResolvedOrClosed = "CLOSED".equalsIgnoreCase(ticket.getStatus()) || "RESOLVED".equalsIgnoreCase(ticket.getStatus());
+            map.put("slaRemainingMinutes", remainingMinutes);
+            map.put("isSlaOverdue", remainingMinutes < 0 && !isResolvedOrClosed);
 
             return map;
         }).collect(Collectors.toList());

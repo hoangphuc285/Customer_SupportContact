@@ -54,7 +54,7 @@ export default function SupportHeader() {
     const navLinks = [
         { href: '/support', label: 'Trang chủ', icon: null },
         { href: '/support/chat', label: 'Live Chat AI', icon: MessageSquare, badge: '24/7' },
-        { href: '/support/tickets', label: 'Tra cứu Ticket', icon: Search },
+        { href: '/support/tickets', label: 'Lịch sử & Tra cứu Ticket', icon: Search },
         { href: '/support/new', label: 'Gửi yêu cầu', icon: PlusCircle },
     ];
 

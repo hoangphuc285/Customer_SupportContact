@@ -21,14 +21,17 @@ export interface TicketLog {
 export interface TicketDetail {
     id: number;
     ticketCode: string;
-    fullName: string;
-    email: string;
+    customerId?: number;
+    fullName?: string;
+    email?: string;
     phone?: string;
     subject: string;
     status: TicketStatus;
     priority: string;
     category: string;
     resolution?: string;
+    satisfaction?: string;
+    result?: string;
     createdAt: string;
     updatedAt: string;
     logs?: TicketLog[];
