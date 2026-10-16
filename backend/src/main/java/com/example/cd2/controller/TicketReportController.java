@@ -159,6 +159,7 @@ public class TicketReportController {
 
             // Lấy tên nhân viên phụ trách
             if (t.getAssignedAgentId() != null && agentMap.containsKey(t.getAssignedAgentId())) {
+
                 item.put("agentName", agentMap.get(t.getAssignedAgentId()).getAccount().getName());
             } else {
                 item.put("agentName", "Chưa gán");

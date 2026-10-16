@@ -29,4 +29,60 @@ public class TicketReport {
 
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTicketId() {
+        return ticketId;
+    }
+
+    public void setTicketId(String ticketId) {
+        this.ticketId = ticketId;
+    }
+
+    public String getResolution() {
+        return resolution;
+    }
+
+    public void setResolution(String resolution) {
+        this.resolution = resolution;
+    }
+
+    public String getSatisfaction() {
+        return satisfaction;
+    }
+
+    public void setSatisfaction(String satisfaction) {
+        this.satisfaction = satisfaction;
+    }
+
+    public Integer getHandlingTimeMinutes() {
+        return handlingTimeMinutes;
+    }
+
+    public void setHandlingTimeMinutes(Integer handlingTimeMinutes) {
+        this.handlingTimeMinutes = handlingTimeMinutes;
+    }
+
+    public Integer getReopenCount() {
+        return reopenCount;
+    }
+
+    public void setReopenCount(Integer reopenCount) {
+        this.reopenCount = reopenCount;
+    }
+
+    public LocalDateTime getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(LocalDateTime closedAt) {
+        this.closedAt = closedAt;
+    }
 }

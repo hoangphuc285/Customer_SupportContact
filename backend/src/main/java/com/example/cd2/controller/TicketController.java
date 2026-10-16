@@ -1,8 +1,10 @@
 package com.example.cd2.controller;
 
+import com.example.cd2.entity.Agent;
 import com.example.cd2.entity.CreateTicketDTO;
 import com.example.cd2.entity.Ticket;
 import com.example.cd2.entity.TicketMessage;
+import com.example.cd2.repository.AgentRepository;
 import com.example.cd2.repository.TicketMessageRepository;
 import com.example.cd2.repository.TicketRepository;
 import jakarta.transaction.Transactional;
@@ -21,14 +23,17 @@ public class TicketController {
 
     private final TicketRepository ticketRepository;
     private final TicketMessageRepository messageRepository;
+    private final AgentRepository agentRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // URL Webhook n8n nhận sự kiện tin nhắn mới
     private static final String N8N_WEBHOOK_URL = "http://localhost:5678/webhook/chat-message";
 
-    public TicketController(TicketRepository ticketRepository, TicketMessageRepository messageRepository) {
+    public TicketController(TicketRepository ticketRepository,
+                            TicketMessageRepository messageRepository,
+                            AgentRepository agentRepository) {
         this.ticketRepository = ticketRepository;
         this.messageRepository = messageRepository;
+        this.agentRepository = agentRepository;
     }
 
     // 1. Lấy danh sách Ticket
@@ -37,10 +42,7 @@ public class TicketController {
         return ResponseEntity.ok(ticketRepository.findAll());
     }
 
-    /**
-     * Tạo Ticket mới
-     * POST /api/tickets
-     */
+    // 2. Tạo Ticket mới
     @PostMapping
     @Transactional
     public ResponseEntity<Ticket> createTicket(@RequestBody CreateTicketDTO dto) {
@@ -51,19 +53,16 @@ public class TicketController {
         ticket.setPriority(dto.getPriority());
         ticket.setStatus(dto.getStatus() != null ? dto.getStatus() : "NEW");
 
-        // Sinh ticketCode ngẫu nhiên (VD: TK-9B1A2C3D)
         String randomCode = "TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         ticket.setTicketCode(randomCode);
 
-        // Lưu Ticket vào DB
         Ticket savedTicket = ticketRepository.save(ticket);
 
-        // 2. Nếu có gửi kèm initialMessage, tự động lưu vào bảng ticket_messages
         if (dto.getInitialMessage() != null && !dto.getInitialMessage().trim().isEmpty()) {
             TicketMessage message = new TicketMessage();
             message.setTicketId(savedTicket.getId());
             message.setSenderType("CUSTOMER");
-            message.setSenderId(dto.getCustomerId().toString());
+            message.setSenderId(dto.getCustomerId() != null ? dto.getCustomerId().toString() : "0");
             message.setMessageText(dto.getInitialMessage());
 
             messageRepository.save(message);
@@ -72,14 +71,10 @@ public class TicketController {
         return ResponseEntity.ok(savedTicket);
     }
 
-   
-    /**
-     * [LUỒNG 1]: Thêm tin nhắn vào Ticket (Nếu CUSTOMER gửi sẽ tự động bắn Webhook sang n8n)
-     * POST /api/tickets/{id}/messages
-     */
+    // 3. Thêm tin nhắn vào Ticket & Tự động gửi Webhook sang n8n
     @PostMapping("/{id}/messages")
     public ResponseEntity<TicketMessage> addMessageToTicket(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody TicketMessage message) {
 
         if (!ticketRepository.existsById(id)) {
@@ -89,8 +84,6 @@ public class TicketController {
         message.setTicketId(id);
         TicketMessage savedMessage = messageRepository.save(message);
 
-        // Bắn Webhook sang n8n bất đồng bộ khi khách hàng nhắn
-        // Bắn Webhook sang n8n bất đồng bộ khi khách hàng nhắn
         if ("CUSTOMER".equalsIgnoreCase(savedMessage.getSenderType())) {
             CompletableFuture.runAsync(() -> {
                 try {
@@ -99,23 +92,15 @@ public class TicketController {
                     payload.put("messageText", savedMessage.getMessageText());
                     payload.put("senderType", savedMessage.getSenderType());
                     payload.put("senderId", savedMessage.getSenderId());
-                    
+
                     restTemplate.postForEntity(N8N_WEBHOOK_URL, payload, String.class);
                     System.out.println(">>> [SUCCESS] Đã gửi thông báo thành công!");
-                    
                 } catch (org.springframework.web.client.HttpClientErrorException e) {
-                    // === THÊM THÔNG BÁO HOẶC XỬ LÝ KHI GẶP LỖI HTTP (4xx, 5xx) ===
                     System.err.println(">>> [CẢNH BÁO THÔNG BÁO THẤT BẠI] Không thể gửi dữ liệu tới n8n!");
                     System.err.println(">>> Mã lỗi HTTP: " + e.getStatusCode());
                     System.err.println(">>> Chi tiết phản hồi: " + e.getResponseBodyAsString());
-                    
-                    // (Tùy chọn) Bạn có thể gọi repository để lưu log lỗi vào bảng ticket_logs ở đây nếu muốn
-                    
                 } catch (Exception e) {
-                    // === THÊM THÔNG BÁO HOẶC XỬ LÝ KHI MẤT KẾT NỐI / LỖI CHUNG ===
                     System.err.println(">>> [LỖI HỆ THỐNG] Lỗi kết nối tới n8n: " + e.getMessage());
-                    
-                    // (Tùy chọn) Thêm thông báo hoặc cơ chế dự phòng tại đây
                 }
             });
         }
@@ -123,92 +108,49 @@ public class TicketController {
         return ResponseEntity.ok(savedMessage);
     }
 
-    /**
-     * Lấy lịch sử tin nhắn của Ticket
-     * GET /api/tickets/{id}/messages
-     */
+    // 4. Lấy lịch sử tin nhắn
     @GetMapping("/{id}/messages")
-    public ResponseEntity<List<TicketMessage>> getTicketMessages(@PathVariable Long id) {
+    public ResponseEntity<List<TicketMessage>> getTicketMessages(@PathVariable("id") Long id) {
         return ResponseEntity.ok(messageRepository.findByTicketIdOrderByCreatedAtAsc(id));
     }
 
- /**
-     * [LUỒNG 2 - Bước 2]: n8n lấy thông tin chi tiết của Ticket để AI đọc & phân tích
-     * GET /api/tickets/{id}
-     */
+    // 5. Lấy chi tiết 1 Ticket
     @GetMapping("/{id}")
-    public ResponseEntity<Ticket> getTicketById(@PathVariable Long id) {
+    public ResponseEntity<Ticket> getTicketById(@PathVariable("id") Long id) {
         return ticketRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
-//    /**
-//     * [LUỒNG 2 - Bước 11]: n8n cập nhật trạng thái Ticket
-//     * PATCH /api/tickets/{id}/status
-//     */
-//    @PatchMapping("/{id}/status")
-//    public ResponseEntity<Ticket> updateTicketStatus(
-//            @PathVariable Long id,
-//            @RequestBody Map<String, String> body) {
-//
-//        return ticketRepository.findById(id)
-//                .map(ticket -> {
-//                    if (body != null && body.containsKey("status")) {
-//                        ticket.setStatus(body.get("status"));
-//                    }
-//                    ticket.setUpdatedAt(LocalDateTime.now());
-//                    return ResponseEntity.ok(ticketRepository.save(ticket));
-//                })
-//                .orElse(ResponseEntity.notFound().build());
-//    }
-
-    /**
-     * [LUỒNG 2 - Bước 8]: n8n tìm nhân viên trực khả dụng
-     * GET /api/tickets/agents/available?department=CSKH
-     */
+    // 6. [LUỒNG 2 - Bước 8]: Tìm 1 nhân viên rảnh rỗi theo phòng ban
     @GetMapping("/agents/available")
-    public ResponseEntity<Map<String, Object>> getAvailableAgent(
-            @RequestParam(defaultValue = "CSKH") String department) {
-        Map<String, Object> agent = new HashMap<>();
-        agent.put("agentId", "AGENT_01");
-        agent.put("name", "Nguyen Van A");
-        agent.put("department", department);
-        agent.put("status", "AVAILABLE");
-        return ResponseEntity.ok(agent);
+    public ResponseEntity<?> getAvailableAgent(
+            @RequestParam(name = "department", defaultValue = "CSKH") String department) {
+
+        try {
+            Agent.Department deptEnum = Agent.Department.valueOf(department.toUpperCase());
+
+            return agentRepository.findFirstByDepartmentAndStatus(deptEnum, Agent.Status.AVAILABLE)
+                    .map(agent -> {
+                        Map<String, Object> res = new HashMap<>();
+                        res.put("agentId", agent.getId());
+                        res.put("name", agent.getAccount() != null ? agent.getAccount().getName() : "N/A");
+                        res.put("department", agent.getDepartment().name());
+                        res.put("status", agent.getStatus().name());
+                        return ResponseEntity.ok(res);
+                    })
+                    .orElseGet(() -> ResponseEntity.status(404).body(Map.of(
+                            "message", "Không tìm thấy nhân viên rảnh rỗi trong phòng " + department
+                    )));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Phòng ban không hợp lệ: " + department));
+        }
     }
 
-//    /**
-//     * [LUỒNG 2 - Bước 9]: n8n gán Ticket cho nhân viên & cập nhật phân loại
-//     * PUT /api/tickets/{id}/assign
-//     */
-//    @PutMapping("/{id}/assign")
-//    public ResponseEntity<Ticket> assignTicket(
-//            @PathVariable Long id,
-//            @RequestBody Map<String, Object> payload) {
-//
-//        return ticketRepository.findById(id)
-//                .map(ticket -> {
-//                    if (payload.containsKey("category")) {
-//                        ticket.setCategory((String) payload.get("category"));
-//                    }
-//                    if (payload.containsKey("priority")) {
-//                        ticket.setPriority((String) payload.get("priority"));
-//                    }
-//                    if (payload.containsKey("status")) {
-//                        ticket.setStatus((String) payload.get("status"));
-//                    }
-//                    ticket.setUpdatedAt(LocalDateTime.now());
-//                    return ResponseEntity.ok(ticketRepository.save(ticket));
-//                })
-//                .orElse(ResponseEntity.notFound().build());
-//    }
-
-    // [LUỒNG 2 - Bước 9 & SLA]: Gán Ticket, Cập nhật Agent, SLA, Status, Category, Priority
+    // 7. [LUỒNG 2 - Bước 9 & SLA]: Gán Ticket, Cập nhật Agent, SLA, Status, Category, Priority
     @PutMapping("/{id}/assign")
     public ResponseEntity<Ticket> assignTicket(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody Map<String, Object> payload) {
 
         return ticketRepository.findById(id)
@@ -217,11 +159,9 @@ public class TicketController {
                     if (payload.containsKey("priority")) ticket.setPriority((String) payload.get("priority"));
                     if (payload.containsKey("status")) ticket.setStatus((String) payload.get("status"));
 
-                    // Gán ID nhân viên xử lý
                     if (payload.containsKey("assignedAgentId")) {
                         ticket.setAssignedAgentId(Long.parseLong(payload.get("assignedAgentId").toString()));
                     }
-                    // Cập nhật hạn SLA nếu n8n truyền sang
                     if (payload.containsKey("slaDueAt")) {
                         ticket.setSlaDueAt(LocalDateTime.parse((String) payload.get("slaDueAt")));
                     }
@@ -232,10 +172,10 @@ public class TicketController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // [LUỒNG 2 - Bước 11]: Cập nhật trạng thái Ticket
+    // 8. Cập nhật trạng thái Ticket (Đã sửa @PathVariable("id") giải quyết lỗi HTTP 500)
     @PatchMapping("/{id}/status")
     public ResponseEntity<Ticket> updateTicketStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody Map<String, String> body) {
 
         return ticketRepository.findById(id)
@@ -249,12 +189,13 @@ public class TicketController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // 9. Lấy kết quả giải quyết Ticket
     @GetMapping("/{ticketId}/resolution")
-    public ResponseEntity<?> getTicketResolution(@PathVariable Long ticketId) {
+    public ResponseEntity<?> getTicketResolution(@PathVariable("ticketId") Long ticketId) {
         return ticketRepository.findById(ticketId)
                 .map(ticket -> {
                     Map<String, Object> response = new HashMap<>();
-                    response.put("ticketId", ticket.getTicketCode()); // hoặc ticket.getId()
+                    response.put("ticketId", ticket.getTicketCode());
                     response.put("resolution", ticket.getResolution());
                     response.put("agentId", ticket.getAssignedAgentId());
                     return ResponseEntity.ok(response);
@@ -262,17 +203,17 @@ public class TicketController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // [LUỒNG 3]: API gộp cập nhật kết quả đánh giá và ĐÓNG Ticket
+    // 10. Đóng Ticket và ghi nhận đánh giá
     @PatchMapping("/{id}/close")
     public ResponseEntity<?> closeTicketWithFeedback(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody Map<String, Object> payload) {
 
         return ticketRepository.findById(id).map(ticket -> {
             if (payload.containsKey("status")) {
                 ticket.setStatus(payload.get("status").toString());
             } else {
-                ticket.setStatus("CLOSED"); // Mặc định đóng ticket
+                ticket.setStatus("CLOSED");
             }
 
             if (payload.containsKey("satisfaction")) {
@@ -289,17 +230,18 @@ public class TicketController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // Tra cứu Ticket bằng ticketCode (Ví dụ: GET /api/tickets/code/TK-F9EC552B)
+    // 11. Tra cứu Ticket bằng mã Code
     @GetMapping("/code/{ticketCode}")
-    public ResponseEntity<Ticket> getTicketByCode(@PathVariable String ticketCode) {
+    public ResponseEntity<Ticket> getTicketByCode(@PathVariable("ticketCode") String ticketCode) {
         return ticketRepository.findByTicketCode(ticketCode)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-// tiếp nhận phản hồi (feedback) từ phía khách hàng cho một ticket cụ thể, sau đó tự động chuyển tiếp (bắn webhook) dữ liệu đó sang n8n (Webhook3) để kích hoạt luồng tự động hóa tiếp theo
+
+    // 12. Tiếp nhận phản hồi và bắn sang n8n Webhook3
     @PostMapping("/{ticketId}/customer-feedback")
     public ResponseEntity<?> triggerCustomerFeedback(
-            @PathVariable Long ticketId,
+            @PathVariable("ticketId") Long ticketId,
             @RequestBody Map<String, Object> body) {
 
         Optional<Ticket> ticketOpt = ticketRepository.findById(ticketId);
@@ -312,8 +254,6 @@ public class TicketController {
         Object customerIdObj = body.getOrDefault("customerId", ticket.getCustomerId());
 
         try {
-            // Bắn trực tiếp dữ liệu sang Webhook3 của n8n (Luồng 3B)
-            RestTemplate restTemplate = new RestTemplate();
             String n8nWebhook3Url = "http://localhost:5678/webhook/customer-feedback";
 
             Map<String, Object> payload = Map.of(
@@ -340,24 +280,5 @@ public class TicketController {
                     "error", "Could not deliver customer feedback to n8n"
             ));
         }
-    } 
-//    /**
-//     * [LUỒNG 2 - Bước 12]: n8n ghi log lịch sử phân công
-//     * POST /api/tickets/{id}/logs
-//     */
-//    @PostMapping("/{id}/logs")
-//    public ResponseEntity<Map<String, Object>> addTicketLog(
-//            @PathVariable Long id,
-//            @RequestBody Map<String, Object> logData) {
-//        Map<String, Object> response = new HashMap<>();
-//        response.put("ticketId", id);
-//        response.put("status", "LOGGED");
-//        response.put("data", logData);
-//        response.put("timestamp", LocalDateTime.now());
-//        return ResponseEntity.ok(response);
-//    }
-
-    
-
-
+    }
 }

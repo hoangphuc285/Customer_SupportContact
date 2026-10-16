@@ -1,5 +1,6 @@
 package com.example.cd2.controller;
 
+import com.example.cd2.entity.Customer;
 import com.example.cd2.entity.Ticket;
 import com.example.cd2.entity.TicketLog;
 import com.example.cd2.entity.TicketMessage;
@@ -23,24 +24,25 @@ public class AgentTicketController {
     private final CustomerRepository customerRepository;
     private final TicketMessageRepository ticketMessageRepository;
     private final TicketLogRepository ticketLogRepository;
+
     public AgentTicketController(TicketRepository ticketRepository,
                                  AgentRepository agentRepository,
                                  CustomerRepository customerRepository,
-                                 TicketMessageRepository ticketMessageRepository,TicketLogRepository ticketLogRepository) {
+                                 TicketMessageRepository ticketMessageRepository,
+                                 TicketLogRepository ticketLogRepository) {
         this.ticketRepository = ticketRepository;
         this.agentRepository = agentRepository;
         this.customerRepository = customerRepository;
         this.ticketMessageRepository = ticketMessageRepository;
         this.ticketLogRepository = ticketLogRepository;
-
     }
 
-    // 1. Lấy danh sách Ticket (Join với customers & agents theo DB thật)
+    // 1. Lấy danh sách Ticket (Đã sửa tên tham số trong @RequestParam)
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getTickets(
-            @RequestParam(required = false) Long agentId,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String priority) {
+            @RequestParam(name = "agentId", required = false) Long agentId,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "priority", required = false) String priority) {
 
         List<Ticket> tickets = ticketRepository.findTicketsWithFilters(agentId, status, priority);
         LocalDateTime now = LocalDateTime.now();
@@ -55,7 +57,7 @@ public class AgentTicketController {
             map.put("category", ticket.getCategory() != null ? ticket.getCategory() : "GENERAL");
             map.put("assignedAgentId", ticket.getAssignedAgentId());
 
-            // Lấy tên Khách hàng
+            // 1. Lấy tên Khách hàng
             if (ticket.getCustomerId() != null) {
                 customerRepository.findById(ticket.getCustomerId()).ifPresent(c -> {
                     map.put("customerName", c.getName());
@@ -65,10 +67,13 @@ public class AgentTicketController {
                 map.put("customerName", "Khách hàng ẩn danh");
             }
 
-            // Lấy tên Nhân viên từ assigned_agent_id
+            // 2. Lấy tên Nhân viên từ assigned_agent_id
             if (ticket.getAssignedAgentId() != null) {
                 agentRepository.findById(ticket.getAssignedAgentId()).ifPresent(a -> {
-                    map.put("agentName", a.getAccount().getName());
+                    String agentName = customerRepository.findByAccountId(a.getAccount().getId())
+                            .map(Customer::getName)
+                            .orElse(a.getAccount().getEmail());
+                    map.put("agentName", agentName);
                     map.put("department", a.getDepartment());
                 });
             } else {
@@ -76,8 +81,15 @@ public class AgentTicketController {
                 map.put("department", "Chưa gán");
             }
 
-            // Tính toán SLA dựa trên cột sla_due_at
+            // 3. Tính toán SLA (Đã xử lý chống lệch múi giờ UTC từ n8n)
             LocalDateTime slaDeadline = ticket.getSlaDueAt();
+
+            // BỔ SUNG: Nếu slaDueAt gửi từ n8n mang múi giờ UTC làm giá trị nhỏ hơn createdAt, tự động cộng bù 7 tiếng
+            if (slaDeadline != null && ticket.getCreatedAt() != null && slaDeadline.isBefore(ticket.getCreatedAt())) {
+                slaDeadline = slaDeadline.plusHours(7);
+            }
+
+            // Nếu chưa có SLA trong DB, mặc định cộng 2 tiếng từ thời điểm tạo
             if (slaDeadline == null && ticket.getCreatedAt() != null) {
                 slaDeadline = ticket.getCreatedAt().plusHours(2);
             }
@@ -85,7 +97,7 @@ public class AgentTicketController {
             if (slaDeadline != null) {
                 long remainingMinutes = Duration.between(now, slaDeadline).toMinutes();
                 map.put("slaRemainingMinutes", remainingMinutes);
-                map.put("isSlaOverdue", remainingMinutes < 0 && !"CLOSED".equals(ticket.getStatus()) && !"RESOLVED".equals(ticket.getStatus()));
+                map.put("isSlaOverdue", remainingMinutes < 0 && !"CLOSED".equalsIgnoreCase(ticket.getStatus()) && !"RESOLVED".equalsIgnoreCase(ticket.getStatus()));
             } else {
                 map.put("slaRemainingMinutes", 120);
                 map.put("isSlaOverdue", false);
@@ -96,10 +108,8 @@ public class AgentTicketController {
 
         return ResponseEntity.ok(result);
     }
-
-    // 2. Lấy chi tiết 1 Ticket (Lấy description từ ticket_messages)
     @GetMapping("/{id}")
-    public ResponseEntity<?> getTicketById(@PathVariable Long id) {
+    public ResponseEntity<?> getTicketById(@PathVariable("id") Long id) {
         Optional<Ticket> ticketOpt = ticketRepository.findById(id);
         if (ticketOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -117,7 +127,6 @@ public class AgentTicketController {
         details.put("resolution", ticket.getResolution());
         details.put("assignedAgentId", ticket.getAssignedAgentId());
 
-        // Đọc tin nhắn đầu tiên từ ticket_messages làm nội dung yêu cầu
         List<TicketMessage> messages = ticketMessageRepository.findByTicketIdOrderByIdAsc(ticket.getId());
         if (!messages.isEmpty()) {
             details.put("description", messages.get(0).getMessageText());
@@ -135,7 +144,10 @@ public class AgentTicketController {
 
         if (ticket.getAssignedAgentId() != null) {
             agentRepository.findById(ticket.getAssignedAgentId()).ifPresent(a -> {
-                details.put("agentName", a.getAccount().getName());
+                String agentName = customerRepository.findByAccountId(a.getAccount().getId())
+                        .map(Customer::getName)
+                        .orElse(a.getAccount().getEmail());
+                details.put("agentName", agentName);
                 details.put("department", a.getDepartment());
             });
         }
@@ -143,9 +155,9 @@ public class AgentTicketController {
         return ResponseEntity.ok(details);
     }
 
-    // 3. Phân công Ticket (Ghi vào cột assigned_agent_id)
+    // 3. Phân công Ticket (Đã sửa @PathVariable("id"))
     @PatchMapping("/{id}/assign")
-    public ResponseEntity<?> assignTicket(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> assignTicket(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Optional<Ticket> ticketOpt = ticketRepository.findById(id);
         if (ticketOpt.isEmpty()) return ResponseEntity.notFound().build();
 
@@ -159,9 +171,9 @@ public class AgentTicketController {
         return ResponseEntity.ok(Map.of("message", "Gán Ticket thành công!", "status", "ASSIGNED"));
     }
 
-    // 4. Human-In-The-Loop Step 1: AI soạn bản nháp
+    // 4. Human-In-The-Loop Step 1: AI soạn bản nháp (Đã sửa @PathVariable("id"))
     @PostMapping("/{id}/generate-ai-draft")
-    public ResponseEntity<?> generateAiDraft(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> generateAiDraft(@PathVariable("id") Long id, @RequestBody Map<String, String> body) {
         Optional<Ticket> ticketOpt = ticketRepository.findById(id);
         if (ticketOpt.isEmpty()) return ResponseEntity.notFound().build();
 
@@ -183,9 +195,9 @@ public class AgentTicketController {
         return ResponseEntity.ok(Map.of("aiDraft", aiDraftedResponse));
     }
 
-    /// API Lưu phản hồi nhân viên -> Ghi Log DB (TicketLog) -> Gọi Webhook Luồng 3 n8n
+    // 5. API Lưu phản hồi nhân viên (Đã sửa @PathVariable("id"))
     @PostMapping("/{id}/send-resolution")
-    public ResponseEntity<?> sendResolution(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> sendResolution(@PathVariable("id") Long id, @RequestBody Map<String, String> body) {
         Optional<Ticket> ticketOpt = ticketRepository.findById(id);
         if (ticketOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -194,13 +206,10 @@ public class AgentTicketController {
         Ticket ticket = ticketOpt.get();
         String finalResolution = body.get("finalResolution");
 
-        // 1. Cập nhật kết quả vào bảng tickets
         ticket.setResolution(finalResolution);
-        // Giữ status là ASSIGNED để khớp điều kiện node 'IF Need Reopen?' trong n8n
         ticket.setStatus("ASSIGNED");
         ticketRepository.save(ticket);
 
-        // 2. Ghi Log theo đúng cấu trúc Entity TicketLog của bạn
         TicketLog log = new TicketLog();
         log.setTicketId(ticket.getId());
         log.setAction("STATUS_CHANGED");
@@ -209,12 +218,10 @@ public class AgentTicketController {
         log.setCreatedAt(LocalDateTime.now());
         ticketLogRepository.save(log);
 
-        // 3. Kích hoạt Webhook Luồng 3 n8n (Node 'Receive Processed Ticket')
         try {
             RestTemplate restTemplate = new RestTemplate();
             String n8nWebhookUrl = "http://localhost:5678/webhook/ticket-resolution";
 
-            // Body chứa ticketId để node 'Get Ticket' trong n8n đọc $json.body.ticketId
             Map<String, Object> payload = Map.of(
                     "ticketId", ticket.getId()
             );

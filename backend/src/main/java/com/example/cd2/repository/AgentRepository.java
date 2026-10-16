@@ -10,8 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AgentRepository extends JpaRepository<Agent, Long>  {
-
-    Optional<Agent> findFirstByDepartmentAndStatus(String department, String status);
+    Optional<Agent> findFirstByDepartmentAndStatus(Agent.Department department, Agent.Status status);
 
     @Query("SELECT a FROM Agent a JOIN FETCH a.account WHERE a.department = :department")
     List<Agent> findAgentsWithAccountByDepartment(@Param("department") String department);

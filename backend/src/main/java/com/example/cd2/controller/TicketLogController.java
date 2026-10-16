@@ -22,7 +22,7 @@ public class TicketLogController {
     // [LUỒNG 2 - Bước 12]: Ghi log lịch sử thật vào DB
     @PostMapping
     public ResponseEntity<TicketLog> addTicketLog(
-            @PathVariable Long ticketId,
+            @PathVariable("ticketId") Long ticketId,
             @RequestBody TicketLog log) {
 
         log.setTicketId(ticketId);
@@ -32,9 +32,10 @@ public class TicketLogController {
         TicketLog savedLog = logRepository.save(log);
         return ResponseEntity.ok(savedLog);
     }
-    // [LẤY LỊCH SỬ LOGS] - Dùng cho Luồng 2 khi Ticket bị REOPEN
+
+    // [LẤY LỊCH SỬ LOGS] - Dùng cho Luồng 2 khi Ticket bị REOPEN (Đã sửa @PathVariable("ticketId"))
     @GetMapping
-    public ResponseEntity<List<TicketLog>> getTicketLogs(@PathVariable Long ticketId) {
+    public ResponseEntity<List<TicketLog>> getTicketLogs(@PathVariable("ticketId") Long ticketId) {
         List<TicketLog> logs = logRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
         return ResponseEntity.ok(logs);
     }
