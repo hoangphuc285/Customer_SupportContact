@@ -12,7 +12,8 @@ import {
     Sparkles, 
     Menu, 
     X,
-    ShieldCheck
+    ShieldCheck,
+    Headphones
 } from 'lucide-react';
 
 export default function SupportHeader() {
@@ -44,7 +45,6 @@ export default function SupportHeader() {
         if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
             localStorage.removeItem('user_account');
             localStorage.removeItem('user_info');
-            sessionStorage.removeItem('vku_chat_id');
             sessionStorage.removeItem('support_chat_id');
             localStorage.removeItem('customer_ticket_history');
             setUser(null);
@@ -66,7 +66,7 @@ export default function SupportHeader() {
                 {/* BRAND LOGO */}
                 <Link href="/support" className="flex items-center gap-3.5 group">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-600 flex items-center justify-center text-white font-black text-sm tracking-wider shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-all">
-                        VKU
+                        <Headphones size={20} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export default function SupportHeader() {
                                 Online
                             </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 hidden sm:block">Đại học Công nghệ Thông tin & TT Việt - Hàn</p>
+                        <p className="text-[11px] text-slate-500 hidden sm:block">Trung tâm Hỗ trợ Khách hàng 24/7</p>
                     </div>
                 </Link>
 

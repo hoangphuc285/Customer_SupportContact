@@ -76,7 +76,7 @@ export default function SupportHomePage() {
                 <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-400/20 text-indigo-300">
                         <Sparkles size={14} className="text-indigo-400" />
-                        <span>Hệ thống Chăm sóc Khách hàng Tích hợp AI VKU</span>
+                        <span>Hệ thống Chăm sóc Khách hàng Tích hợp AI</span>
                     </div>
 
                     <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight max-w-3xl mx-auto">
@@ -304,7 +304,7 @@ export default function SupportHomePage() {
                         </div>
                         <h3 className="text-xl sm:text-2xl font-black">Bạn vẫn cần sự trợ giúp đặc biệt?</h3>
                         <p className="text-slate-400 text-xs sm:text-sm max-w-md">
-                            Đội ngũ chuyên viên VKU Support Center luôn sẵn sàng lắng nghe và đồng hành cùng bạn.
+                            Đội ngũ chuyên viên Support Center luôn sẵn sàng lắng nghe và đồng hành cùng bạn.
                         </p>
                     </div>
 

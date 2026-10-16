@@ -171,7 +171,7 @@ export default function CreateTicketPage() {
                                     <input
                                         type="email"
                                         required
-                                        placeholder="example@vku.edu.vn"
+                                        placeholder="example@email.com"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"

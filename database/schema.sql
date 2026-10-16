@@ -41,7 +41,7 @@ CREATE TABLE `accounts` (
 
 LOCK TABLES `accounts` WRITE;
 /*!40000 ALTER TABLE `accounts` DISABLE KEYS */;
-INSERT INTO `accounts` VALUES (1,'2026-10-09 17:54:06.802975','testchatbox@gmail.com','Nguyễn Hoàng Phúc','123456','01923123123','CUSTOMER'),(2,'2026-10-09 18:24:56.000000','staff1@vku.edu.vn','Nguyễn Văn A (CSKH)','123456','0905111222','STAFF'),(3,'2026-10-09 18:24:56.000000','staff2@vku.edu.vn','Trần Thị B (Kỹ Thuật)','123456','0905333444','STAFF'),(4,'2026-10-09 18:28:46.734036','testchatbox2@gmail.com','Nguyễn ','123456','','CUSTOMER');
+INSERT INTO `accounts` VALUES (1,'2026-10-09 17:54:06.802975','testchatbox@gmail.com','Nguyễn Hoàng Phúc','123456','01923123123','CUSTOMER'),(2,'2026-10-09 18:24:56.000000','staff1@support.com','Nguyễn Văn A (CSKH)','123456','0905111222','STAFF'),(3,'2026-10-09 18:24:56.000000','staff2@support.com','Trần Thị B (Kỹ Thuật)','123456','0905333444','STAFF'),(4,'2026-10-09 18:28:46.734036','testchatbox2@gmail.com','Nguyễn ','123456','','CUSTOMER');
 /*!40000 ALTER TABLE `accounts` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -123,7 +123,7 @@ CREATE TABLE `chat_messages` (
 
 LOCK TABLES `chat_messages` WRITE;
 /*!40000 ALTER TABLE `chat_messages` DISABLE KEYS */;
-INSERT INTO `chat_messages` VALUES (1,'CHAT-620484','2026-10-09 17:57:06.964833','hi','CUSTOMER'),(2,'CHAT-620484','2026-10-09 17:57:37.577652','hi','CUSTOMER'),(3,'CHAT-620484','2026-10-09 17:59:21.305911','hi','CUSTOMER'),(4,'CHAT-620484','2026-10-09 18:02:28.379977','hi','CUSTOMER'),(5,'CHAT-620484','2026-10-09 18:02:30.814151','Chào bạn, tôi là trợ lý AI của VKU Support. Tôi có thể giúp gì cho bạn?','AI'),(6,'CHAT-620484','2026-10-09 18:03:00.706933','sản phẩm của tôi bị lỗi','CUSTOMER'),(7,'CHAT-620484','2026-10-09 18:03:58.515064','sản phẩm của tôi bị lỗi','CUSTOMER'),(8,'CHAT-620484','2026-10-09 18:04:06.135129','Tôi rất tiếc khi biết sản phẩm của bạn đang gặp lỗi. Đây là một vấn đề cần được bộ phận hỗ trợ kỹ thuật kiểm tra trực tiếp. Tôi sẽ chuyển thông tin của bạn đến nhân viên hỗ trợ để họ liên hệ với bạn sớm nhất có thể và giúp bạn giải quyết vấn đề này.','AI'),(9,'CHAT-620484','2026-10-09 18:06:25.100414','chào bạn','AGENT'),(10,'CHAT-620484','2026-10-09 18:06:35.443670','sản phẩm của tôi bị lỗi','CUSTOMER'),(11,'CHAT-557075','2026-10-09 18:48:49.303091','hii','CUSTOMER');
+INSERT INTO `chat_messages` VALUES (1,'CHAT-620484','2026-10-09 17:57:06.964833','hi','CUSTOMER'),(2,'CHAT-620484','2026-10-09 17:57:37.577652','hi','CUSTOMER'),(3,'CHAT-620484','2026-10-09 17:59:21.305911','hi','CUSTOMER'),(4,'CHAT-620484','2026-10-09 18:02:28.379977','hi','CUSTOMER'),(5,'CHAT-620484','2026-10-09 18:02:30.814151','Chào bạn, tôi là trợ lý AI của Support Center. Tôi có thể giúp gì cho bạn?','AI'),(6,'CHAT-620484','2026-10-09 18:03:00.706933','sản phẩm của tôi bị lỗi','CUSTOMER'),(7,'CHAT-620484','2026-10-09 18:03:58.515064','sản phẩm của tôi bị lỗi','CUSTOMER'),(8,'CHAT-620484','2026-10-09 18:04:06.135129','Tôi rất tiếc khi biết sản phẩm của bạn đang gặp lỗi. Đây là một vấn đề cần được bộ phận hỗ trợ kỹ thuật kiểm tra trực tiếp. Tôi sẽ chuyển thông tin của bạn đến nhân viên hỗ trợ để họ liên hệ với bạn sớm nhất có thể và giúp bạn giải quyết vấn đề này.','AI'),(9,'CHAT-620484','2026-10-09 18:06:25.100414','chào bạn','AGENT'),(10,'CHAT-620484','2026-10-09 18:06:35.443670','sản phẩm của tôi bị lỗi','CUSTOMER'),(11,'CHAT-557075','2026-10-09 18:48:49.303091','hii','CUSTOMER');
 /*!40000 ALTER TABLE `chat_messages` ENABLE KEYS */;
 UNLOCK TABLES;
 

@@ -348,7 +348,23 @@ public class TicketController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+    
+// [LUỒNG MỚI]: API quét các ticket đang xử lý (ASSIGNED) nhưng sắp hoặc quá hạn SLA
+    @GetMapping("/sla-check")
+    public ResponseEntity<List<Ticket>> checkSlaTickets() {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Lấy các ticket có trạng thái là ASSIGNED
+        List<Ticket> activeTickets = ticketRepository.findByStatus("ASSIGNED");
+        
+        List<Ticket> warningOrOverdueTickets = activeTickets.stream().filter(ticket -> {
+            if (ticket.getSlaDueAt() == null) return false;
+            // Lọc các ticket đã quá hạn hoặc còn dưới 15 phút nữa là hết hạn
+            return ticket.getSlaDueAt().isBefore(now.plusMinutes(15));
+        }).collect(Collectors.toList());
 
+        return ResponseEntity.ok(warningOrOverdueTickets);
+    }
     // [LUỒNG 3]: API gộp cập nhật kết quả đánh giá và ĐÓNG Ticket
     @PatchMapping("/{id}/close")
     public ResponseEntity<?> closeTicketWithFeedback(
