@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, Headphones } from 'lucide-react';
 
 export default function StaffLoginPage() {
     const router = useRouter();
@@ -60,8 +60,8 @@ export default function StaffLoginPage() {
                 {/* LEFT BRAND PROMO PANEL */}
                 <div className="p-8 sm:p-12 bg-gradient-to-br from-indigo-950/70 via-slate-900 to-slate-900 border-b md:border-b-0 md:border-r border-slate-800/80 flex flex-col justify-between">
                     <div>
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/25 mb-8">
-                            VKU
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 mb-8">
+                            <Headphones size={24} />
                         </div>
                         <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-1.5">
                             Enterprise Portal

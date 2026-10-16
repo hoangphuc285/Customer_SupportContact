@@ -76,7 +76,7 @@ export default function SupportHomePage() {
                 <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-400/20 text-indigo-300">
                         <Sparkles size={14} className="text-indigo-400" />
-                        <span>Hệ thống Chăm sóc Khách hàng Tích hợp AI VKU</span>
+                        <span>Hệ thống Chăm sóc Khách hàng Tích hợp AI</span>
                     </div>
 
                     <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight max-w-3xl mx-auto">
@@ -188,7 +188,7 @@ export default function SupportHomePage() {
                         </div>
                     </Link>
 
-                    {/* CARD 3: TRA CỨU TIẾN ĐỘ */}
+                    {/* CARD 3: LỊCH SỬ & TRA CỨU TIẾN ĐỘ TICKET */}
                     <Link
                         href="/support/tickets"
                         className="group bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between"
@@ -199,18 +199,18 @@ export default function SupportHomePage() {
                             </div>
                             <div className="flex items-center justify-between mb-1.5">
                                 <h3 className="font-bold text-slate-900 text-sm group-hover:text-amber-600 transition-colors">
-                                    Tra cứu Tiến độ
+                                    Lịch sử & Tiến độ Ticket
                                 </h3>
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">
                                     Thời gian thực
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 leading-relaxed">
-                                Kiểm tra nhật ký hành động, phản hồi của chuyên viên và đánh giá kết quả xử lý.
+                                Xem danh sách toàn bộ ticket bạn đã tạo, theo dõi tiến độ xử lý và phản hồi chuyên viên.
                             </p>
                         </div>
                         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-amber-600 group-hover:translate-x-1 transition-transform">
-                            <span>Xem tiến độ</span>
+                            <span>Xem lịch sử ticket</span>
                             <ArrowRight size={14} className="ml-1" />
                         </div>
                     </Link>
@@ -304,7 +304,7 @@ export default function SupportHomePage() {
                         </div>
                         <h3 className="text-xl sm:text-2xl font-black">Bạn vẫn cần sự trợ giúp đặc biệt?</h3>
                         <p className="text-slate-400 text-xs sm:text-sm max-w-md">
-                            Đội ngũ chuyên viên VKU Support Center luôn sẵn sàng lắng nghe và đồng hành cùng bạn.
+                            Đội ngũ chuyên viên Support Center luôn sẵn sàng lắng nghe và đồng hành cùng bạn.
                         </p>
                     </div>
 

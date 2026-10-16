@@ -106,7 +106,16 @@ public class TicketReportController {
         long slaOverdueTickets = allTickets.stream().filter(t -> {
             if ("CLOSED".equalsIgnoreCase(t.getStatus()) || "RESOLVED".equalsIgnoreCase(t.getStatus())) return false;
             LocalDateTime due = t.getSlaDueAt();
-            if (due == null && t.getCreatedAt() != null) due = t.getCreatedAt().plusHours(2);
+            LocalDateTime createdAt = t.getCreatedAt() != null ? t.getCreatedAt() : now;
+            int defaultHours = "URGENT".equalsIgnoreCase(t.getPriority()) || "HIGH".equalsIgnoreCase(t.getPriority()) ? 2 :
+                    "MEDIUM".equalsIgnoreCase(t.getPriority()) ? 8 : 24;
+
+            if (due != null && due.isBefore(createdAt)) {
+                LocalDateTime adjusted = due.plusHours(7);
+                due = adjusted.isAfter(createdAt) ? adjusted : createdAt.plusHours(defaultHours);
+            } else if (due == null) {
+                due = createdAt.plusHours(defaultHours);
+            }
             return due != null && now.isAfter(due);
         }).count();
 

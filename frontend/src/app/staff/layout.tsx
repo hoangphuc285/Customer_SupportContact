@@ -52,7 +52,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             localStorage.removeItem('agent_token');
             localStorage.removeItem('jwt_token');
             localStorage.removeItem('user_role');
-            sessionStorage.removeItem('vku_chat_id');
+            sessionStorage.removeItem('support_chat_id');
             router.push('/staff/login');
         }
     };
@@ -77,8 +77,8 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 <div>
                     {/* SIDEBAR LOGO */}
                     <div className="h-20 px-6 flex items-center gap-3.5 border-b border-slate-800/80">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-sm tracking-wider shadow-lg shadow-indigo-500/25">
-                            VKU
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
+                            <Headphones size={20} />
                         </div>
                         <div>
                             <span className="font-extrabold text-white text-sm tracking-wide uppercase block leading-tight">

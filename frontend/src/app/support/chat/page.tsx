@@ -37,10 +37,10 @@ export default function CustomerChatPage() {
         const parsedAccount = JSON.parse(savedAccount);
         setUserAccount(parsedAccount);
 
-        let storedChatId = sessionStorage.getItem('vku_chat_id');
+        let storedChatId = sessionStorage.getItem('support_chat_id');
         if (!storedChatId) {
             storedChatId = `CHAT-${Date.now().toString().slice(-6)}`;
-            sessionStorage.setItem('vku_chat_id', storedChatId);
+            sessionStorage.setItem('support_chat_id', storedChatId);
         }
         setConversationId(storedChatId);
         initSession(storedChatId, parsedAccount.id);
@@ -182,7 +182,7 @@ export default function CustomerChatPage() {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <h2 className="text-sm font-bold text-slate-900">
-                                        {needHumanSupport ? 'Bộ phận CSKH Trực tuyến' : 'Trợ lý AI VKU Support'}
+                                        {needHumanSupport ? 'Bộ phận CSKH Trực tuyến' : 'Trợ lý AI Support'}
                                     </h2>
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                         needHumanSupport 
@@ -229,7 +229,7 @@ export default function CustomerChatPage() {
                                 <Sparkles size={18} />
                             </div>
                             <h3 className="text-xs font-bold text-slate-900">
-                                Chào mừng bạn đến với Cổng Live Chat VKU!
+                                Chào mừng bạn đến với Cổng Live Chat!
                             </h3>
                             <p className="text-xs text-slate-600 leading-relaxed">
                                 Bạn có thể đặt bất kỳ câu hỏi nào. AI sẽ tự động phân tích và chuyển sang Chuyên viên hỗ trợ khi cần thiết.
@@ -256,7 +256,7 @@ export default function CustomerChatPage() {
 
                                     <div className={`max-w-[80%] sm:max-w-[70%] space-y-1 ${isCustomer ? 'text-right' : 'text-left'}`}>
                                         <div className="text-[10px] text-slate-400 px-1 font-semibold">
-                                            {isCustomer ? userAccount.name : isAgent ? 'Chuyên viên VKU' : 'AI Assistant'}
+                                            {isCustomer ? userAccount.name : isAgent ? 'Chuyên viên Hỗ trợ' : 'AI Assistant'}
                                         </div>
 
                                         <div

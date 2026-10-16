@@ -92,12 +92,12 @@ export default function ProcessTicketDetailPage() {
                 }
             } else {
                 setResolutionText(
-                    `Kính gửi quý khách,\n\nBộ phận hỗ trợ VKU đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nNếu cần hỗ trợ thêm thông tin, xin vui lòng phản hồi lại ticket này.\n\nTrân trọng,\nĐội ngũ CSKH VKU Support Center.`
+                    `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nNếu cần hỗ trợ thêm thông tin, xin vui lòng phản hồi lại ticket này.\n\nTrân trọng,\nĐội ngũ CSKH Support Center.`
                 );
             }
         } catch (err) {
             setResolutionText(
-                `Kính gửi quý khách,\n\nBộ phận hỗ trợ VKU đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nTrân trọng,\nĐội ngũ CSKH VKU Support Center.`
+                `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nTrân trọng,\nĐội ngũ CSKH Support Center.`
             );
         } finally {
             setGeneratingDraft(false);

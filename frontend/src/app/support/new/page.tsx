@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SupportHeader from '@/components/SupportHeader';
@@ -29,6 +29,23 @@ export default function CreateTicketPage() {
         subject: '',
         message: '',
     });
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            if (saved) {
+                const user = JSON.parse(saved);
+                setFormData(prev => ({
+                    ...prev,
+                    name: prev.name || user.name || '',
+                    email: prev.email || user.email || '',
+                    phone: prev.phone || user.phone || '',
+                }));
+            }
+        } catch (e) {
+            console.error('Lỗi đọc user_account:', e);
+        }
+    }, []);
 
     const channels = [
         { id: 'EMAIL', label: 'Email', icon: Mail, desc: 'Nhận qua hộp thư' },
@@ -68,6 +85,20 @@ export default function CreateTicketPage() {
 
             const data = await res.json();
             const ticketCode = data.ticketCode || data.id;
+
+            // Lưu mã ticket vào localStorage để khách hàng luôn xem được lịch sử trên thiết bị
+            try {
+                const existing = JSON.parse(localStorage.getItem('customer_ticket_history') || '[]');
+                if (Array.isArray(existing)) {
+                    if (!existing.includes(ticketCode)) {
+                        localStorage.setItem('customer_ticket_history', JSON.stringify([ticketCode, ...existing]));
+                    }
+                } else {
+                    localStorage.setItem('customer_ticket_history', JSON.stringify([ticketCode]));
+                }
+            } catch (e) {
+                console.error('Lỗi lưu ticket code:', e);
+            }
 
             alert(`✅ Yêu cầu của bạn đã được tiếp nhận thành công!\nMã Ticket: ${ticketCode}`);
             router.push(`/support/tickets/${ticketCode}`);
@@ -140,7 +171,7 @@ export default function CreateTicketPage() {
                                     <input
                                         type="email"
                                         required
-                                        placeholder="example@vku.edu.vn"
+                                        placeholder="example@email.com"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
