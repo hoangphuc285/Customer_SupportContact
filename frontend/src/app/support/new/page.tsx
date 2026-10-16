@@ -14,12 +14,15 @@ import {
     Globe, 
     ShieldCheck, 
     Clock, 
-    Sparkles 
+    Sparkles,
+    AlertCircle 
 } from 'lucide-react';
+import { isValidEmail, isValidPhone, normalizePhone } from '@/utils/validation';
 
 export default function CreateTicketPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<{ email?: string; phone?: string }>({});
 
     const [formData, setFormData] = useState({
         name: '',
@@ -56,14 +59,29 @@ export default function CreateTicketPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const newErrors: { email?: string; phone?: string } = {};
+        if (!isValidEmail(formData.email)) {
+            newErrors.email = 'Email không đúng định dạng (Ví dụ: name@gmail.com)';
+        }
+        if (formData.phone && !isValidPhone(formData.phone)) {
+            newErrors.phone = 'Số điện thoại không hợp lệ (Cần 10 số: 03x, 05x, 07x, 08x, 09x)';
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
+        setErrors({});
         setLoading(true);
 
         const payload = {
             channel: formData.channel,
             customer: {
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone || null,
+                name: formData.name.trim(),
+                email: formData.email.trim(),
+                phone: formData.phone ? normalizePhone(formData.phone) : null,
             },
             subject: formData.subject,
             message: formData.message,
@@ -173,9 +191,21 @@ export default function CreateTicketPage() {
                                         required
                                         placeholder="example@email.com"
                                         value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, email: e.target.value });
+                                            if (errors.email) setErrors({ ...errors, email: undefined });
+                                        }}
+                                        className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                            errors.email
+                                                ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                                                : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                        }`}
                                     />
+                                    {errors.email && (
+                                        <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                            <AlertCircle size={12} /> {errors.email}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1.5">
@@ -184,11 +214,23 @@ export default function CreateTicketPage() {
                                     </label>
                                     <input
                                         type="tel"
-                                        placeholder="0905xxxxxx"
+                                        placeholder="0905123456 (10 chữ số)"
                                         value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, phone: e.target.value });
+                                            if (errors.phone) setErrors({ ...errors, phone: undefined });
+                                        }}
+                                        className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                            errors.phone
+                                                ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                                                : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                        }`}
                                     />
+                                    {errors.phone && (
+                                        <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                            <AlertCircle size={12} /> {errors.phone}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

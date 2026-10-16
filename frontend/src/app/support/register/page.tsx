@@ -4,7 +4,24 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SupportHeader from '@/components/SupportHeader';
-import { User, Mail, Phone, Lock, ArrowRight, AlertCircle, Sparkles, UserPlus } from 'lucide-react';
+import { 
+    User, 
+    Mail, 
+    Phone, 
+    Lock, 
+    ArrowRight, 
+    AlertCircle, 
+    UserPlus, 
+    Eye, 
+    EyeOff, 
+    CheckCircle2 
+} from 'lucide-react';
+import { 
+    validateRegistrationForm, 
+    RegistrationErrors, 
+    normalizePhone, 
+    parseApiError 
+} from '@/utils/validation';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -15,48 +32,65 @@ export default function RegisterPage() {
         password: '',
         confirmPassword: '',
     });
-    const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState<RegistrationErrors>({});
+    const [serverError, setServerError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        // Xóa thông báo lỗi của trường đang nhập
+        if (fieldErrors[name as keyof RegistrationErrors]) {
+            setFieldErrors(prev => ({ ...prev, [name]: undefined }));
+        }
+        if (serverError) setServerError('');
     };
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setServerError('');
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('Mật khẩu xác nhận không khớp!');
+        // 1. Kiểm tra validation phía Client (đúng định dạng Email, SĐT, Mật khẩu)
+        const validation = validateRegistrationForm(formData);
+        if (!validation.isValid) {
+            setFieldErrors(validation.errors);
             return;
         }
 
         setLoading(true);
 
         try {
+            const cleanPhone = normalizePhone(formData.phone);
             const res = await fetch('http://localhost:8080/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
+                    name: formData.name.trim(),
+                    email: formData.email.trim(),
+                    phone: cleanPhone,
                     password: formData.password,
                 }),
             });
 
+            if (!res.ok) {
+                const errorMsg = await parseApiError(res, 'Đăng ký không thành công!');
+                throw new Error(errorMsg);
+            }
+
             const data = await res.json();
 
-            if (res.ok && data.success) {
+            if (data.success) {
                 localStorage.setItem('user_account', JSON.stringify(data.account));
                 localStorage.setItem('user_info', JSON.stringify(data.account));
                 localStorage.removeItem('customer_ticket_history');
                 router.push('/support/chat');
             } else {
-                setError(data.message || 'Đăng ký không thành công!');
+                setServerError(data.message || 'Đăng ký không thành công!');
             }
-        } catch (err) {
-            setError('Không thể kết nối máy chủ!');
+        } catch (err: any) {
+            setServerError(err.message || 'Không thể kết nối máy chủ!');
         } finally {
             setLoading(false);
         }
@@ -83,16 +117,19 @@ export default function RegisterPage() {
                         </p>
                     </div>
 
-                    {error && (
+                    {serverError && (
                         <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium flex items-center gap-2">
                             <AlertCircle size={16} className="text-rose-500 shrink-0" />
-                            <span>{error}</span>
+                            <span>{serverError}</span>
                         </div>
                     )}
 
-                    <form onSubmit={handleRegister} className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Họ và tên *</label>
+                    <form onSubmit={handleRegister} className="space-y-4" noValidate>
+                        {/* Họ và tên */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Họ và tên <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
@@ -100,15 +137,26 @@ export default function RegisterPage() {
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    required
                                     placeholder="Nguyễn Văn A"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.name 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
                             </div>
+                            {fieldErrors.name && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.name}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Email *</label>
+                        {/* Email */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Email <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
@@ -116,15 +164,26 @@ export default function RegisterPage() {
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    required
-                                    placeholder="example@email.com"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    placeholder="example@gmail.com"
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.email 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
                             </div>
+                            {fieldErrors.email && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.email}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Số điện thoại</label>
+                        {/* Số điện thoại */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Số điện thoại <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
@@ -132,48 +191,93 @@ export default function RegisterPage() {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    placeholder="0905xxxxxx"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    placeholder="0905123456 (10 chữ số)"
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.phone 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
                             </div>
+                            {fieldErrors.phone && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.phone}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Mật khẩu *</label>
+                        {/* Mật khẩu */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Mật khẩu <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     name="password"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    required
-                                    placeholder="••••••••"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    placeholder="Tối thiểu 6 ký tự"
+                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.password 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
+                            {fieldErrors.password && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.password}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Xác nhận mật khẩu *</label>
+                        {/* Xác nhận mật khẩu */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Xác nhận mật khẩu <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
-                                    type="password"
+                                    type={showConfirmPassword ? 'text' : 'password'}
                                     name="confirmPassword"
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
-                                    required
-                                    placeholder="••••••••"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    placeholder="Nhập lại mật khẩu"
+                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.confirmPassword 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
+                            {fieldErrors.confirmPassword && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.confirmPassword}
+                                </p>
+                            )}
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95"
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95 mt-2"
                         >
                             {loading ? <span>Đang khởi tạo tài khoản...</span> : (
                                 <>

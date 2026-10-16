@@ -4,31 +4,49 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SupportHeader from '@/components/SupportHeader';
-import { Lock, Mail, ArrowRight, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
+import { validateLoginForm, LoginErrors, parseApiError } from '@/utils/validation';
 
 export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState<LoginErrors>({});
+    const [serverError, setServerError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setServerError('');
+
+        // 1. Kiểm tra validation định dạng email và mật khẩu phía Client
+        const validation = validateLoginForm(email, password);
+        if (!validation.isValid) {
+            setFieldErrors(validation.errors);
+            return;
+        }
+
         setLoading(true);
 
         try {
             const res = await fetch('http://localhost:8080/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ 
+                    email: email.trim(), 
+                    password 
+                }),
             });
+
+            if (!res.ok) {
+                const errorMsg = await parseApiError(res, 'Mật khẩu hoặc Email không chính xác!');
+                throw new Error(errorMsg);
+            }
 
             const data = await res.json();
 
-            if (res.ok && data.success) {
+            if (data.success) {
                 const userAccount = data.account;
 
                 localStorage.setItem('user_account', JSON.stringify(userAccount));
@@ -41,10 +59,10 @@ export default function LoginPage() {
                     router.push('/support/chat');
                 }
             } else {
-                setError(data.message || 'Mật khẩu hoặc Email không chính xác!');
+                setServerError(data.message || 'Mật khẩu hoặc Email không chính xác!');
             }
-        } catch (err) {
-            setError('Lỗi kết nối tới máy chủ backend!');
+        } catch (err: any) {
+            setServerError(err.message || 'Lỗi kết nối tới máy chủ backend!');
         } finally {
             setLoading(false);
         }
@@ -53,6 +71,8 @@ export default function LoginPage() {
     const fillSampleStaff = () => {
         setEmail('staff1@support.com');
         setPassword('123456');
+        setFieldErrors({});
+        setServerError('');
     };
 
     return (
@@ -77,40 +97,65 @@ export default function LoginPage() {
                         </p>
                     </div>
 
-                    {error && (
+                    {serverError && (
                         <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium flex items-center gap-2">
                             <AlertCircle size={16} className="text-rose-500 shrink-0" />
-                            <span>{error}</span>
+                            <span>{serverError}</span>
                         </div>
                     )}
 
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Email</label>
+                    <form onSubmit={handleLogin} className="space-y-4" noValidate>
+                        {/* Email */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Email <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
                                     type="email"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    placeholder="example@email.com"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    onChange={(e) => {
+                                        setEmail(e.target.value);
+                                        if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: undefined }));
+                                        if (serverError) setServerError('');
+                                    }}
+                                    placeholder="example@gmail.com"
+                                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.email 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
                             </div>
+                            {fieldErrors.email && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.email}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-700">Mật khẩu</label>
+                        {/* Mật khẩu */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-slate-700">
+                                Mật khẩu <span className="text-rose-500">*</span>
+                            </label>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: undefined }));
+                                        if (serverError) setServerError('');
+                                    }}
                                     placeholder="••••••••"
-                                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white transition ${
+                                        fieldErrors.password 
+                                            ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600'
+                                    }`}
                                 />
                                 <button
                                     type="button"
@@ -120,6 +165,11 @@ export default function LoginPage() {
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
+                            {fieldErrors.password && (
+                                <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <AlertCircle size={12} /> {fieldErrors.password}
+                                </p>
+                            )}
                         </div>
 
                         <button

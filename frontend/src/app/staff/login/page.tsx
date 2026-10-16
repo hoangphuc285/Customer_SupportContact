@@ -3,31 +3,44 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { validateLoginForm, LoginErrors, parseApiError } from '@/utils/validation';
 
 export default function StaffLoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState('staff1@support.com');
     const [password, setPassword] = useState('123456');
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState<LoginErrors>({});
+    const [serverError, setServerError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setServerError('');
+
+        // 1. Kiểm tra validation định dạng email và mật khẩu phía Client
+        const validation = validateLoginForm(email, password);
+        if (!validation.isValid) {
+            setFieldErrors(validation.errors);
+            return;
+        }
+
         setLoading(true);
 
         try {
             const res = await fetch('http://localhost:8080/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ 
+                    email: email.trim(), 
+                    password 
+                }),
             });
 
             if (!res.ok) {
-                const errorText = await res.text();
-                throw new Error(errorText || 'Tài khoản hoặc mật khẩu không chính xác!');
+                const errorMsg = await parseApiError(res, 'Tài khoản hoặc mật khẩu không chính xác!');
+                throw new Error(errorMsg);
             }
 
             const data = await res.json();
@@ -44,7 +57,7 @@ export default function StaffLoginPage() {
             localStorage.setItem('user_info', JSON.stringify(accountData));
             router.push('/staff/dashboard');
         } catch (err: any) {
-            setError(err.message);
+            setServerError(err.message || 'Lỗi kết nối tới máy chủ!');
         } finally {
             setLoading(false);
         }
@@ -105,41 +118,65 @@ export default function StaffLoginPage() {
                         </p>
                     </div>
 
-                    {error && (
-                        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-semibold leading-relaxed">
-                            {error}
+                    {serverError && (
+                        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-semibold leading-relaxed flex items-center gap-2">
+                            <AlertCircle size={18} className="text-rose-400 shrink-0" />
+                            <span>{serverError}</span>
                         </div>
                     )}
 
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div className="space-y-2">
+                    <form onSubmit={handleLogin} className="space-y-4" noValidate>
+                        {/* Email */}
+                        <div className="space-y-1.5">
                             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                Email Nhân Viên
+                                Email Nhân Viên <span className="text-rose-400">*</span>
                             </label>
                             <div className="relative">
                                 <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                                 <input
                                     type="email"
-                                    required
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-medium"
+                                    onChange={(e) => {
+                                        setEmail(e.target.value);
+                                        if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: undefined }));
+                                        if (serverError) setServerError('');
+                                    }}
+                                    placeholder="staff1@support.com"
+                                    className={`w-full pl-11 pr-4 py-3 bg-slate-950 border rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition font-medium ${
+                                        fieldErrors.email 
+                                            ? 'border-rose-500/70 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                                    }`}
                                 />
                             </div>
+                            {fieldErrors.email && (
+                                <p className="text-xs text-rose-400 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.email}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="space-y-2">
+                        {/* Mật khẩu */}
+                        <div className="space-y-1.5">
                             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                Mật Khẩu
+                                Mật Khẩu <span className="text-rose-400">*</span>
                             </label>
                             <div className="relative">
                                 <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
-                                    required
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-11 pr-11 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-medium"
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: undefined }));
+                                        if (serverError) setServerError('');
+                                    }}
+                                    placeholder="••••••••"
+                                    className={`w-full pl-11 pr-11 py-3 bg-slate-950 border rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition font-medium ${
+                                        fieldErrors.password 
+                                            ? 'border-rose-500/70 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                            : 'border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                                    }`}
                                 />
                                 <button
                                     type="button"
@@ -149,6 +186,11 @@ export default function StaffLoginPage() {
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
+                            {fieldErrors.password && (
+                                <p className="text-xs text-rose-400 font-medium flex items-center gap-1 mt-1">
+                                    <AlertCircle size={13} /> {fieldErrors.password}
+                                </p>
+                            )}
                         </div>
 
                         <button
