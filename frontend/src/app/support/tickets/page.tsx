@@ -145,23 +145,25 @@ function TicketsLookupContent() {
                 }
             }
 
-            // C. Lấy thêm các ticket đã tạo trên trình duyệt này (customer_ticket_history)
-            try {
-                const rawCodes = localStorage.getItem('customer_ticket_history');
-                if (rawCodes) {
-                    const localCodes: string[] = JSON.parse(rawCodes);
-                    if (Array.isArray(localCodes) && localCodes.length > 0) {
-                        const resCodes = await fetch(`http://localhost:8080/api/tickets/by-codes?codes=${encodeURIComponent(localCodes.join(','))}`);
-                        if (resCodes.ok) {
-                            const dataCodes: TicketItem[] = await resCodes.json();
-                            if (Array.isArray(dataCodes)) {
-                                dataCodes.forEach(t => ticketMap.set(t.id, t));
+            // C. Chỉ khi là Khách vãng lai (CHƯA ĐĂNG NHẬP), mới lấy ticket từ mã cục bộ trên thiết bị
+            if (!currentUser) {
+                try {
+                    const rawCodes = localStorage.getItem('customer_ticket_history');
+                    if (rawCodes) {
+                        const localCodes: string[] = JSON.parse(rawCodes);
+                        if (Array.isArray(localCodes) && localCodes.length > 0) {
+                            const resCodes = await fetch(`http://localhost:8080/api/tickets/by-codes?codes=${encodeURIComponent(localCodes.join(','))}`);
+                            if (resCodes.ok) {
+                                const dataCodes: TicketItem[] = await resCodes.json();
+                                if (Array.isArray(dataCodes)) {
+                                    dataCodes.forEach(t => ticketMap.set(t.id, t));
+                                }
                             }
                         }
                     }
+                } catch (e) {
+                    console.error('Lỗi tải ticket theo mã cục bộ:', e);
                 }
-            } catch (e) {
-                console.error('Lỗi tải ticket theo mã cục bộ:', e);
             }
 
             const list = Array.from(ticketMap.values()).sort((a, b) => b.id - a.id);

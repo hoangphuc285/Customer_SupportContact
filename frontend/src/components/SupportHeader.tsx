@@ -45,6 +45,8 @@ export default function SupportHeader() {
             localStorage.removeItem('user_account');
             localStorage.removeItem('user_info');
             sessionStorage.removeItem('vku_chat_id');
+            sessionStorage.removeItem('support_chat_id');
+            localStorage.removeItem('customer_ticket_history');
             setUser(null);
             router.push('/support/login');
             router.refresh();

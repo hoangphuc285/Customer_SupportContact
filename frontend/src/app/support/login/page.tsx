@@ -33,6 +33,7 @@ export default function LoginPage() {
 
                 localStorage.setItem('user_account', JSON.stringify(userAccount));
                 localStorage.setItem('user_info', JSON.stringify(userAccount));
+                localStorage.removeItem('customer_ticket_history');
 
                 if (userAccount.role === 'STAFF') {
                     router.push('/staff/dashboard');

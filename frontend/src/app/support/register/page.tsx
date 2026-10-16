@@ -50,6 +50,7 @@ export default function RegisterPage() {
             if (res.ok && data.success) {
                 localStorage.setItem('user_account', JSON.stringify(data.account));
                 localStorage.setItem('user_info', JSON.stringify(data.account));
+                localStorage.removeItem('customer_ticket_history');
                 router.push('/support/chat');
             } else {
                 setError(data.message || 'Đăng ký không thành công!');

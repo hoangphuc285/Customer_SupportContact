@@ -66,12 +66,12 @@ public class TicketController {
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) String email) {
         String cleanEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
-        if (customerId == null && cleanEmail == null) {
-            return ResponseEntity.ok(Collections.emptyList());
+        if (cleanEmail != null) {
+            return ResponseEntity.ok(ticketRepository.findTicketsByEmail(cleanEmail));
+        } else if (customerId != null) {
+            return ResponseEntity.ok(ticketRepository.findByCustomerIdOrderByIdDesc(customerId));
         }
-
-        List<Ticket> tickets = ticketRepository.findTicketsByEmailOrCustomerId(cleanEmail, customerId);
-        return ResponseEntity.ok(tickets);
+        return ResponseEntity.ok(Collections.emptyList());
     }
 
     /**

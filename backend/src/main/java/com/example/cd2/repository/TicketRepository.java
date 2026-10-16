@@ -33,6 +33,12 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByCustomerIdOrderByIdDesc(Long customerId);
     List<Ticket> findByTicketCodeInOrderByIdDesc(List<String> ticketCodes);
 
+    // Lọc toàn bộ ticket theo Email khách hàng (sắp xếp ID giảm dần - mới nhất lên trên)
+    @Query("SELECT t FROM Ticket t WHERE t.customerId IN (" +
+            "  SELECT c.id FROM Customer c WHERE LOWER(TRIM(c.email)) = LOWER(TRIM(:email))" +
+            ") ORDER BY t.id DESC")
+    List<Ticket> findTicketsByEmail(@Param("email") String email);
+
     // Lọc toàn bộ ticket theo Email hoặc Customer ID (sắp xếp ID giảm dần - mới nhất lên trên)
     @Query("SELECT t FROM Ticket t WHERE " +
             "(:email IS NOT NULL AND :email <> '' AND t.customerId IN (" +
