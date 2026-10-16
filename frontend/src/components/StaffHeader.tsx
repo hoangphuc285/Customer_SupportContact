@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { Headphones } from 'lucide-react';
 
 export default function StaffHeader() {
     const router = useRouter();
@@ -35,7 +36,7 @@ export default function StaffHeader() {
         if (confirm('Bạn có chắc muốn đăng xuất khỏi Cổng CSKH Nội bộ?')) {
             localStorage.removeItem('user_account');
             localStorage.removeItem('user_info');
-            sessionStorage.removeItem('vku_chat_id');
+            sessionStorage.removeItem('support_chat_id');
             router.push('/staff/login');
         }
     };
@@ -55,11 +56,11 @@ export default function StaffHeader() {
                 {/* LOGO NỘI BỘ */}
                 <div className="flex items-center gap-6">
                     <Link href="/staff/dashboard" className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-600 text-white font-black rounded-xl flex items-center justify-center text-xs shadow-lg shadow-indigo-500/20">
-                            VKU
+                        <div className="w-9 h-9 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <Headphones size={18} />
                         </div>
                         <div>
-                            <h1 className="font-bold text-white text-xs tracking-wide">VKU STAFF PORTAL</h1>
+                            <h1 className="font-bold text-white text-xs tracking-wide">STAFF PORTAL</h1>
                             <p className="text-[10px] text-indigo-400 font-semibold">Cổng Nhân Viên CSKH</p>
                         </div>
                     </Link>

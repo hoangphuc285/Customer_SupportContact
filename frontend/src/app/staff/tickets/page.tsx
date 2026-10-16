@@ -61,15 +61,17 @@ export default function StaffTicketListPage() {
         fetchTickets();
     }, [agentId, filterStatus, filterOnlyMyTickets]);
 
-    const filteredTickets = tickets.filter((t) => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase();
-        return (
-            (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
-            (t.subject && t.subject.toLowerCase().includes(q)) ||
-            (t.customerName && t.customerName.toLowerCase().includes(q))
-        );
-    });
+    const filteredTickets = tickets
+        .filter((t) => {
+            if (!searchQuery.trim()) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+                (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
+                (t.subject && t.subject.toLowerCase().includes(q)) ||
+                (t.customerName && t.customerName.toLowerCase().includes(q))
+            );
+        })
+        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
 
     const statusTabs = [
         { id: '', label: 'Tất cả trạng thái' },
