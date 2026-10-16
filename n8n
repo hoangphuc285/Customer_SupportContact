@@ -1858,4 +1858,259 @@
     "templateCredsSetupCompleted": true,
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
+  {
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 15
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.4,
+        "position": [
+          192,
+          1744
+        ],
+        "id": "2b03531c-5e45-482e-967e-d71321d9fc26",
+        "name": "Schedule Trigger"
+      },
+      {
+        "parameters": {
+          "url": "=http://172.17.0.1:8081/api/tickets/sla-check",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          416,
+          1744
+        ],
+        "id": "30649b9d-9f63-465a-9a16-b68ce441094c",
+        "name": "HTTP Request"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "bb5b34e4-c04e-43eb-bcf7-954bd89631c1",
+                "leftValue": "={{ new Date($json.slaDueAt).getTime() < Date.now() }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals",
+                  "name": "filter.operator.equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          640,
+          1744
+        ],
+        "id": "2c144776-6f94-45ad-a35d-a296a13b84b9",
+        "name": "If2"
+      },
+      {
+        "parameters": {
+          "method": "PUT",
+          "url": "=http://172.17.0.1:8081/api/tickets/{{ $json.id }}/assign",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"priority\": \"URGENT\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          864,
+          1648
+        ],
+        "id": "8a2d3901-340b-4fdb-839e-14d00d90282e",
+        "name": "HTTP Request1"
+      },
+      {
+        "parameters": {
+          "fromEmail": "hoangphucsjw@gmail.com",
+          "toEmail": "phucnh.24it@vku.udn.vn",
+          "subject": "=[CẢNH BÁO SLA KHẨN CẤP] Ticket {{ $json.ticketCode }} đã quá hạn xử lý!",
+          "html": "=<h3>Cảnh báo tự động SLA - Hệ thống Hỗ trợ Khách hàng</h3>\n<p>Hệ thống vừa quét và phát hiện ticket sau đã bị <b>quá hạn SLA</b>, mức ưu tiên đã được tự động nâng lên mức <b>URGENT</b>:</p>\n<ul>\n  <li><b>Mã Ticket:</b> {{ $json.ticketCode }}</li>\n  <li><b>Khách hàng ID:</b> {{ $json.customerId }}</li>\n  <li><b>Tiêu đề:</b> {{ $json.subject }}</li>\n  <li><b>Trạng thái:</b> {{ $json.status }}</li>\n  <li><b>Hạn SLA:</b> {{ $json.slaDueAt }}</li>\n  <li><b>Nhân viên phụ trách (ID):</b> {{ $json.assignedAgentId }}</li>\n</ul>\n<p>Yêu cầu nhân viên phụ trách và quản lý kiểm tra, xử lý ngay lập tức!</p>",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          1168,
+          1632
+        ],
+        "id": "f145a461-bd8c-48bc-83c5-713ea123eb4b",
+        "name": "Send Customer Confirmation1",
+        "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
+        "credentials": {
+          "smtp": {
+            "id": "4pmZoybZrTzFUyeL",
+            "name": "SMTP account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "fromEmail": "hoangphucsjw@gmail.com",
+          "toEmail": "phucnh.24it@vku.udn.vn",
+          "subject": "=[NHẮC NHỞ SLA] Ticket {{ $json.ticketCode }} cần được xử lý sớm!",
+          "html": "=<h3>Thông báo nhắc nhở SLA hệ thống</h3>\n<p>Hệ thống ghi nhận ticket sau đang trong tiến trình xử lý và cần được lưu ý:</p>\n<ul>\n  <li><b>Mã Ticket:</b> {{ $json.ticketCode }}</li>\n  <li><b>Tiêu đề:</b> {{ $json.subject }}</li>\n  <li><b>Trạng thái:</b> {{ $json.status }}</li>\n  <li><b>Hạn SLA:</b> {{ $json.slaDueAt }}</li>\n</ul>\n<p>Vui lòng kiểm tra và xử lý đúng thời hạn quy định.</p>",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          896,
+          1856
+        ],
+        "id": "6faa8965-4e95-4b11-8c5c-b61efcc8d648",
+        "name": "Send Customer Confirmation2",
+        "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
+        "credentials": {
+          "smtp": {
+            "id": "4pmZoybZrTzFUyeL",
+            "name": "SMTP account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://172.17.0.1:8081/api/tickets/{{ $('HTTP Request1').item.json.id }}/logs",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"action\": \"SLA_OVERDUE_ESCALATION\",\n  \"performedBy\": \"N8N_AUTOMATION\",\n  \"note\": \"Hệ thống tự động phát hiện quá hạn SLA, nâng ưu tiên lên URGENT và gửi cảnh báo.\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1392,
+          1632
+        ],
+        "id": "6655063d-c6c2-440d-b158-3c098566b850",
+        "name": "cảnh báo"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=[http://172.17.0.1:8081/api/tickets/](http://172.17.0.1:8081/api/tickets/){{ $json.id }}/logs",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"action\": \"SLA_WARNING_REMINDER\",\n  \"performedBy\": \"N8N_AUTOMATION\",\n  \"note\": \"Hệ thống đã gửi email nhắc nhở nhân viên xử lý trước hạn SLA.\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          1120,
+          1856
+        ],
+        "id": "d4d25395-20b9-4fdb-be14-d8db54ecedd7",
+        "name": "HTTP Request2"
+      }
+    ],
+    "connections": {
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Request": {
+        "main": [
+          [
+            {
+              "node": "If2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If2": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Send Customer Confirmation2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Request1": {
+        "main": [
+          [
+            {
+              "node": "Send Customer Confirmation1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Customer Confirmation1": {
+        "main": [
+          [
+            {
+              "node": "cảnh báo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Customer Confirmation2": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+    }
+  }
 }
