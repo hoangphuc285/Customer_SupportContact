@@ -6,10 +6,10 @@ import com.example.cd2.entity.Ticket;
 import com.example.cd2.repository.ChatConversationRepository;
 import com.example.cd2.repository.ChatMessageRepository;
 import com.example.cd2.repository.TicketRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
@@ -21,7 +21,6 @@ public class ChatSupportController {
     private final ChatMessageRepository messageRepo;
     private final TicketRepository ticketRepository;
 
-    // Dùng Constructor Injection thay cho @Autowired
     public ChatSupportController(ChatConversationRepository conversationRepo,
                                  ChatMessageRepository messageRepo,
                                  TicketRepository ticketRepository) {
@@ -30,7 +29,7 @@ public class ChatSupportController {
         this.ticketRepository = ticketRepository;
     }
 
-    // 1. Khởi tạo / Tìm phiên hội thoại
+    // 1. Khởi tạo / Tìm phiên hội thoại (Đã xử lý chống lỗi trùng khóa Duplicate Entry)
     @PostMapping("/start")
     public ResponseEntity<?> startConversation(@RequestBody Map<String, Object> req) {
         String conversationId = (String) req.get("conversationId");
@@ -41,10 +40,24 @@ public class ChatSupportController {
         }
 
         final String finalConversationId = conversationId;
-        ChatConversation conv = conversationRepo.findById(finalConversationId)
-                .orElseGet(() -> conversationRepo.save(new ChatConversation(finalConversationId, customerId)));
 
-        return ResponseEntity.ok(conv);
+        // BƯỚC 1: Tìm phiên chat đã tồn tại
+        Optional<ChatConversation> existing = conversationRepo.findById(finalConversationId);
+        if (existing.isPresent()) {
+            return ResponseEntity.ok(existing.get());
+        }
+
+        // BƯỚC 2: Tạo mới và xử lý xung đột ghi song song (Race Condition)
+        try {
+            ChatConversation newConv = conversationRepo.save(new ChatConversation(finalConversationId, customerId));
+            return ResponseEntity.ok(newConv);
+        } catch (DataIntegrityViolationException e) {
+            // Nếu có request khác đã ghi thành công trong vài miligiây trước đó,
+            // tiến hành lấy lại bản ghi đó từ DB thay vì báo lỗi 500
+            ChatConversation savedConv = conversationRepo.findById(finalConversationId)
+                    .orElseThrow(() -> e);
+            return ResponseEntity.ok(savedConv);
+        }
     }
 
     // 2. Chuyển cuộc chat sang trạng thái chờ Nhân viên (WAITING_AGENT)
@@ -79,7 +92,7 @@ public class ChatSupportController {
         return ResponseEntity.ok(msg);
     }
 
-    // 4. Lấy lịch sử nhắn tin theo `conversation_id` (Đã sửa rõ tên PathVariable)
+    // 4. Lấy lịch sử nhắn tin theo `conversation_id`
     @GetMapping("/history/{conversationId}")
     public ResponseEntity<?> getHistory(@PathVariable("conversationId") String conversationId) {
         List<ChatMessage> history = messageRepo.findByConversationIdOrderByCreatedAtAsc(conversationId);
@@ -93,7 +106,7 @@ public class ChatSupportController {
         return ResponseEntity.ok(waiting);
     }
 
-    // 6. Tạo Ticket trực tiếp từ cuộc hội thoại Chat (Thực tế hóa từ ChatMessageController)
+    // 6. Tạo Ticket trực tiếp từ cuộc hội thoại Chat
     @PostMapping("/conversations/{id}/create-ticket")
     public ResponseEntity<?> createTicketFromChat(
             @PathVariable("id") String conversationId,

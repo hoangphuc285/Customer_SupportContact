@@ -1,19 +1,22 @@
 'use client';
 
+import GeminiLiveVoice from "@/components/GeminiLiveVoice";
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import SupportHeader from '@/components/SupportHeader';
-import { 
-    Send, 
-    Bot, 
-    User, 
-    Headphones, 
-    Sparkles, 
-    RotateCcw, 
-    Copy, 
-    Check, 
-    ShieldAlert, 
-    ArrowLeft 
+import {
+    Send,
+    Bot,
+    User,
+    Headphones,
+    Sparkles,
+    Copy,
+    Check,
+    ShieldAlert,
+    Mic,
+    MicOff,
+    Volume2,
+    VolumeX
 } from 'lucide-react';
 
 export default function CustomerChatPage() {
@@ -25,8 +28,13 @@ export default function CustomerChatPage() {
     const [loading, setLoading] = useState(false);
     const [needHumanSupport, setNeedHumanSupport] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [voiceReplyEnabled, setVoiceReplyEnabled] = useState(true);
+    const recognitionRef = useRef<any>(null);
+    const transcriptRef = useRef('');
+    const autoSendVoiceRef = useRef(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-
+    const isInitializingRef = useRef(false);
     useEffect(() => {
         const savedAccount = localStorage.getItem('user_account') || localStorage.getItem('user_info');
         if (!savedAccount) {
@@ -37,13 +45,19 @@ export default function CustomerChatPage() {
         const parsedAccount = JSON.parse(savedAccount);
         setUserAccount(parsedAccount);
 
-        let storedChatId = sessionStorage.getItem('support_chat_id');
+        // Lưu mã chat theo ID khách hàng vào localStorage (giữ cố định khi mở lại trình duyệt hoặc mở tab mới)
+        let storedChatId = localStorage.getItem(`support_chat_id_${parsedAccount.id}`);
         if (!storedChatId) {
             storedChatId = `CHAT-${Date.now().toString().slice(-6)}`;
-            sessionStorage.setItem('support_chat_id', storedChatId);
+            localStorage.setItem(`support_chat_id_${parsedAccount.id}`, storedChatId);
         }
+
         setConversationId(storedChatId);
-        initSession(storedChatId, parsedAccount.id);
+
+        if (!isInitializingRef.current) {
+            isInitializingRef.current = true;
+            initSession(storedChatId, parsedAccount.id);
+        }
     }, [router]);
 
     const initSession = async (convId: string, customerId: number) => {
@@ -60,6 +74,7 @@ export default function CustomerChatPage() {
     };
 
     const fetchChatHistory = async (convId: string) => {
+        if (!convId) return;
         try {
             const res = await fetch(`http://localhost:8080/api/chat/history/${convId}`);
             if (res.ok) {
@@ -131,6 +146,8 @@ export default function CustomerChatPage() {
                     }),
                 });
 
+                speakReply(data.reply);
+
                 if (data.needHumanSupport) {
                     setNeedHumanSupport(true);
                     await fetch('http://localhost:8080/api/chat/escalate', {
@@ -146,6 +163,69 @@ export default function CustomerChatPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const startVoiceInput = () => {
+        if (typeof window === 'undefined') return;
+
+        const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognitionCtor) {
+            alert('Trình duyệt này chưa hỗ trợ nhận dạng giọng nói.');
+            return;
+        }
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+            return;
+        }
+
+        window.speechSynthesis?.cancel();
+        transcriptRef.current = '';
+        autoSendVoiceRef.current = true;
+
+        const recognition = new SpeechRecognitionCtor();
+        recognition.lang = 'vi-VN';
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => setIsListening(true);
+        recognition.onresult = (event: any) => {
+            let transcript = '';
+            for (let i = 0; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript + ' ';
+            }
+            transcript = transcript.trim();
+            if (transcript) {
+                transcriptRef.current = transcript;
+                setInput(transcript);
+            }
+        };
+        recognition.onerror = () => setIsListening(false);
+        recognition.onend = () => {
+            setIsListening(false);
+            const transcript = transcriptRef.current.trim();
+            if (autoSendVoiceRef.current && transcript) {
+                autoSendVoiceRef.current = false;
+                setInput('');
+                void handleSendMessage(undefined, transcript);
+            }
+        };
+
+        try {
+            recognition.start();
+        } catch {
+            setIsListening(false);
+        }
+    };
+
+    const speakReply = (text: string) => {
+        if (!voiceReplyEnabled || !text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'vi-VN';
+        utterance.rate = 1;
+        window.speechSynthesis.speak(utterance);
     };
 
     const copyChatId = () => {
@@ -168,8 +248,8 @@ export default function CustomerChatPage() {
             <SupportHeader />
 
             <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col">
-                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl flex-1 flex flex-col overflow-hidden max-h-[85vh]">
-                    
+                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl flex-1 flex flex-col overflow-hidden max-h-[75vh]">
+
                     {/* CHAT HEADER */}
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5">
@@ -185,7 +265,7 @@ export default function CustomerChatPage() {
                                         {needHumanSupport ? 'Bộ phận CSKH Trực tuyến' : 'Trợ lý AI Support'}
                                     </h2>
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                        needHumanSupport 
+                                        needHumanSupport
                                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                     }`}>
@@ -194,7 +274,7 @@ export default function CustomerChatPage() {
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                                     <span>Mã phiên:</span>
-                                    <button 
+                                    <button
                                         onClick={copyChatId}
                                         className="font-mono font-bold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 cursor-pointer"
                                         title="Sao chép mã phiên chat"
@@ -223,7 +303,6 @@ export default function CustomerChatPage() {
 
                     {/* MESSAGE FEED */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
-                        {/* WELCOME BOT BANNER */}
                         <div className="max-w-xl mx-auto bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-5 border border-indigo-100/80 text-center space-y-2 mb-6">
                             <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center mx-auto shadow-xs">
                                 <Sparkles size={18} />
@@ -237,13 +316,13 @@ export default function CustomerChatPage() {
                         </div>
 
                         {/* MESSAGES LIST */}
-                        {messages.map((msg) => {
+                        {messages.map((msg, index) => {
                             const isCustomer = msg.senderType === 'CUSTOMER';
                             const isAgent = msg.senderType === 'AGENT';
 
                             return (
                                 <div
-                                    key={msg.id}
+                                    key={msg.id || index}
                                     className={`flex items-end gap-2.5 ${isCustomer ? 'justify-end' : 'justify-start'}`}
                                 >
                                     {!isCustomer && (
@@ -264,8 +343,8 @@ export default function CustomerChatPage() {
                                                 isCustomer
                                                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-br-xs'
                                                     : isAgent
-                                                    ? 'bg-amber-50 text-slate-800 border border-amber-200 rounded-bl-xs'
-                                                    : 'bg-white text-slate-800 border border-slate-200 rounded-bl-xs'
+                                                        ? 'bg-amber-50 text-slate-800 border border-amber-200 rounded-bl-xs'
+                                                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-xs'
                                             }`}
                                         >
                                             {msg.message}
@@ -281,9 +360,8 @@ export default function CustomerChatPage() {
                             );
                         })}
 
-                        {/* AI THINKING INDICATOR */}
                         {loading && (
-                            <div className="flex items-center gap-2.5 text-xs text-slate-500 animate-fadeIn">
+                            <div className="flex items-center gap-2.5 text-xs text-slate-500">
                                 <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
                                     <Bot size={15} />
                                 </div>
@@ -318,11 +396,31 @@ export default function CustomerChatPage() {
 
                     {/* MESSAGE INPUT BAR */}
                     <form onSubmit={handleSendMessage} className="p-4 px-6 border-t border-slate-100 bg-white flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={startVoiceInput}
+                            disabled={loading || needHumanSupport}
+                            className={`p-3 rounded-2xl border transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${isListening ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-white text-indigo-600 border-slate-200 hover:bg-indigo-50'}`}
+                        >
+                            {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setVoiceReplyEnabled((enabled) => {
+                                    if (enabled && typeof window !== 'undefined') window.speechSynthesis?.cancel();
+                                    return !enabled;
+                                });
+                            }}
+                            className={`p-3 rounded-2xl border transition shrink-0 ${voiceReplyEnabled ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                        >
+                            {voiceReplyEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                        </button>
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={needHumanSupport ? 'Nhập tin nhắn trao đổi với Chuyên viên...' : 'Nhập câu hỏi của bạn (Nhấn Enter để gửi)...'}
+                            placeholder={isListening ? 'Đang nghe... hãy nói câu hỏi của bạn' : needHumanSupport ? 'Nhập tin nhắn trao đổi với Chuyên viên...' : 'Nhập câu hỏi hoặc nhấn micro để nói...'}
                             className="flex-1 bg-slate-100/80 border border-slate-200/80 rounded-2xl px-4 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
                         />
                         <button
@@ -335,6 +433,12 @@ export default function CustomerChatPage() {
                         </button>
                     </form>
                 </div>
+
+                {/* GEMINI LIVE VOICE COMPONENT */}
+                <GeminiLiveVoice
+                    conversationId={conversationId}
+                    customerId={userAccount?.id}
+                />
             </main>
         </div>
     );

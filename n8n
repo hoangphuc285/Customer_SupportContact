@@ -7,10 +7,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -384,
-        224
+        160,
+        608
       ],
-      "id": "2b50b7e7-afdb-4b5b-be12-759e239c1dd9",
+      "id": "aa1e5f16-b207-4e0c-851a-5eed2bd168f7",
       "name": "Respond to Webhook"
     },
     {
@@ -30,10 +30,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        176,
-        176
+        784,
+        560
       ],
-      "id": "12b20b1b-6f52-4f78-a481-9e90b602866c",
+      "id": "da5a88f8-6644-46a5-a21d-d81690079150",
       "name": "Create Customer"
     },
     {
@@ -48,10 +48,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1168,
-        48
+        1712,
+        320
       ],
-      "id": "040ed892-3f17-4a65-bcbd-1f01b00cb806",
+      "id": "8b751014-05d6-4af7-979a-cc2ff5733a6a",
       "name": "Create Ticket"
     },
     {
@@ -60,22 +60,22 @@
         "toEmail": "phucnh.24it@vku.udn.vn",
         "subject": "=[CSKH] Đã tiếp nhận yêu cầu #{{ $json.id }}",
         "emailFormat": "text",
-        "text": "=Xin chào {{ $('Workflow 1').item.json.body.customer.name }},\n\nChúng tôi đã tiếp nhận yêu cầu của bạn.\n\nMã Ticket: {{ $json.ticketCode }}\nKênh tiếp nhận:{{ $('Workflow 1').item.json.body.channel }}\nLoại yêu cầu: {{ $json.category }}\nTrạng thái:{{ $json.status }}\n\nNội dung yêu cầu:{{ $('Workflow 1').item.json.body.message }}\n\nĐội ngũ CSKH sẽ xử lý yêu cầu của bạn.\n\nTrân trọng,\nCustomer Support",
+        "text": "=Xin chào {{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.customer.name }},\n\nChúng tôi đã tiếp nhận yêu cầu của bạn.\n\nMã Ticket: {{ $json.ticketCode }}\nKênh tiếp nhận:{{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.channel }}\nLoại yêu cầu: {{ $json.category }}\nTrạng thái:{{ $json.status }}\n\nNội dung yêu cầu:{{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.message }}\n\nĐội ngũ CSKH sẽ xử lý yêu cầu của bạn.\n\nTrân trọng,\nCustomer Support",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1392,
-        48
+        1936,
+        320
       ],
-      "id": "42c77f80-3318-4ec8-983c-d8ea44ab847b",
+      "id": "de71e2ce-b7fa-486a-9994-d03c6ff21842",
       "name": "Send Customer Confirmation",
       "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       }
     },
@@ -91,10 +91,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1632,
-        48
+        2176,
+        320
       ],
-      "id": "8ff8024d-e2a0-47a5-889c-da3c5be4caae",
+      "id": "48b78a9d-db38-4aa9-9710-c10b46b7878b",
       "name": "Update Ticket Status"
     },
     {
@@ -106,10 +106,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1824,
-        48
+        2368,
+        320
       ],
-      "id": "3320fae5-a3d4-4b23-86b4-691ae1eb77a6",
+      "id": "70aa574c-29b7-40d8-a6ca-58012386bf62",
       "name": "Respond to Webhook1"
     },
     {
@@ -170,10 +170,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -608,
-        128
+        -64,
+        400
       ],
-      "id": "2cecb5ca-2c00-443c-b9c7-df8e2141da00",
+      "id": "05655eb1-9ea9-4adb-b4e7-dd47a391b37b",
       "name": "IF: Validate Request"
     },
     {
@@ -204,10 +204,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        0,
-        0
+        624,
+        384
       ],
-      "id": "ca99cd98-29af-49d9-aebf-bfb90094d97e",
+      "id": "a2f8848a-c96f-487e-9946-c8c6e0f9ee5d",
       "name": "IF: Customer Exists?"
     },
     {
@@ -233,10 +233,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -176,
-        32
+        400,
+        384
       ],
-      "id": "081c8ab8-7ab7-4b23-bb3c-2cefe31c4487",
+      "id": "6c87bf13-cd94-4afe-b1f9-d43d8d790cc3",
       "name": "Check Customer"
     },
     {
@@ -246,37 +246,37 @@
             {
               "id": "59b9942b-a539-4f27-9bd2-fa308ce9a18e",
               "name": "customerName",
-              "value": "={{ $('Workflow 1').item.json.body.customer.name }}",
+              "value": "={{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.customer.name }}",
               "type": "string"
             },
             {
               "id": "7dea3844-a457-4ad6-98d1-a7a9e28ae454",
               "name": "=customerEmail",
-              "value": "={{ $('Workflow 1').item.json.body.customer.email }}",
+              "value": "={{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.customer.email }}",
               "type": "string"
             },
             {
               "id": "c26ecca3-1245-43e8-bbbf-773933ee53a3",
               "name": "message",
-              "value": "={{ $('Workflow 1').item.json.body.message }}",
+              "value": "={{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.message }}",
               "type": "string"
             },
             {
               "id": "7416dc7d-dd3b-4e03-98a4-9bc6526724d6",
               "name": "=channel",
-              "value": "={{ $('Workflow 1').item.json.body.channel }}",
+              "value": "={{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.channel }}",
               "type": "string"
             },
             {
               "id": "124f9ce3-7810-471c-a3eb-6abd7d0f72c7",
               "name": "=customerPhone",
-              "value": "={{ $('Workflow 1').item.json.body.customer.phone }}",
+              "value": "={{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.customer.phone }}",
               "type": "string"
             },
             {
               "id": "9e8cb54a-d92a-466a-a726-bf4902461e87",
               "name": "subject",
-              "value": "={{ $('Workflow 1').item.json.body.subject }}",
+              "value": "={{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.subject }}",
               "type": "string"
             }
           ]
@@ -286,10 +286,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -384,
-        32
+        176,
+        384
       ],
-      "id": "bc32aaea-ee80-4faa-983d-553347c2e8ba",
+      "id": "d23e9a7f-eba0-4a36-8d3f-1a15fd1b127b",
       "name": "Normalize Request"
     },
     {
@@ -303,7 +303,7 @@
         "messages": {
           "values": [
             {
-              "content": "=You are a customer support intent classifier.\n\nClassify the customer's request into exactly ONE category.\n\nCategories:\n\nREFUND\nWARRANTY\nCOMPLAINT\nPAYMENT\nORDER_STATUS\nPRODUCT_SUPPORT\nPRODUCT_EXCHANGE\nOTHER\n\nCustomer message:\n{{ $('Workflow 1').item.json.body.message }}\n\nReturn JSON only:\n\n{\n  \"intent\": \"CATEGORY\",\n  \"confidence\": 0.0\n}"
+              "content": "=You are a customer support intent classifier.\n\nClassify the customer's request into exactly ONE category.\n\nCategories:\n\nREFUND\nWARRANTY\nCOMPLAINT\nPAYMENT\nORDER_STATUS\nPRODUCT_SUPPORT\nPRODUCT_EXCHANGE\nOTHER\n\nCustomer message:\n{{ $('Nhận yêu cầu từ khách hàng (form)').item.json.body.message }}\n\nReturn JSON only:\n\n{\n  \"intent\": \"CATEGORY\",\n  \"confidence\": 0.0\n}"
             }
           ]
         },
@@ -313,15 +313,15 @@
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        544,
-        48
+        1088,
+        352
       ],
-      "id": "57f92c7e-02e7-4b92-be5b-4160efa8becc",
+      "id": "e2e8045f-3a87-4f6f-a059-0cfbc0cf6d36",
       "name": "AI CUSTOMER INTENT",
       "retryOnFail": true,
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -334,10 +334,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -704,
-        544
+        208,
+        1104
       ],
-      "id": "b7f12306-5de4-464c-9140-9edff9c6b737",
+      "id": "8e1aa8d6-9be7-4193-9be8-a86c8a344ee8",
       "name": "Lấy thông tin Ticket"
     },
     {
@@ -348,14 +348,14 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        176,
-        752
+        1200,
+        1344
       ],
-      "id": "4e15148b-3111-4dec-8ddc-b87735e90207",
+      "id": "e8c46e16-0593-47e8-a050-6dbd546b74e5",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -367,10 +367,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        848,
-        432
+        1760,
+        1040
       ],
-      "id": "9a8872e8-c4fb-4417-b2b2-5c8d74f4ba9c",
+      "id": "64f7eb83-8e17-48bf-907b-5da97272b605",
       "name": "6. Tính hạn SLA"
     },
     {
@@ -381,10 +381,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1280,
-        480
+        2192,
+        1040
       ],
-      "id": "2b1b3b1a-8a33-49b2-bb1e-25a2c1fbd349",
+      "id": "3a1d2ecc-b934-4ed8-9e1b-8e789a3a52e8",
       "name": "8. Tìm nhân viên"
     },
     {
@@ -399,10 +399,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1504,
-        480
+        2416,
+        1040
       ],
-      "id": "6657b11c-bc23-4ca1-82ec-0218766923ed",
+      "id": "fb0a3c30-6f5b-48d3-813a-0fab0cd1586f",
       "name": "9. Gán Ticket"
     },
     {
@@ -417,16 +417,16 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1744,
-        480
+        2656,
+        1040
       ],
-      "id": "9b65ed70-1156-4eef-a7ff-35d25f437762",
+      "id": "385fa1e3-0e1d-4197-86ce-4d259e1fc64c",
       "name": "Thông báo cho nhân viên",
       "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       },
       "onError": "continueErrorOutput"
@@ -439,10 +439,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -528,
-        544
+        384,
+        1104
       ],
-      "id": "f5bde26f-afac-4e44-9d9b-3c9b1013c150",
+      "id": "06e02f24-8fdb-4405-8670-ea68c1ea53bf",
       "name": "Lấy thông tin yêu cầu"
     },
     {
@@ -454,10 +454,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        176,
-        560
+        1232,
+        1120
       ],
-      "id": "5bd9e22b-b37b-4f6e-8e6f-ce188a9e0ac3",
+      "id": "ff666944-eaa0-4ae7-996b-459cb233e7e1",
       "name": "5. Đánh giá Priority"
     },
     {
@@ -467,10 +467,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1136,
-        528
+        1968,
+        1024
       ],
-      "id": "bd990601-9440-42d9-b0c7-ff2f70ae23ba",
+      "id": "b765b437-7ed2-4a0a-bbf8-3c934c4cf0e9",
       "name": "Phân loại phòng ban"
     },
     {
@@ -485,10 +485,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2432,
-        400
+        3344,
+        960
       ],
-      "id": "3e88b54e-0b89-4b09-8ea4-f33e1e6fae43",
+      "id": "38455b79-951d-48ca-ac88-650225ea4e45",
       "name": "Ghi lại log"
     },
     {
@@ -503,10 +503,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2080,
-        400
+        2992,
+        960
       ],
-      "id": "603b8a08-0d15-4f8d-9444-b1926cd7ed27",
+      "id": "9dafe4d7-9c82-4f75-9074-f3fc2628d031",
       "name": "Cập nhật lại status"
     },
     {
@@ -519,10 +519,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -1280,
-        1616
+        -368,
+        1840
       ],
-      "id": "173cae68-b9cb-4bca-bc3a-f43cb80f3e76",
+      "id": "2dc8adca-d1f1-4206-87da-074db98d39c1",
       "name": "Receive Processed Ticket",
       "webhookId": "41759239-cce8-4316-aa57-3b73a6a92797"
     },
@@ -534,10 +534,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -1056,
-        1616
+        -144,
+        1840
       ],
-      "id": "991f3cb5-9c0b-45c6-8866-163eb808dee9",
+      "id": "a73e7f3d-8aa8-4085-ad4b-3ce52a38e80c",
       "name": "Get Ticket"
     },
     {
@@ -548,10 +548,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -832,
-        1616
+        80,
+        1840
       ],
-      "id": "ad423c8c-cef2-4ef5-bf78-af0e58c13fe1",
+      "id": "7e636459-e135-4c75-80da-a9552c9d4dbc",
       "name": "Lấy thông tin yêu cầu1"
     },
     {
@@ -561,10 +561,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -336,
-        1728
+        576,
+        1952
       ],
-      "id": "baec3ed9-5c31-4d4e-b12f-b2696a6f6f86",
+      "id": "efbe611b-9f9d-408e-9392-27e754fd17fa",
       "name": "Respond to Webhook2",
       "retryOnFail": false
     },
@@ -589,15 +589,15 @@
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        -112,
-        1568
+        800,
+        1792
       ],
-      "id": "6e2331b6-cf12-4489-9750-6413696af506",
+      "id": "3184cc7f-c943-4163-8d3b-c7a4d8cd6f81",
       "name": "AI Draft Response",
       "retryOnFail": true,
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -610,10 +610,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -336,
-        1568
+        576,
+        1792
       ],
-      "id": "da3f0e60-2743-416a-9b97-424677daec47",
+      "id": "ff6e3522-4e6c-4e75-886f-bd97b3b56246",
       "name": "Get Resolution"
     },
     {
@@ -628,16 +628,16 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        256,
-        1584
+        1168,
+        1808
       ],
-      "id": "02fdfa45-5533-49ec-8438-cc7f5650c09c",
+      "id": "b4a8f9ff-88e1-4fb4-a44d-bb8f07d5357a",
       "name": "Send Response",
       "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       }
     },
@@ -662,10 +662,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        848,
-        1616
+        1760,
+        1840
       ],
-      "id": "9bac335a-8dda-452a-99e1-779562503d10",
+      "id": "e3f74032-45b6-4021-8d1f-953b16d398c1",
       "name": "Save Feedback"
     },
     {
@@ -680,10 +680,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1760,
-        1712
+        2672,
+        1936
       ],
-      "id": "6bec0d74-be8b-498f-8643-adb2b26cbe3b",
+      "id": "c8d057bd-ccd8-4b5e-b677-463a675b6d22",
       "name": "Đóng Ticket & Cập nhật đánh giá"
     },
     {
@@ -698,45 +698,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2000,
-        1424
+        2912,
+        1648
       ],
-      "id": "6a9f54df-522a-4141-b481-efc76b3c158c",
+      "id": "8037b20f-eb01-48c6-86ea-67b9d139771b",
       "name": "Trigger Workflow 2"
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "customer-intake",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        -832,
-        128
-      ],
-      "id": "4d6a430c-82d3-442f-8e7f-18edc2cae5a9",
-      "name": "Workflow 1",
-      "webhookId": "69eb70ec-ed34-459a-8591-88b56c0f49ce"
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "process-ticket",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        -1152,
-        592
-      ],
-      "id": "fbb0307c-87d6-4b02-86f1-b02066a1644b",
-      "name": "Workflow 2",
-      "webhookId": "46c9747e-c58c-48df-9227-bef82267bba2"
     },
     {
       "parameters": {
@@ -766,10 +732,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1504,
-        1616
+        2416,
+        1840
       ],
-      "id": "d865ec38-9dc8-4600-8268-3ef2ae2bdd48",
+      "id": "a837f742-95aa-4d36-b130-6b65bd94124f",
       "name": "IF needsAction?"
     },
     {
@@ -799,10 +765,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -608,
-        1616
+        304,
+        1840
       ],
-      "id": "0769e5d7-f9b6-4cbc-9720-7f116db3a783",
+      "id": "a81b7c34-2e9e-4d92-9d2e-e4e7bfdc9589",
       "name": "IF Need Reopen?"
     },
     {
@@ -826,15 +792,15 @@
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        1136,
-        1600
+        2048,
+        1824
       ],
-      "id": "0f8ce37f-2f17-409c-bf69-313939a5bc40",
+      "id": "a66c9f4b-e174-43e4-b492-fb366407bab6",
       "name": "AI Analyze Feedback",
       "retryOnFail": true,
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -851,10 +817,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1760,
-        1440
+        2672,
+        1664
       ],
-      "id": "3c9e02a6-66e0-4c0f-a64d-ad3c8ec3f9b5",
+      "id": "9a8b825a-ad92-4410-abe0-d9dfa8588777",
       "name": "Cập nhật lại status1"
     },
     {
@@ -865,10 +831,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -256,
-        544
+        656,
+        1104
       ],
-      "id": "cdaba0cf-aec2-4d63-894c-e8abf2af12d6",
+      "id": "e12bdde5-e731-4c28-a713-4eb35889f3a3",
       "name": "Lấy thông tin feedback",
       "alwaysOutputData": true
     },
@@ -879,10 +845,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -48,
-        544
+        864,
+        1104
       ],
-      "id": "e52815bc-1944-4dce-8dde-e98cecd59f01",
+      "id": "6859a497-60ea-495a-8d17-186c6963285f",
       "name": "ticket + mess + log "
     },
     {
@@ -897,10 +863,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2048,
-        48
+        2592,
+        320
       ],
-      "id": "62295ff3-1e63-4e40-bb7f-ab9b24bafd27",
+      "id": "2b65f86e-9c0c-4cce-a3a2-fde5bf1be737",
       "name": "Gọi workfollow 2"
     },
     {
@@ -912,10 +878,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        560,
-        1616
+        1472,
+        1840
       ],
-      "id": "6fe680fa-7a24-4f38-bd92-e47e3f616cdb",
+      "id": "23a0927f-4950-47e5-abf9-9953320d91fe",
       "name": "Customer phản hồi",
       "webhookId": "8cdc18e5-4f7b-4a47-85a6-d26c75609de0"
     },
@@ -931,28 +897,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2016,
-        1712
+        2928,
+        1936
       ],
-      "id": "389a9c57-7ac6-45d3-a369-bf0b7100788e",
+      "id": "81b7732b-eaf0-4cfd-81c3-bb873a942a4c",
       "name": "Tạo báo cáo"
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "chat",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        -1248,
-        1872
-      ],
-      "id": "f9314164-c369-44aa-9528-8b097bba539d",
-      "name": "Nhận tin nhắn từ khách",
-      "webhookId": "8b55c750-9788-439c-836c-d3b54885624b"
     },
     {
       "parameters": {
@@ -983,19 +932,19 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -1024,
-        1872
+        -160,
+        2208
       ],
-      "id": "b3c932ab-ef32-4d6d-8f90-5233c1c0fe24",
+      "id": "f2fbccb4-01b2-43f4-a427-297018994761",
       "name": "Chuẩn hóa dữ liệu"
     },
     {
       "parameters": {
         "modelId": {
           "__rl": true,
-          "value": "models/gemini-2.5-flash",
+          "value": "models/gemini-3.5-flash",
           "mode": "list",
-          "cachedResultName": "models/gemini-2.5-flash"
+          "cachedResultName": "models/gemini-3.5-flash"
         },
         "messages": {
           "values": [
@@ -1012,17 +961,17 @@
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        -800,
-        1888
+        64,
+        2224
       ],
-      "id": "a32ddabd-3988-4d6e-9b92-55bd75c841bf",
+      "id": "59a3a50c-ea4b-4bb1-989a-c876943351c5",
       "name": "AI Agent / RAG",
       "retryOnFail": true,
       "waitBetweenTries": 1000,
       "maxTries": 5,
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -1045,14 +994,14 @@
       "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
       "typeVersion": 1.2,
       "position": [
-        -912,
-        2160
+        -48,
+        2496
       ],
-      "id": "af14cbd8-d74d-4d05-8a00-364704faca73",
+      "id": "44f88264-74cc-4fa5-93c9-bced4478d8ef",
       "name": "Message a model in Google Gemini",
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -1072,14 +1021,14 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
       "position": [
-        -544,
-        2160
+        320,
+        2496
       ],
-      "id": "3453d649-8118-4c2e-ae2f-a03948c9ad2b",
+      "id": "8dd62bb0-8522-4562-9ae9-e78ba6685822",
       "name": "Qdrant Vector Store",
       "credentials": {
         "qdrantApi": {
-          "id": "3ZUpZdXqGiqrrOHT",
+          "id": "y730vllKiyJ4P0LX",
           "name": "Qdrant account"
         }
       }
@@ -1089,14 +1038,14 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -368,
-        2400
+        496,
+        2736
       ],
-      "id": "e976af92-47a2-489b-9744-47eee91e7fa4",
+      "id": "b29cd395-6a56-4683-930d-24fac9fe38bc",
       "name": "Embeddings Google Gemini",
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -1106,10 +1055,10 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        464,
-        1984
+        1232,
+        2288
       ],
-      "id": "af57e594-b6d9-4bb2-821f-fb6b8025d5ad",
+      "id": "22dd20aa-3925-454e-9811-3577162985d3",
       "name": "When clicking ‘Execute workflow’"
     },
     {
@@ -1125,14 +1074,14 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
       "position": [
-        912,
-        1936
+        1680,
+        2240
       ],
-      "id": "ef46ba7a-748d-4024-8a6b-d2b2469df05e",
+      "id": "29027c62-93f9-430f-b853-bc73591a29ca",
       "name": "Qdrant Vector Store1",
       "credentials": {
         "qdrantApi": {
-          "id": "3ZUpZdXqGiqrrOHT",
+          "id": "y730vllKiyJ4P0LX",
           "name": "Qdrant account"
         }
       }
@@ -1144,10 +1093,10 @@
       "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
       "typeVersion": 1.1,
       "position": [
-        912,
-        2144
+        1680,
+        2448
       ],
-      "id": "cab10dc7-7c5d-40ce-98cd-05c48838e7b6",
+      "id": "1249b62f-2a05-4ab3-82b1-162e75bbc36a",
       "name": "Default Data Loader"
     },
     {
@@ -1155,14 +1104,14 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
       "position": [
-        736,
-        2112
+        1504,
+        2416
       ],
-      "id": "679b6eb7-6e57-495f-b7f3-63541f61684a",
+      "id": "c57ca6eb-5bae-4938-91f5-70e1e3cf29a6",
       "name": "Embeddings Google Gemini1",
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -1174,7 +1123,7 @@
             {
               "id": "10c2c8e7-28de-4f47-b6ef-29946a203af3",
               "name": "text",
-              "value": "==== THÔNG TIN VÀ CHÍNH SÁCH CSKH VKU SUPPORT ===1. THỜI GIAN LÀM VIỆC VÀ KÊNH HỖ TRỢ- Thời gian làm việc CSKH: Từ 08:00 đến 17:30 (Thứ 2 đến Thứ 6). Thứ 7 làm việc từ 08:00 đến 12:00. Nghỉ Chủ Nhật và các ngày lễ Tết.- Kênh tiếp nhận hỗ trợ: Website Support (/support/new), Email: support@vku.edu.vn, Hotline: 1900-xxxx.2. CHÍNH SÁCH ĐỔI TRẢ VÀ HOÀN TIỀN- Điều kiện đổi trả: Sản phẩm hoặc dịch vụ phát sinh lỗi kỹ thuật từ nhà cung cấp trong vòng 7 ngày kể từ khi nhận.- Yêu cầu sản phẩm: Còn nguyên tem mác, nguyên vỏ hộp và đầy đủ phụ kiện đi kèm.- Thời gian xử lý hoàn tiền: Từ 24h đến 48h làm việc sau khi Ticket yêu cầu hoàn tiền được xác minh thành công.3. QUY TRÌNH XỬ LÝ TICKET VÀ SLA- Mức độ ưu tiên LOW / MEDIUM: Thời gian phản hồi tối đa là 4 giờ làm việc.- Mức độ ưu tiên HIGH / URGENT: Thời gian phản hồi khẩn cấp trong vòng 1 giờ làm việc.- Quy trình Mở lại Ticket (Reopen): Khi nhận email kết quả xử lý, nếu khách hàng chưa hài lòng có thể gửi phản hồi trực tiếp qua link feedback. Hệ thống n8n sẽ tự động kích hoạt chuyển trạng thái Ticket thành REOPENED để nhân viên hỗ trợ tiếp.4. TRẠNG THÁI TICKET HỆ THỐNG- NEW: Ticket mới tạo, chờ gán nhân viên.- IN_PROGRESS / ASSIGNED: Nhân viên đang tiếp nhận và xử lý.- RESOLVED: Đã xử lý xong, hệ thống gửi email AI phản hồi cho khách.- CLOSED: Khách hàng xác nhận hài lòng và đóng ticket.",
+              "value": "==== THÔNG TIN VÀ CHÍNH SÁCH CSKH  ===1. THỜI GIAN LÀM VIỆC VÀ KÊNH HỖ TRỢ- Thời gian làm việc CSKH: Từ 08:00 đến 17:30 (Thứ 2 đến Thứ 6). Thứ 7 làm việc từ 08:00 đến 12:00. Nghỉ Chủ Nhật và các ngày lễ Tết.- Kênh tiếp nhận hỗ trợ: Website Support (/support/new), Email: support@vku.edu.vn, Hotline: 1900-xxxx.2. CHÍNH SÁCH ĐỔI TRẢ VÀ HOÀN TIỀN- Điều kiện đổi trả: Sản phẩm hoặc dịch vụ phát sinh lỗi kỹ thuật từ nhà cung cấp trong vòng 7 ngày kể từ khi nhận.- Yêu cầu sản phẩm: Còn nguyên tem mác, nguyên vỏ hộp và đầy đủ phụ kiện đi kèm.- Thời gian xử lý hoàn tiền: Từ 24h đến 48h làm việc sau khi Ticket yêu cầu hoàn tiền được xác minh thành công.3. QUY TRÌNH XỬ LÝ TICKET VÀ SLA- Mức độ ưu tiên LOW / MEDIUM: Thời gian phản hồi tối đa là 4 giờ làm việc.- Mức độ ưu tiên HIGH / URGENT: Thời gian phản hồi khẩn cấp trong vòng 1 giờ làm việc.- Quy trình Mở lại Ticket (Reopen): Khi nhận email kết quả xử lý, nếu khách hàng chưa hài lòng có thể gửi phản hồi trực tiếp qua link feedback. Hệ thống n8n sẽ tự động kích hoạt chuyển trạng thái Ticket thành REOPENED để nhân viên hỗ trợ tiếp.4. TRẠNG THÁI TICKET HỆ THỐNG- NEW: Ticket mới tạo, chờ gán nhân viên.- IN_PROGRESS / ASSIGNED: Nhân viên đang tiếp nhận và xử lý.- RESOLVED: Đã xử lý xong, hệ thống gửi email AI phản hồi cho khách.- CLOSED: Khách hàng xác nhận hài lòng và đóng ticket.",
               "type": "string"
             }
           ]
@@ -1184,25 +1133,25 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        688,
-        1888
+        1456,
+        2192
       ],
-      "id": "efab4e98-0a4d-4d57-acb6-1468d350f57f",
+      "id": "bc88b3e5-395f-4de9-93c9-92f506f5ba78",
       "name": "Edit Fields"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"success\": {{ $json.success }},\n  \"conversationId\": \"{{ $json.conversationId }}\",\n  \"reply\": \"{{ $json.reply }}\",\n  \"needHumanSupport\": {{ $json.needHumanSupport }}\n}",
+        "responseBody": "={{ JSON.stringify({\n  success: $json.success,\n  conversationId: $json.conversationId,\n  reply: $json.reply,\n  needHumanSupport: $json.needHumanSupport\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        32,
-        1888
+        896,
+        2224
       ],
-      "id": "46a37f9d-8be5-4ae7-82c4-154baf56be0f",
+      "id": "3ada5eb7-e4e7-485a-a8ca-ee078cda5516",
       "name": "Respond to Webhook3"
     },
     {
@@ -1212,10 +1161,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -416,
-        1888
+        448,
+        2224
       ],
-      "id": "c53e5ee5-036a-4f95-8f98-bae3d395f33e",
+      "id": "f21abed3-c4c2-4d5c-a794-0db943ae5f67",
       "name": "Code in JavaScript"
     },
     {
@@ -1247,10 +1196,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -992,
-        720
+        -80,
+        1280
       ],
-      "id": "e4b3999f-01fd-483b-a533-8e304bbaad77",
+      "id": "daf067aa-71b8-4ac7-b6ce-acb804b1cc9c",
       "name": "If"
     },
     {
@@ -1262,81 +1211,11 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -656,
-        848
+        256,
+        1408
       ],
-      "id": "4cda433c-d710-46b8-b377-f4a2dc28fcc4",
+      "id": "222c6da5-6623-438e-b840-37033f0c2ac6",
       "name": "Respond to Webhook4"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "f2f1188e-e533-4ea7-9795-ffca69939043",
-              "leftValue": "={{ $json.priority }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        448,
-        560
-      ],
-      "id": "08a88022-f2ea-47e0-985f-c6ba2fbf11ce",
-      "name": "If1"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "18ee947e-83f0-48ac-84ba-4f092e31e542",
-              "name": "priority",
-              "value": "MEDIUM",
-              "type": "string"
-            },
-            {
-              "id": "45644d6a-9f29-4a1d-8bae-fb90fd981089",
-              "name": "category",
-              "value": "GENERAL",
-              "type": "string"
-            },
-            {
-              "id": "2ff2bdca-2030-4cdd-8c90-b00b9b082e55",
-              "name": "department",
-              "value": "CSKH",
-              "type": "string"
-            }
-          ]
-        },
-        "includeOtherFields": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        672,
-        656
-      ],
-      "id": "6b4a891e-5599-4a91-8109-93c5fe6353ac",
-      "name": "Edit Fields1"
     },
     {
       "parameters": {
@@ -1355,44 +1234,24 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1968,
-        576
+        2880,
+        1136
       ],
-      "id": "3461b677-d4ca-4dbe-9a92-639f3464b597",
+      "id": "f1f8c115-7847-4afc-a185-3fa88a3d4f77",
       "name": "emailStatus"
     },
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 15
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.4,
-      "position": [
-        -720,
-        1184
-      ],
-      "id": "47539116-7088-4337-a91b-08a94edd94f8",
-      "name": "Schedule Trigger"
-    },
-    {
-      "parameters": {
-        "url": "=http://172.17.0.1:8081/api/tickets/sla-check",
+        "url": "=http://172.17.0.1:8080/api/tickets/sla-check",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -496,
-        1184
+        -128,
+        3424
       ],
-      "id": "d888bc7e-3545-4560-ac9b-b241d4d2dcfc",
+      "id": "30649b9d-9f63-465a-9a16-b68ce441094c",
       "name": "HTTP Request"
     },
     {
@@ -1424,16 +1283,16 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -272,
-        1184
+        96,
+        3424
       ],
-      "id": "8bf8c7e9-f5a2-495b-9cf8-e8e061c4f2e5",
+      "id": "2c144776-6f94-45ad-a35d-a296a13b84b9",
       "name": "If2"
     },
     {
       "parameters": {
         "method": "PUT",
-        "url": "=http://172.17.0.1:8081/api/tickets/{{ $json.id }}/assign",
+        "url": "=http://172.17.0.1:8080/api/tickets/{{ $json.id }}/assign",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "{\n  \"priority\": \"URGENT\"\n}",
@@ -1442,10 +1301,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -48,
-        1088
+        320,
+        3328
       ],
-      "id": "0deac5fa-b4b8-4b38-a57f-b33e96ba4c9e",
+      "id": "8a2d3901-340b-4fdb-839e-14d00d90282e",
       "name": "HTTP Request1"
     },
     {
@@ -1459,16 +1318,16 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        256,
-        1072
+        624,
+        3312
       ],
-      "id": "6bf7e3aa-a343-44f8-81a6-b3ec7307306e",
+      "id": "f145a461-bd8c-48bc-83c5-713ea123eb4b",
       "name": "Send Customer Confirmation1",
       "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       }
     },
@@ -1483,16 +1342,16 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        -16,
-        1296
+        352,
+        3536
       ],
-      "id": "bf3fb361-c982-499c-8d01-7140aaf8278c",
+      "id": "6faa8965-4e95-4b11-8c5c-b61efcc8d648",
       "name": "Send Customer Confirmation2",
       "webhookId": "5c0aa739-0cfd-4dd7-80ca-b238ef168421",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       }
     },
@@ -1508,10 +1367,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        480,
-        1072
+        848,
+        3312
       ],
-      "id": "6f02ccfb-4a4c-485e-a10a-5307a824ceab",
+      "id": "6655063d-c6c2-440d-b158-3c098566b850",
       "name": "cảnh báo"
     },
     {
@@ -1526,11 +1385,185 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        208,
-        1296
+        576,
+        3536
       ],
-      "id": "a3e4361f-34a2-41bb-a713-e0cef2766d6c",
+      "id": "d4d25395-20b9-4fdb-be14-d8db54ecedd7",
       "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// 1. Thống kê số lượng ticket\nconst totalTickets = items.length;\nconst closedTickets = items.filter(t => ['CLOSED', 'RESOLVED'].includes(t.status)).length;\nconst openTickets = totalTickets - closedTickets;\n\n// 2. Thống kê mức độ hài lòng (CSAT)\nconst ratedTickets = items.filter(t => t.satisfaction);\nconst satisfiedCount = items.filter(t => t.satisfaction === 'SATISFIED').length;\nconst csatRate = ratedTickets.length > 0 ? Math.round((satisfiedCount / ratedTickets.length) * 100) : 100;\n\n// 3. Phân bổ theo phòng ban\nconst deptStats = {\n  CSKH: 0,\n  KY_THUAT: 0,\n  THANH_TOAN: 0,\n  OTHER: 0\n};\n\nitems.forEach(t => {\n  const cat = t.category || 'OTHER';\n  if (['REFUND', 'PAYMENT'].includes(cat)) deptStats.THANH_TOAN++;\n  else if (['WARRANTY', 'PRODUCT_SUPPORT'].includes(cat)) deptStats.KY_THUAT++;\n  else deptStats.CSKH++;\n});\n\n// 4. Gom danh sách các ticket để gửi cho AI phân tích điểm nghẽn\nconst recentIssues = items\n  .slice(0, 15)\n  .map(t => `- [${t.category || 'OTHER'}]: ${t.subject || 'Không có tiêu đề'}`)\n  .join('\\n');\n\nreturn [{\n  json: {\n    totalTickets,\n    closedTickets,\n    openTickets,\n    csatRate,\n    deptStats,\n    recentIssues\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        2992
+      ],
+      "id": "56704a03-2691-42a5-809a-5e0f5fc941d8",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "models/gemini-3-flash-preview"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Bạn là trợ lý phân tích vận hành dịch vụ khách hàng.\nDưới đây là danh sách các yêu cầu và lỗi khách hàng gặp phải trong tuần qua:\n{{ $json.recentIssues }}\n\nNhiệm vụ:\n1. Chỉ ra ngắn gọn 2 điểm nghẽn (lỗi/vấn đề) phổ biến nhất khách hàng gặp phải.\n2. Đề xuất 1 giải pháp hành động cụ thể cho đội ngũ kỹ thuật/CSKH để giảm thiểu.\n(Viết bằng tiếng Việt, dạng gạch đầu dòng súc tích, ngắn gọn)."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        384,
+        2992
+      ],
+      "id": "686077bd-a1d0-4be7-b12f-835cd161c395",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "tiennamx15@gmail.com",
+        "toEmail": "phucnh.24it@gmail.com",
+        "subject": "==[BÁO CÁO TUẦN] Tổng kết hiệu suất CSKH VKU Support",
+        "html": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px;\">\n  <h2 style=\"color: #1a73e8; border-bottom: 2px solid #1a73e8; padding-bottom: 8px;\">📊 BÁO CÁO HIỆU SUẤT CSKH TUẦN</h2>\n  \n  <p>Kính gửi Ban Quản lý,</p>\n  <p>Dưới đây là số liệu vận hành và phân tích chất lượng dịch vụ khách hàng tuần qua:</p>\n\n  <table style=\"width: 100%; border-collapse: collapse; margin: 15px 0;\">\n    <tr style=\"background-color: #f8f9fa;\">\n      <td style=\"padding: 10px; border: 1px solid #ddd;\"><b>Tổng số Ticket tiếp nhận:</b></td>\n      <td style=\"padding: 10px; border: 1px solid #ddd; color: #1a73e8; font-weight: bold;\">{{ $('Code in JavaScript1').item.json.totalTickets }}</td>\n    </tr>\n    <tr>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\"><b>Đã xử lý (Closed/Resolved):</b></td>\n      <td style=\"padding: 10px; border: 1px solid #ddd; color: #28a745; font-weight: bold;\">{{ $('Code in JavaScript1').item.json.closedTickets }}</td>\n    </tr>\n    <tr style=\"background-color: #f8f9fa;\">\n      <td style=\"padding: 10px; border: 1px solid #ddd;\"><b>Đang xử lý (Open):</b></td>\n      <td style=\"padding: 10px; border: 1px solid #ddd; color: #ffc107; font-weight: bold;\">{{ $('Code in JavaScript1').item.json.openTickets }}</td>\n    </tr>\n    <tr>\n      <td style=\"padding: 10px; border: 1px solid #ddd;\"><b>Chỉ số hài lòng (CSAT):</b></td>\n      <td style=\"padding: 10px; border: 1px solid #ddd; color: #17a2b8; font-weight: bold;\">{{ $('Code in JavaScript1').item.json.csatRate }}%</td>\n    </tr>\n  </table>\n\n  <h3 style=\"color: #495057;\">🏢 Phân bổ phòng ban:</h3>\n  <ul>\n    <li>Kỹ thuật: <b>{{ $('Code in JavaScript1').item.json.deptStats.KY_THUAT }}</b> ticket</li>\n    <li>CSKH: <b>{{ $('Code in JavaScript1').item.json.deptStats.CSKH }}</b> ticket</li>\n    <li>Thanh toán: <b>{{ $('Code in JavaScript1').item.json.deptStats.THANH_TOAN }}</b> ticket</li>\n  </ul>\n\n  <h3 style=\"color: #d9534f;\">🔍 Phân tích điểm nghẽn từ AI:</h3>\n  <div style=\"background-color: #f8f9fa; border-left: 4px solid #d9534f; padding: 12px; border-radius: 4px; font-size: 14px;\">\n    {{ $json.content.parts[0].text }}\n  </div>\n\n  <p style=\"margin-top: 20px; font-size: 13px; color: #777;\">Hệ thống báo cáo tự động n8n - VKU Customer Support Contact.</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        752,
+        2992
+      ],
+      "id": "b7759bf0-d4a1-4097-8f27-917e3fc4f414",
+      "name": "Send an Email",
+      "webhookId": "2e1b0329-76c8-464e-a91b-33e1c89a0544",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://172.17.0.1:8080/api/tickets",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -64,
+        2992
+      ],
+      "id": "b37c649d-fb14-4f0e-8e5f-fa1c9c856e49",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -288,
+        2992
+      ],
+      "id": "3fe6d992-134e-4b2f-9769-d1685bf00c93",
+      "name": "Báo cáo theo ngay"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        2208
+      ],
+      "id": "3b52a0d8-d800-424d-9a8e-511eeefa2fe7",
+      "name": "Nhận tin nhắn từ khách (chat)",
+      "webhookId": "8b55c750-9788-439c-836c-d3b54885624b"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -352,
+        3424
+      ],
+      "id": "2b03531c-5e45-482e-967e-d71321d9fc26",
+      "name": "Thông báo ticket sắp đến hạn"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        1248
+      ],
+      "id": "def4ebfd-8604-4933-8ee5-25eff1c7604b",
+      "name": "Phân loại và sắp xếp nhân viên xử lí",
+      "webhookId": "46c9747e-c58c-48df-9227-bef82267bba2"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        400
+      ],
+      "id": "ad0360ee-5585-4456-b23b-8e28f79c70ce",
+      "name": "Nhận yêu cầu từ khách hàng (form)",
+      "webhookId": "69eb70ec-ed34-459a-8591-88b56c0f49ce"
     }
   ],
   "connections": {
@@ -1746,7 +1779,7 @@
       "main": [
         [
           {
-            "node": "If1",
+            "node": "6. Tính hạn SLA",
             "type": "main",
             "index": 0
           }
@@ -1852,28 +1885,6 @@
         ]
       ]
     },
-    "Workflow 1": {
-      "main": [
-        [
-          {
-            "node": "IF: Validate Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Workflow 2": {
-      "main": [
-        [
-          {
-            "node": "If",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "IF needsAction?": {
       "main": [
         [
@@ -1959,17 +1970,6 @@
         [
           {
             "node": "Save Feedback",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Nhận tin nhắn từ khách": {
-      "main": [
-        [
-          {
-            "node": "Chuẩn hóa dữ liệu",
             "type": "main",
             "index": 0
           }
@@ -2104,46 +2104,6 @@
         ]
       ]
     },
-    "If1": {
-      "main": [
-        [
-          {
-            "node": "6. Tính hạn SLA",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Edit Fields1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Edit Fields1": {
-      "main": [
-        [
-          {
-            "node": "6. Tính hạn SLA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Schedule Trigger": {
-      "main": [
-        [
-          {
-            "node": "HTTP Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "HTTP Request": {
       "main": [
         [
@@ -2205,6 +2165,94 @@
           }
         ]
       ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Báo cáo theo ngay": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nhận tin nhắn từ khách (chat)": {
+      "main": [
+        [
+          {
+            "node": "Chuẩn hóa dữ liệu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thông báo ticket sắp đến hạn": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phân loại và sắp xếp nhân viên xử lí": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nhận yêu cầu từ khách hàng (form)": {
+      "main": [
+        [
+          {
+            "node": "IF: Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {
@@ -2229,7 +2277,7 @@
         "executionMode": "production"
       }
     ],
-    "Nhận tin nhắn từ khách": [
+    "Nhận tin nhắn từ khách (chat)": [
       {
         "headers": {
           "host": "localhost:5678",
@@ -2252,7 +2300,7 @@
         "body": {
           "conversationId": "CHAT-620484",
           "customerId": 1,
-          "message": "hi"
+          "message": "Điều kiện để được đổi trả sản phẩm là gì?"
         },
         "webhookUrl": "http://localhost:5678/webhook/chat",
         "executionMode": "production"
@@ -2261,6 +2309,6 @@
   },
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
 }
