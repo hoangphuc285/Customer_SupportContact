@@ -449,7 +449,44 @@ public class TicketController {
 //        return ResponseEntity.ok(response);
 //    }
 
-    
+    @GetMapping("/sla-check")
+    public ResponseEntity<List<Ticket>> checkSlaTickets() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Ticket> activeTickets = ticketRepository.findByStatus("ASSIGNED");
 
+        List<Ticket> warningOrOverdueTickets = activeTickets.stream().filter(ticket -> {
+            if (ticket.getSlaDueAt() == null) return false;
+            return ticket.getSlaDueAt().isBefore(now.plusMinutes(15));
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(warningOrOverdueTickets);
+    }
+    @PutMapping("/{id}/assign")
+    public ResponseEntity<?> assignOrUpdateTicket(
+            @PathVariable("id") Long id,
+            @RequestBody Map<String, Object> body) {
+
+        Optional<Ticket> ticketOpt = ticketRepository.findById(id);
+        if (ticketOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Ticket ticket = ticketOpt.get();
+
+        // 1. Cập nhật Độ ưu tiên (Priority) nếu có
+        if (body.containsKey("priority") && body.get("priority") != null) {
+            ticket.setPriority(body.get("priority").toString());
+        }
+
+        // 2. Cập nhật Nhân viên xử lý (agentId) nếu có - Kiểm tra an toàn chống lỗi NullPointer
+        Object agentIdObj = body.get("agentId") != null ? body.get("agentId") : body.get("assignedAgentId");
+        if (agentIdObj != null) {
+            ticket.setAssignedAgentId(Long.valueOf(agentIdObj.toString()));
+            ticket.setStatus("ASSIGNED");
+        }
+
+        Ticket updatedTicket = ticketRepository.save(ticket);
+        return ResponseEntity.ok(updatedTicket);
+    }
 
 }
