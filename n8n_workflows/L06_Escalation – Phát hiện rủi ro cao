@@ -1,0 +1,435 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "escalation-check",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        16
+      ],
+      "id": "38dc0b78-e635-4d9d-b1d2-4ee2cc28ef86",
+      "name": "Webhook",
+      "webhookId": "d14d8390-c69a-4d74-9a0a-2e1ab7c6c402"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM messages WHERE ticket_id = {{ $json.body.ticket_id }} ORDER BY created_at ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        208,
+        16
+      ],
+      "id": "84dc68f7-9294-4480-86f8-5f6b19758a90",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy trực tiếp dữ liệu từ node liền trước (Execute a SQL query)\nconst inputData = $input.first().json;\nconst text = inputData.content_original || \"\";\nconst lower = text.toLowerCase();\n\n// 1. Quét từ khóa nguy hiểm\nlet keywordScore = 0;\nif (lower.includes(\"kiện\")) keywordScore += 30;\nif (lower.includes(\"báo chí\")) keywordScore += 35;\nif (lower.includes(\"công an\")) keywordScore += 40;\nif (lower.includes(\"lừa đảo\")) keywordScore += 35;\nif (lower.includes(\"tố cáo\")) keywordScore += 40;\n\n// 2. Phân tích cảm xúc (Sentiment)\nlet sentimentScore = 20;\nif (lower.includes(\"đột ngột\") || lower.includes(\"tồi tệ\")) {\n    sentimentScore = 25;\n}\n\n// 3. Tổng hợp điểm rủi ro (Risk Score)\nlet riskScore = keywordScore + sentimentScore;\nif (riskScore > 100) riskScore = 100;\n\n// 4. Phân loại mức độ rủi ro\nlet riskLevel = \"LOW\";\nif (riskScore > 70) {\n    riskLevel = \"HIGH\";\n} else if (riskScore >= 40) {\n    riskLevel = \"MEDIUM\";\n}\n\nreturn [{\n    json: {\n        ticket_id: inputData.ticket_id,\n        customer_id: inputData.customer_id,\n        content_original: text,\n        keywordScore,\n        sentimentScore,\n        riskScore,\n        riskLevel\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        16
+      ],
+      "id": "25057add-1bca-4baa-bb3f-77bb9d852b8a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.riskLevel }}",
+                    "rightValue": "HIGH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c0d0270a-0407-45ce-a637-d1700007f77b"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1e19276f-48b2-432e-953f-f13dbfec0824",
+                    "leftValue": "={{ $json.riskLevel }}",
+                    "rightValue": "MEDIUM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d77a5b1d-57e1-4320-a43e-7c800f92fa67",
+                    "leftValue": "={{ $json.riskLevel }}",
+                    "rightValue": "LOW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        0
+      ],
+      "id": "05906013-93ba-4c71-a45b-dddb4b4c6e3f",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets \nSET status = 'ESCALATED', ai_locked = 1, risk_score = {{ $json.riskScore }} \nWHERE id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        -112
+      ],
+      "id": "887d7806-7e0e-47ee-9346-513e67966994",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "nguyenphucphi2102@gmail.com",
+        "toEmail": "nguyenphucphi213@gmail.com",
+        "subject": "CẢNH BÁO KHẨN CẤP: Phát hiện ticket rủi ro cao!",
+        "html": "=<h3>⚠️ Cảnh báo khẩn cấp: Phát hiện rủi ro cao!</h3>\n<p><b>Mã Ticket:</b> {{ $('Switch').first().json.ticket_id }}</p>\n<p><b>Nội dung khách hàng:</b> \"{{ $('Switch').first().json.content_original }}\"</p>\n<p><b>Điểm rủi ro (Risk Score):</b> {{ $('Switch').first().json.riskScore }}/100</p>\n<p><b>Mức độ:</b> <span style=\"color: red;\">{{ $('Switch').first().json.riskLevel }}</span></p>\n<hr>\n<p>Hệ thống đã tự động khóa AI và chuyển trạng thái sang <b>ESCALATED</b>.</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        -112
+      ],
+      "id": "3b006efc-dd43-4a55-8fff-3b997c369274",
+      "name": "Send an Email",
+      "webhookId": "1c841f97-ac68-42b5-98ad-2fe653d59f67",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (entity_id, entity_type, action, detail, created_at, updated_at) \nVALUES ({{ $('Switch').first().json.ticket_id }}, 'ticket', 'ESCALATED', JSON_OBJECT('reason', 'High risk detected: keyword/sentiment trigger'), NOW(), NOW());",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1344,
+        -112
+      ],
+      "id": "78cde987-7250-43a9-8746-69f829151db7",
+      "name": "Execute a SQL query2",
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets \nSET status = 'REVIEW_NEEDED', risk_score = {{ $json.riskScore }} \nWHERE id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        64
+      ],
+      "id": "70226a02-de07-4e99-8d1e-da968f9dae20",
+      "name": "Execute a SQL query3",
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets \nSET status = 'ACTIVE', risk_score = {{ $json.riskScore }} \nWHERE id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        240
+      ],
+      "id": "44e000e3-7e57-4870-a664-02c74e8ae8e1",
+      "name": "Execute a SQL query4",
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook').first().json.content_original }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1168,
+        144
+      ],
+      "id": "2e187abf-edc7-4f88-90e2-7e80aa07882e",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        352
+      ],
+      "id": "4397ed3a-400b-4a9e-b785-33432e839d01",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "nguyenphucphi2102@gmail.com",
+        "toEmail": "nguyenphucphi213@gmail.com",
+        "html": "={{ $json.text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1664,
+        144
+      ],
+      "id": "d989d21c-47e9-4222-b4b0-ba13d9cfaa7f",
+      "name": "Send an Email1",
+      "webhookId": "1c841f97-ac68-42b5-98ad-2fe653d59f67",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query3": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query4": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send an Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  }
+}
