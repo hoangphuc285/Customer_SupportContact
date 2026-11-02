@@ -1,0 +1,366 @@
+{
+  "name": "L07_SLA_Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d4d0a2c2-e523-4a0a-98ad-784c1981f77d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    id, \n    ticket_code,\n    customer_id, \n    priority, \n    category, \n    assigned_agent_id, \n    created_at, \n    COALESCE(last_alert_level, 'NORMAL') AS last_alert_level\nFROM tickets\nWHERE status NOT IN ('resolved', 'closed');",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "a8ae5b91-3271-4750-9e33-18e9a3956ece",
+      "name": "MySQL_Get_Tickets",
+      "credentials": {
+        "mySql": {
+          "id": "kPKNghS7g74koryQ",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    priority, \n    category, \n    resolution_time_hours, \n    response_time_hours \nFROM sla_rules;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        -160
+      ],
+      "id": "278ae3b6-4e6a-4ea7-a6d2-608e66fcc755",
+      "name": "MySQL_Get_Rules",
+      "credentials": {
+        "mySql": {
+          "id": "kPKNghS7g74koryQ",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "priority",
+              "field2": "priority"
+            },
+            {
+              "field1": "category",
+              "field2": "category"
+            }
+          ]
+        },
+        "joinMode": "keepEverything",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        544,
+        16
+      ],
+      "id": "2497a7fa-46c6-4fa3-aeac-7788c07a899f",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\n\nreturn items.map(item => {\n  const data = item.json;\n  const createdAt = new Date(data.created_at);\n  \n  // Tính số giờ đã trôi qua\n  const diffHours = Math.max(0, (now - createdAt) / (1000 * 60 * 60));\n  const targetHours = Number(data.resolution_time_hours) || 24;\n  const slaPercentage = Math.round((diffHours / targetHours) * 100);\n\n  let alertLevel = 'NORMAL';\n  if (slaPercentage >= 150) {\n    alertLevel = 'CRITICAL_150';\n  } else if (slaPercentage >= 100) {\n    alertLevel = 'BREACHED_100';\n  } else if (slaPercentage >= 80) {\n    alertLevel = 'WARNING_80';\n  }\n\n  // Cần thông báo khi mức alert thay đổi và không phải mức NORMAL\n  const needNotify = (alertLevel !== data.last_alert_level) && (alertLevel !== 'NORMAL');\n\n  return {\n    json: {\n      ...data,\n      hours_spent: Number(diffHours.toFixed(2)),\n      sla_percentage: slaPercentage,\n      alert_level: alertLevel,\n      need_notify: needNotify\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        16
+      ],
+      "id": "97ccd965-5980-4180-bdbe-e1fa92c6eb03",
+      "name": "Code_Calculate_SLA"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9bbc09cc-03bc-4642-8684-41e6837e3a5d",
+              "leftValue": "={{ $json.need_notify }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        992,
+        16
+      ],
+      "id": "06f6bf69-c01f-44e6-b484-777ce4121d63",
+      "name": "Filter_Need_Notify"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.alert_level }}",
+                    "rightValue": "WARNING_80",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4ebd302d-3ce7-4159-a344-d46198d1a2b4"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "993de8af-8edb-4744-946a-fde1b1be4261",
+                    "leftValue": "={{ $json.alert_level }}",
+                    "rightValue": "BREACHED_100",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "74506725-a0db-494e-a529-4f64b4dda847",
+                    "leftValue": "={{ $json.alert_level }}",
+                    "rightValue": "CRITICAL_150",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1216,
+        0
+      ],
+      "id": "564fa32d-9439-4699-8945-8d02f7518d83",
+      "name": "Switch_Alert_Level"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets \nSET last_alert_level = 'NORMAL', sla_breached = 0 \nWHERE ticket_code = 'TK-TEST-01';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1488,
+        16
+      ],
+      "id": "7656bd62-f802-44df-a04e-d18b3f7accdc",
+      "name": "MySQL_Update_Tickets",
+      "executeOnce": true,
+      "credentials": {
+        "mySql": {
+          "id": "kPKNghS7g74koryQ",
+          "name": "MySQL account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "MySQL_Get_Rules",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MySQL_Get_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL_Get_Tickets": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code_Calculate_SLA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL_Get_Rules": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code_Calculate_SLA": {
+      "main": [
+        [
+          {
+            "node": "Filter_Need_Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_Need_Notify": {
+      "main": [
+        [
+          {
+            "node": "Switch_Alert_Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch_Alert_Level": {
+      "main": [
+        [
+          {
+            "node": "MySQL_Update_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL_Update_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL_Update_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL_Update_Tickets": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "28dcc51a-f9bb-4ccf-ab87-f6e9b5e3cb2a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f237982bc767d8dd8e9f8ca39ea6e74df1432a632e63e85f10f98169bc27b44e"
+  },
+  "nodeGroups": [],
+  "id": "JQzQZRBNcJqwOwL4",
+  "tags": []
+}
