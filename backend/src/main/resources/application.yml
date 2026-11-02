@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: cd2 # Đồng bộ tên ứng dụng theo file cũ
+
+  datasource:
+    # Đã sửa tên DB thành customer_support và giữ lại các tham số fix lỗi Docker
+    url: "${DB_URL:jdbc:mysql://localhost:3306/customer_support?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}"
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:root123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+    defer-datasource-initialization: true # Chạy data.sql sau khi Hibernate tạo bảng
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  sql:
+    init:
+      mode: always # Tự động chạy file data.sql nếu có
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+
+# --- CẤU HÌNH TÍCH HỢP BỔ SUNG TỪ FILE CŨ ---
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+
+n8n:
+  chat-webhook-url: ${N8N_CHAT_WEBHOOK_URL:http://localhost:5678/webhook/chat}
+
+# --- CẤU HÌNH SECURITY JWT & DATA SEED CỦA FILE MỚI ---
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-key-at-least-32-characters-long}
+    access-ttl-seconds: 900
+    refresh-ttl-days: 7
+  seed:
+    enabled: ${SEED_ENABLED:true}
+    password: ${SEED_PASSWORD:ChangeMe@123}

@@ -31,6 +31,14 @@ dependencies {
 
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
+    // 1. Thư viện Spring Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    // 2. Thư viện JWT (Cần thiết vì bạn có JwtAuthFilter và JwtService)
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    // Thư viện Validation cho jakarta.validation.*
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 }
 
 tasks.named('test') {
