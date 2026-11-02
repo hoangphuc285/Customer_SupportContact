@@ -1,0 +1,1072 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -144,
+        -160
+      ],
+      "id": "745f481e-2c11-4440-a520-b7412020eb93",
+      "name": "Telegram Trigger",
+      "webhookId": "1a8c2575-bf61-4f67-ba9f-232d90d95704"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "intake-omnichannel",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        32
+      ],
+      "id": "3384793c-680c-434e-97e1-cdabadd990a0",
+      "name": "Webhook",
+      "webhookId": "b7a14e03-4ba0-4b62-b4a2-769605f5356e"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -144,
+        224
+      ],
+      "id": "efde974f-75c5-41d9-868e-c88c3e216ef2",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "LUpPvPAAOKYW99c7",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.body.channel}}",
+                    "rightValue": "zalo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "b97c833f-1591-49bb-96dd-720d2a53bf40"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5f4e9731-e670-4a3e-af06-9d2c046eb31a",
+                    "leftValue": "={{$json.body.object}}",
+                    "rightValue": "=page",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "dfdb3a45-f2d6-4372-8bc9-0151ff4c9f26",
+                    "leftValue": "={{$json.body.channel}}",
+                    "rightValue": "=livechat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        16
+      ],
+      "id": "645dc0c6-8ee9-4963-8efc-a35c4088d0e6",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e022820c-7686-4ac1-8d82-59a1e2b77175",
+              "name": "channel",
+              "value": "={{ $json.body.channel ? $json.body.channel.toUpperCase() : ($json.body.object === 'page' ? 'MESSENGER' : 'ZALO') }}",
+              "type": "string"
+            },
+            {
+              "id": "31930b1a-de8a-44eb-958b-f1502663d370",
+              "name": "sender_id",
+              "value": "={{ $json.body.sender.id }}",
+              "type": "string"
+            },
+            {
+              "id": "682b73fd-9140-4daa-bd6e-10d84444545f",
+              "name": "sender_name",
+              "value": "={{ $json.body.sender.name }}",
+              "type": "string"
+            },
+            {
+              "id": "2b09643f-5ef0-466c-a3d5-7a1cfcea024c",
+              "name": "email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "b3eae6f4-2e37-44a9-8362-8068deeb4d1b",
+              "name": "phone",
+              "value": "={{ $json.body.phone}}",
+              "type": "string"
+            },
+            {
+              "id": "1cf1c5d3-fec5-4f75-a524-340b149f1bae",
+              "name": "message",
+              "value": "={{ $json.body.message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "cbca32ef-3187-4146-8b1d-dc419441deb9",
+              "name": "has_attachment",
+              "value": "={{ !!($json.body.attachments) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "9e2674f1-2173-41d9-b941-513919f37a5e",
+              "name": "attachment_url",
+              "value": "={{ $json.body.attachments?.[0]?.payload?.url || $json.body.message?.attachments?.[0]?.payload?.url || null }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        416,
+        32
+      ],
+      "id": "2552f34b-204e-4a92-92eb-7868956ea8b4",
+      "name": "Edit Fields - Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e022820c-7686-4ac1-8d82-59a1e2b77175",
+              "name": "channel",
+              "value": "EMAIL",
+              "type": "string"
+            },
+            {
+              "id": "5f6bd9b0-d595-4b91-8c0e-6dd70ef01c29",
+              "name": "sender_id",
+              "value": "=={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "57b8e1be-6dc1-49d1-ac24-435b9e14836b",
+              "name": "sender_name",
+              "value": "=={{ $json.from.value[0].name}}",
+              "type": "string"
+            },
+            {
+              "id": "36b5a702-6d2a-4c0b-be97-b7c851f70ff2",
+              "name": "email",
+              "value": "=={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "1a0bcbdf-e641-47d3-ad23-ac35995bce6a",
+              "name": "phone",
+              "value": "=={{ null }}",
+              "type": "string"
+            },
+            {
+              "id": "ac6fbfa8-b698-482d-a68f-412d7134c3c9",
+              "name": "message",
+              "value": "=={{ $json.textAsHtml}}",
+              "type": "string"
+            },
+            {
+              "id": "cd888948-bfb3-4500-b75b-0a8683d4386d",
+              "name": "has_attachment",
+              "value": "=={{ $json.attachments && $json.attachments.length > 0 }}",
+              "type": "boolean"
+            },
+            {
+              "id": "22c0dd95-ebde-4271-b47d-bce0b2937e2d",
+              "name": "attachment_url",
+              "value": "=={{ $json.attachments && $json.attachments.length > 0 ? $json.attachments[0].url : null }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        480,
+        224
+      ],
+      "id": "e48d5bd2-5eaa-42b6-8dda-c3948a91289e",
+      "name": "Edit Fields - Gmail"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d85cbf98-b5d8-4b20-8a04-7a9b559c255d",
+              "name": "channel",
+              "value": "=TELEGRAM",
+              "type": "string"
+            },
+            {
+              "id": "72e65a09-036d-411d-9f6b-1718e8d4c4b0",
+              "name": "sender_id",
+              "value": "=={{ $json.message.from.id.toString() }}",
+              "type": "string"
+            },
+            {
+              "id": "d022e23f-3392-49c6-ab77-aeaccc229955",
+              "name": "sender_name",
+              "value": "={{ $json.message.from.first_name + ($json.message.from.last_name ? ' ' + $json.message.from.last_name : '') }}",
+              "type": "string"
+            },
+            {
+              "id": "b7dad484-a223-4cd9-930d-1a4bbb424902",
+              "name": "email",
+              "value": "=={{ null }}",
+              "type": "string"
+            },
+            {
+              "id": "cd483c00-ab70-4103-9350-0730191a8d82",
+              "name": "phone",
+              "value": "=={{ null }}",
+              "type": "string"
+            },
+            {
+              "id": "6ff8beba-f571-478e-be89-92ce3ef8fa58",
+              "name": "message",
+              "value": "=`={{ $json.message.text",
+              "type": "string"
+            },
+            {
+              "id": "7b850ea0-1d10-4c18-8bfc-f5df733a95af",
+              "name": "has_attachment",
+              "value": "=`={{ !!($json.message.photo",
+              "type": "boolean"
+            },
+            {
+              "id": "e23b2369-88ae-412c-8206-d6fb92e534c5",
+              "name": "attachment_url",
+              "value": "=={{ $json.message.photo ? $json.message.photo.slice(-1)[0].file_id : ($json.message.document ? $json.message.document.file_id : null) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        480,
+        -160
+      ],
+      "id": "21782aa1-ca28-4b6d-bd17-6a4af236e07e",
+      "name": "Edit Fields - Telegram"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f61e4406-c76a-45b8-ad2c-2a6778b1beba",
+              "leftValue": "={{ $json.message }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "4f6b43a1-d2c3-4c87-bdef-9f9a124d30b3",
+              "leftValue": "={{ $json.sender_id }}",
+              "rightValue": "bot_user_id",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        32
+      ],
+      "id": "705aea5c-c412-4d60-8d25-6b55b20e5e64",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.attachment_name || 'attachment_' + $now.toFormat('yyyyMMdd_HHmmss') }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1KV81cdjJu2qYcBRvfI0SmG2XQrGQO-HG",
+          "mode": "list",
+          "cachedResultName": "CĐ2",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1KV81cdjJu2qYcBRvfI0SmG2XQrGQO-HG"
+        },
+        "options": {
+          "simplifyOutput": true
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1712,
+        -160
+      ],
+      "id": "4e0fdf6a-e8da-419d-9d8b-eb469fd6f806",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "i31uuQiCSKOxbdZu",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.attachment_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1504,
+        -160
+      ],
+      "id": "a13f9e93-ab98-4661-8a27-a86421cb3cab",
+      "name": "Tải File đính kèm"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Set Header').item.json.channel }}",
+                    "rightValue": "TELEGRAM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "19183c4d-249e-4e61-9067-155a2f77ac05"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2d7fb23f-f445-447a-847b-21056090e5d3",
+                    "leftValue": "={{ $('Set Header').item.json.channel }}",
+                    "rightValue": "ZALO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "08cf5643-bea6-410c-bf8e-0e9538494fc1",
+                    "leftValue": "={{ $('Set Header').item.json.channel }}",
+                    "rightValue": "LIVECHAT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2752,
+        16
+      ],
+      "id": "c121d15a-f7a6-4b5e-9292-883f8f2c1c40",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "[https://openapi.zalo.me/v2.0/oa/message](https://openapi.zalo.me/v2.0/oa/message)",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"recipient\": {\n    \"user_id\": \"={{ $('Set Header').item.json.sender_id }}\"\n  },\n  \"message\": {\n    \"text\": \"Cảm ơn bạn! Yêu cầu hỗ trợ đã được ghi nhận. Mã Ticket của bạn là #{{ $('Create Ticket mới').item.json.ticket_code || $('Update ticket').item.json.ticket_code }}.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2992,
+        208
+      ],
+      "id": "362614a9-1ee1-4fa0-951f-71637217281a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (\n  created_at, updated_at, action, actor,\n  entity_type, entity_id, workflow, detail\n)\nVALUES (\n  NOW(), NOW(),\n  'INTAKE_SUCCESS', 'SYSTEM',\n  'TICKET',\n  {{ $('Call \\'My Sub-Workflow 1\\'').item.json.ticket_id }},\n  'L01_Intake',\n  '{{ JSON.stringify({ channel: $('Set Header').first().json.channel, sender_id: $('Set Header').first().json.sender_id, message_id: $json.message_id }) }}'\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        3248,
+        32
+      ],
+      "id": "9703ee21-a57f-420a-87e6-8a62581e2b8d",
+      "name": "Insert Audit Log",
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=={{ $('Set Header').item.json.sender_id }}",
+        "text": "=Cảm ơn bạn! Hệ thống đã ghi nhận yêu cầu hỗ trợ.  📌 Mã Ticket của bạn: #{{ $('Create Ticket mới').item.json.ticket_code || $('Update ticket').item.json.ticket_code }} 💬 Nội dung: \"{{ $('Set Header').item.json.message }}\"  Đội ngũ CSKH sẽ phản hồi bạn trong thời gian sớm nhất!",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2992,
+        -144
+      ],
+      "id": "06d39d9d-1d7a-408d-aa3e-56ec13e0eb81",
+      "name": "Send a text message",
+      "webhookId": "1fb33757-0375-4a66-a4e6-71355d29aeda"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        816,
+        32
+      ],
+      "id": "812e3820-83f5-4a34-a40a-371325cc09ab",
+      "name": "Set Header"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3a494f76-3258-427f-8ba1-ce688fa0d537",
+              "leftValue": "={{$json.has_attachment}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        32
+      ],
+      "id": "a19e3a05-1ad4-4a95-be64-ac2fc1aee0f2",
+      "name": "kiểm tra File đính kèm"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8080/api/n8n/tickets",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "n8n-super-secret-key-2026"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    \"channel\": $('Set Header').first().json.channel.toUpperCase(),\n    \"senderId\": $('Set Header').first().json.sender_id.toString(),\n    \"name\": $('Set Header').first().json.sender_name || null,\n    \"email\": $('Set Header').first().json.email || null,\n    \"phone\": $('Set Header').first().json.phone || null,\n    \"subject\": $('Set Header').first().json.subject || null,\n    \"message\": $('Set Header').first().json.message,\n    \"language\": \"vi\",\n    \"externalMessageId\": $('Set Header').first().json.message_id ? $('Set Header').first().json.message_id.toString() : null,\n    \"attachments\": $('Upload file').all()?.[0]?.json?.id ? [\n      {\n        \"url\": \"https://drive.google.com/file/d/\" + $('Upload file').first().json.id,\n        \"fileName\": $('Upload file').first().json.name || \"attachment\",\n        \"mimeType\": $('Upload file').first().json.mimeType || \"image/jpeg\"\n      }\n    ] : []\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2048,
+        48
+      ],
+      "id": "a08451a7-2aef-40de-830d-39e1beb8b4b4",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1ddb9ec4-ebb2-4218-92cd-c6c5a86e14b7",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2208,
+        48
+      ],
+      "id": "42e4768d-06cb-4355-8142-e488dd18c526",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "3RCImubbeGJbvwPP",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/3RCImubbeGJbvwPP",
+          "cachedResultName": "My Sub-Workflow 1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticketId }}",
+            "ticket_code": "={{ $json.ticketCode }}",
+            "customer_id": "={{ $json.customerId }}",
+            "message_id": "={{ $json.messageId }}",
+            "channel": "={{ $('Set Header').first().json.channel }}",
+            "message": "={{ $('Set Header').first().json.message }}",
+            "is_new_ticket": "={{ $json.newTicket }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "ticket_code",
+              "displayName": "ticket_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "is_new_ticket",
+              "displayName": "is_new_ticket",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2464,
+        32
+      ],
+      "id": "71a05960-24ad-447f-902b-5ed25bf487f4",
+      "name": "Call 'My Sub-Workflow 1'"
+    },
+    {
+      "parameters": {
+        "fromEmail": "phucnh.24it@vku.udn.vn",
+        "toEmail": "hoangphucsjw@gmail.com",
+        "subject": "==[Re: Ticket #{{ $json.ticket_code }}] Xác nhận tiếp nhận thông tin",
+        "html": "={{  $json.is_new_ticket\n    ? 'Cảm ơn bạn! Yêu cầu hỗ trợ của bạn đã được khởi tạo. Mã hỗ trợ của bạn là: #' + $json.ticket_code\n    : 'Hệ thống đã ghi nhận thêm tin nhắn mới vào Ticket: #' + $('Call Intake API').first().json.ticketCode }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2992,
+        32
+      ],
+      "id": "a1f995ab-67a8-4496-99e0-3d68ad072f1d",
+      "name": "Send an Email",
+      "webhookId": "650b8cbe-3a94-40d6-bc90-b84f17d820f3",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Header",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Gmail": {
+      "main": [
+        [
+          {
+            "node": "Set Header",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Telegram": {
+      "main": [
+        [
+          {
+            "node": "Set Header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "kiểm tra File đính kèm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tải File đính kèm": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Insert Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Insert Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Header": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "kiểm tra File đính kèm": {
+      "main": [
+        [
+          {
+            "node": "Tải File đính kèm",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Call 'My Sub-Workflow 1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'My Sub-Workflow 1'": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email": {
+      "main": [
+        [
+          {
+            "node": "Insert Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
+}

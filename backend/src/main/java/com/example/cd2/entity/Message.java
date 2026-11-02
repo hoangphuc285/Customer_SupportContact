@@ -18,9 +18,10 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@Table(name = "messages", indexes = {
-        @Index(name = "idx_message_ticket", columnList = "ticket_id")
-})
+@Table(name = "messages",
+        indexes = @Index(name = "idx_message_ticket", columnList = "ticket_id"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_message_channel_external",
+                columnNames = {"channel", "external_id"}))
 public class Message extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -47,6 +48,9 @@ public class Message extends BaseEntity {
 
     @Column(length = 10)
     private String language;
+
+    @Column(name = "external_id", length = 100)
+    private String externalId;            // id tin nhan tren nen tang goc (chong xu ly trung khi webhook gui lai)
 
     @Column(name = "ai_confidence")
     private Double aiConfidence;          // chi dung khi senderType = AI
