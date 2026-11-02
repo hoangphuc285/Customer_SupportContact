@@ -1,104 +1,56 @@
 package com.example.cd2.entity;
 
+import com.example.cd2.enums.*;
 import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.UUID;
 
 @Entity
-@Table(name = "customers")
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class Customer {
+@Table(name = "customers", indexes = {
+        @Index(name = "idx_customer_email", columnList = "email"),
+        @Index(name = "idx_customer_phone", columnList = "phone"),
+        @Index(name = "idx_customer_telegram", columnList = "telegram_id"),
+        @Index(name = "idx_customer_zalo", columnList = "zalo_id"),
+        @Index(name = "idx_customer_messenger", columnList = "messenger_id")
+})
+public class Customer extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "full_name", length = 150)
+    private String fullName;
 
-    // Liên kết 1-1 với Account (null nếu là khách vãng lai)
-    @OneToOne
-    @JoinColumn(name = "account_id", unique = true)
-    private Account account;
-
-    // Bỏ nullable = false để khách tạo account không bị bắt buộc lưu đè name ở đây
-    @Column(name = "name")
-    private String name;
-
-    @Column(name = "email")
+    @Column(length = 150)
     private String email;
 
-    @Column(name = "phone")
+    @Column(length = 30)
     private String phone;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "telegram_id", length = 60)
+    private String telegramId;
 
-    @PrePersist
-    protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
-    }
+    @Column(name = "zalo_id", length = 60)
+    private String zaloId;
 
-    // ================= CUSTOM GETTERS (Tối ưu logic) =================
+    @Column(name = "messenger_id", length = 60)
+    private String messengerId;
 
-    // Nếu có Account -> Ưu tiên lấy tên từ Account. Nếu không -> Lấy tên vãng lai.
-    public String getName() {
-        if (this.account != null && this.account.getName() != null) {
-            return this.account.getName();
-        }
-        return this.name != null ? this.name : "Khách hàng vãng lai";
-    }
+    @Column(name = "preferred_language", nullable = false, length = 10)
+    private String preferredLanguage = "vi";
 
-    // Nếu có Account -> Ưu tiên lấy email từ Account. Nếu không -> Lấy email vãng lai.
-    public String getEmail() {
-        if (this.account != null && this.account.getEmail() != null) {
-            return this.account.getEmail();
-        }
-        return this.email;
-    }
+    @Column(nullable = false)
+    private boolean vip = false;
 
-    // ================= GETTERS & SETTERS THỦ CÔNG =================
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Account getAccount() {
-        return account;
-    }
-
-    public void setAccount(Account account) {
-        this.account = account;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    @Column(columnDefinition = "text")
+    private String notes;
 }

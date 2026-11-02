@@ -1,104 +1,115 @@
 package com.example.cd2.entity;
 
+import com.example.cd2.enums.*;
 import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.UUID;
 
 @Entity
-@Table(name = "tickets")
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class Ticket {
+@Table(name = "tickets", indexes = {
+        @Index(name = "idx_ticket_status", columnList = "status"),
+        @Index(name = "idx_ticket_customer", columnList = "customer_id"),
+        @Index(name = "idx_ticket_assignee", columnList = "assignee_id"),
+        @Index(name = "idx_ticket_due", columnList = "due_at")
+})
+public class Ticket extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "ticket_code", nullable = false, unique = true)
+    @Column(name = "ticket_code", nullable = false, unique = true, length = 30)
     private String ticketCode;
 
-    @Column(name = "customer_id", nullable = false)
-    private Long customerId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
 
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private Staff assignee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Channel channel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private TicketStatus status = TicketStatus.NEW;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 5)
+    private Priority priority = Priority.P3;
+
+    // ---- ket qua L02 Intent ----
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Intent intent;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Sentiment sentiment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Urgency urgency;
+
+    private Double confidence;
+
+    @Column(length = 100)
+    private String category;
+
+    @Column(length = 10)
+    private String language;
+
+    @Column(length = 255)
     private String subject;
 
-    @Column(columnDefinition = "TEXT")
-    private String resolution;
+    // ---- L06 Escalation ----
+    @Column(name = "need_human_review", nullable = false)
+    private boolean needHumanReview = false;
 
-    private String satisfaction; // Ví dụ: "SATISFIED", "UNSATISFIED"
-    private String result;       // Ví dụ: "RESOLVED", "UNRESOLVED"
-    private String status = "NEW";
-    private String priority;
-    private String category;
-    private Long assignedAgentId;
-    private LocalDateTime slaDueAt;
+    @Column(name = "ai_locked", nullable = false)
+    private boolean aiLocked = false;     // true => AI dung tu dong tra loi
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "risk_score")
+    private Integer riskScore;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    // ---- L07 SLA ----
+    @Column(name = "first_response_at")
+    private Instant firstResponseAt;
+
+    @Column(name = "due_at")
+    private Instant dueAt;
+
+    @Column(name = "resolved_at")
+    private Instant resolvedAt;
+
+    @Column(name = "sla_breached", nullable = false)
+    private boolean slaBreached = false;
+
+    @Column(name = "last_alert_level", nullable = false)
+    private int lastAlertLevel = 0;       // 0,80,100,150
+
+    @Column(name = "csat_score")
+    private Integer csatScore;            // 1..5
 
     @PrePersist
-    protected void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
-        }
-        if (this.updatedAt == null) {
-            this.updatedAt = LocalDateTime.now();
+    void generateCode() {
+        if (ticketCode == null) {
+            ticketCode = "TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         }
     }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    // ================= GETTERS & SETTERS (Viết rõ để tránh lỗi Lombok) =================
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getTicketCode() { return ticketCode; }
-    public void setTicketCode(String ticketCode) { this.ticketCode = ticketCode; }
-
-    public Long getCustomerId() { return customerId; }
-    public void setCustomerId(Long customerId) { this.customerId = customerId; }
-
-    public String getSubject() { return subject; }
-    public void setSubject(String subject) { this.subject = subject; }
-
-    public String getResolution() { return resolution; }
-    public void setResolution(String resolution) { this.resolution = resolution; }
-
-    public String getSatisfaction() { return satisfaction; }
-    public void setSatisfaction(String satisfaction) { this.satisfaction = satisfaction; }
-
-    public String getResult() { return result; }
-    public void setResult(String result) { this.result = result; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public String getPriority() { return priority; }
-    public void setPriority(String priority) { this.priority = priority; }
-
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
-
-    public Long getAssignedAgentId() { return assignedAgentId; }
-    public void setAssignedAgentId(Long assignedAgentId) { this.assignedAgentId = assignedAgentId; }
-
-    public LocalDateTime getSlaDueAt() { return slaDueAt; }
-    public void setSlaDueAt(LocalDateTime slaDueAt) { this.slaDueAt = slaDueAt; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

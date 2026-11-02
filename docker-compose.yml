@@ -1,34 +1,52 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: cs_mysql
+  mysql:
+    image: mysql:8.4
+    container_name: support-mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword  # <--- Bổ sung mật khẩu root ở đây
-      MYSQL_DATABASE: customer_support
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: customer_support   # Đã đổi về customer_support cho khớp với application.yml
+      MYSQL_USER: support
+      MYSQL_PASSWORD: support123
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "3306:3306"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - mysqldata:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql  # Tự động tạo table khi chạy lần đầu
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: cs_phpmyadmin
+    container_name: support-phpmyadmin
     ports:
       - "8081:80"
     environment:
-      PMA_HOST: db
+      PMA_HOST: mysql
       PMA_PORT: 3306
     depends_on:
-      - db
+      mysql:
+        condition: service_healthy
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: support-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrantdata:/qdrant/storage
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n
-    container_name: cs_n8n
+    image: n8nio/n8n:latest
+    container_name: support-n8n
     ports:
       - "5678:5678"
     environment:
@@ -36,9 +54,17 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - NODE_ENV=production
+      - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
+      - TZ=Asia/Ho_Chi_Minh
     volumes:
-      - n8n_data:/home/node/.n8n
+      - n8ndata:/home/node/.n8n
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
 
 volumes:
-  mysql_data:
-  n8n_data:
+  mysqldata:
+  qdrantdata:
+  n8ndata:
