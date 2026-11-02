@@ -1,6 +1,11 @@
 package com.example.cd2.config;
 
+import com.example.cd2.security.ApiKeyAuthFilter;
 import com.example.cd2.security.JwtAuthFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,13 +23,30 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+    private static final String DEFAULT_N8N_KEY = "change-this-n8n-api-key";
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /** JwtAuthFilter chi chay trong chuoi bao mat, khong dang ky them o tang servlet. */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtFilter) throws Exception {
+    public FilterRegistrationBean<JwtAuthFilter> jwtFilterRegistration(JwtAuthFilter filter) {
+        FilterRegistrationBean<JwtAuthFilter> reg = new FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtFilter,
+                                           @Value("${app.n8n.api-key}") String n8nApiKey) throws Exception {
+        if (DEFAULT_N8N_KEY.equals(n8nApiKey)) {
+            log.warn("N8N_API_KEY dang la gia tri mac dinh - hay doi truoc khi trien khai that.");
+        }
+        ApiKeyAuthFilter apiKeyFilter = new ApiKeyAuthFilter(n8nApiKey);
+
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -33,11 +55,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,
                         "/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
                 .requestMatchers("/actuator/health", "/error").permitAll()
+                .requestMatchers("/api/n8n/**").hasRole("N8N")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/portal/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/staff/**")
                     .hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD", "AGENT", "TECHNICIAN", "LEGAL")
                 .anyRequest().authenticated())
+            .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

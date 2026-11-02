@@ -38,7 +38,6 @@ gemini:
 
 n8n:
   chat-webhook-url: ${N8N_CHAT_WEBHOOK_URL:http://localhost:5678/webhook/chat}
-
 # --- CẤU HÌNH SECURITY JWT & DATA SEED CỦA FILE MỚI ---
 app:
   jwt:
@@ -48,3 +47,5 @@ app:
   seed:
     enabled: ${SEED_ENABLED:true}
     password: ${SEED_PASSWORD:ChangeMe@123}
+  n8n:
+    api-key: ${N8N_API_KEY:n8n-super-secret-key-2026}
