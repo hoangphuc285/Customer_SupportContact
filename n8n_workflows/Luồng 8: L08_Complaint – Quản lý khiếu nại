@@ -1,0 +1,745 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-exec-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "id": "node-gemini-model",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        480
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.content_original || $json.body?.content_original || $json.subject }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "complaint_target",
+              "description": "Đối tượng hoặc khâu bị khiếu nại: sản phẩm, shipper, kho đóng gói, nhân viên tư vấn, thanh toán...",
+              "required": true
+            },
+            {
+              "name": "order_code",
+              "description": "Mã đơn hàng được nhắc đến (nếu có)"
+            },
+            {
+              "name": "issue_description",
+              "description": "Tóm tắt chi tiết sự cố và yêu cầu của khách",
+              "required": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-info-extractor",
+      "name": "Information Extractor",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id AS order_id, order_code, customer_id, total_amount, status AS order_status, ordered_at, delivered_at FROM orders WHERE customer_id = {{ $('Execute Workflow Trigger').item.json.customer_id || 1 }} OR order_code = '{{ $json.output?.order_code || $json.order_code || \"\" }}' ORDER BY ordered_at DESC LIMIT 1;",
+        "options": {}
+      },
+      "id": "node-mysql-orders",
+      "name": "Tra cứu đơn hàng và lịch sử",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "alwaysOutputData": true,
+      "position": [
+        -304,
+        208
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.id AS prev_complaint_id, c.complaint_code, c.type, c.severity, c.status, c.created_at, c.resolution FROM complaints c JOIN tickets t ON c.ticket_id = t.id WHERE t.customer_id = {{ $('Execute Workflow Trigger').item.json.customer_id || 1 }} AND c.ticket_id != {{ $('Execute Workflow Trigger').item.json.ticket_id || 0 }} ORDER BY c.created_at DESC LIMIT 5;",
+        "options": {}
+      },
+      "id": "node-mysql-history",
+      "name": "Tra cứu khiếu nại trước",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "alwaysOutputData": true,
+      "position": [
+        -64,
+        208
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $('Execute Workflow Trigger').item.json.content_original || $('Information Extractor').item.json.output?.issue_description }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "PRODUCT",
+              "description": "Khiếu nại sản phẩm lỗi, hỏng hóc, không đúng quy cách, linh kiện sai"
+            },
+            {
+              "category": "DELIVERY",
+              "description": "Khiếu nại về dịch vụ vận chuyển, giao trễ, shipper thái độ kém, hàng bị vỡ"
+            },
+            {
+              "category": "STAFF",
+              "description": "Khiếu nại thái độ phục vụ của nhân viên, tư vấn sai, chậm trễ phản hồi"
+            },
+            {
+              "category": "PAYMENT",
+              "description": "Khiếu nại thanh toán, trừ tiền 2 lần, chậm hoàn tiền, hóa đơn"
+            },
+            {
+              "category": "OTHER",
+              "description": "Các vấn đề khiếu nại khác"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-classifier-type",
+      "name": "Text Classifier - Loại khiếu nại",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $('Execute Workflow Trigger').item.json.content_original || $('Information Extractor').item.json.output?.issue_description }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "MINOR",
+              "description": "Mức nhẹ: thắc mắc đơn giản, chậm trễ nhỏ, khách không bức xúc nhiều"
+            },
+            {
+              "category": "MAJOR",
+              "description": "Mức nặng: sản phẩm hỏng hóc gây gián đoạn, dịch vụ quá kém, khách yêu cầu bồi thường"
+            },
+            {
+              "category": "CRITICAL",
+              "description": "Mức nghiêm trọng: khách dọa kiện, tố cáo báo chí, báo công an, xúc phạm gay gắt, thiệt hại lớn"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-classifier-severity",
+      "name": "Text Classifier - Mức nghiêm trọng",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        432,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item.json.category }}",
+                    "rightValue": "PRODUCT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item.json.category }}",
+                    "rightValue": "DELIVERY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item.json.category }}",
+                    "rightValue": "PAYMENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item.json.category }}",
+                    "rightValue": "STAFF",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "node-switch-dept",
+      "name": "Switch - Chọn phòng ban",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const complaintType = $('Text Classifier - Loại khiếu nại').item.json.category || 'OTHER';\nconst severity = $('Text Classifier - Mức nghiêm trọng').item.json.category || 'MINOR';\nconst target = ($('Information Extractor').item.json.output?.complaint_target || '').toLowerCase();\n\nlet deptId = 1;\nlet deptCode = 'SUPPORT';\nlet deptName = 'Chăm sóc khách hàng';\nlet deptEmail = 'support@support.local';\n\nif (complaintType === 'PRODUCT') {\n  if (target.includes('kho') || target.includes('đóng gói') || target.includes('bao bì')) {\n    deptId = 2;\n    deptCode = 'WAREHOUSE';\n    deptName = 'Kho';\n    deptEmail = 'warehouse@support.local';\n  } else {\n    deptId = 4;\n    deptCode = 'TECH';\n    deptName = 'Kỹ thuật';\n    deptEmail = 'tech@support.local';\n  }\n} else if (complaintType === 'DELIVERY') {\n  deptId = 3;\n  deptCode = 'DELIVERY';\n  deptName = 'Giao hàng';\n  deptEmail = 'delivery@support.local';\n} else if (complaintType === 'PAYMENT') {\n  deptId = 5;\n  deptCode = 'ACCOUNTING';\n  deptName = 'Kế toán';\n  deptEmail = 'accounting@support.local';\n} else if (complaintType === 'STAFF') {\n  deptId = 6;\n  deptCode = 'SALES';\n  deptName = 'Kinh doanh';\n  deptEmail = 'sales@support.local';\n}\n\nlet priority = 'P3';\nif (severity === 'CRITICAL') priority = 'P1';\nelse if (severity === 'MAJOR') priority = 'P2';\n\nreturn [{\n  json: {\n    department_id: deptId,\n    department_code: deptCode,\n    department_name: deptName,\n    department_email: deptEmail,\n    complaint_type: complaintType,\n    severity: severity,\n    priority: priority\n  }\n}];"
+      },
+      "id": "node-code-dept-mapping",
+      "name": "Xác định phòng ban & Priority",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id AS sla_id, category, priority, resolution_minutes, DATE_ADD(NOW(), INTERVAL resolution_minutes MINUTE) AS calculated_due_at FROM sla_rules WHERE category = 'COMPLAINT' AND priority = '{{ $json.priority }}' UNION SELECT id AS sla_id, category, priority, resolution_minutes, DATE_ADD(NOW(), INTERVAL resolution_minutes MINUTE) AS calculated_due_at FROM sla_rules WHERE category = 'DEFAULT' AND priority = '{{ $json.priority }}' LIMIT 1;",
+        "options": {}
+      },
+      "id": "node-mysql-sla",
+      "name": "Postgres/MySQL - Lấy SLA và tính due_at",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1168,
+        208
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SET @complaint_code = CONCAT('CMP-', DATE_FORMAT(NOW(), '%Y%m%d'), '-', LPAD(FLOOR(RAND() * 8999 + 1000), 4, '0'));\n\nINSERT INTO complaints (\n  complaint_code,\n  description,\n  due_at,\n  severity,\n  status,\n  type,\n  department_id,\n  order_id,\n  ticket_id,\n  created_at,\n  updated_at\n) VALUES (\n  @complaint_code,\n  '{{ ($('Information Extractor').item.json.output?.issue_description || $('Execute Workflow Trigger').item.json.content_original || \"Khiếu nại\").replace(/'/g, \"\\\\'\") }}',\n  '{{ $json.calculated_due_at }}',\n  '{{ $('Xác định phòng ban & Priority').item.json.severity }}',\n  'WAITING_DEPARTMENT',\n  '{{ $('Xác định phòng ban & Priority').item.json.complaint_type }}',\n  {{ $('Xác định phòng ban & Priority').item.json.department_id }},\n  {{ $('Tra cứu đơn hàng và lịch sử').item.json.order_id || \"NULL\" }},\n  {{ $('Execute Workflow Trigger').item.json.ticket_id || 1 }},\n  NOW(),\n  NOW()\n);\n\nUPDATE tickets \nSET department_id = {{ $('Xác định phòng ban & Priority').item.json.department_id }},\n    due_at = '{{ $json.calculated_due_at }}',\n    priority = '{{ $('Xác định phòng ban & Priority').item.json.priority }}',\n    updated_at = NOW()\nWHERE id = {{ $('Execute Workflow Trigger').item.json.ticket_id || 1 }};\n\nSELECT * FROM complaints WHERE complaint_code = @complaint_code LIMIT 1;",
+        "options": {}
+      },
+      "id": "node-mysql-insert-case",
+      "name": "Postgres/MySQL - Tạo case trong complaints",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1408,
+        208
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "nguyenphucphi2102@gmail.com",
+        "toEmail": "={{ $('Xác định phòng ban & Priority').item.json.department_email || \"nguyenphucphi213@gmail.com\" }}",
+        "subject": "=🔔 [KHIẾU NẠI MỚI - {{ $json.complaint_code }}] Phòng ban {{ $('Xác định phòng ban & Priority').item.json.department_name }} cần xử lý",
+        "html": "=<h2>KHIẾU NẠI MỚI CẦN BỘ PHẬN XỬ LÝ</h2>\n<p><b>Mã khiếu nại:</b> {{ $json.complaint_code }}</p>\n<p><b>Mã Ticket:</b> {{ $('Execute Workflow Trigger').item.json.ticket_id }}</p>\n<p><b>Khách hàng:</b> {{ $('Tra cứu đơn hàng và lịch sử').item.json.customer_name || $('Execute Workflow Trigger').item.json.customer_id }}</p>\n<p><b>Loại khiếu nại:</b> {{ $json.type }}</p>\n<p><b>Mức độ nghiêm trọng:</b> <span style=\"color:red;\">{{ $json.severity }}</span></p>\n<p><b>Thời hạn xử lý (SLA Due At):</b> {{ $json.due_at }}</p>\n<p><b>Nội dung sự cố:</b> {{ $json.description }}</p>\n<hr>\n<p><b>Link bằng chứng/tài liệu đính kèm:</b> <a href=\"http://localhost:5678/api/v1/tickets/{{ $('Execute Workflow Trigger').item.json.ticket_id }}/attachments\">Xem bằng chứng đính kèm</a></p>\n<p>Sau khi xử lý, vui lòng gửi phản hồi về webhook giải quyết khiếu nại.</p>",
+        "options": {}
+      },
+      "id": "node-gmail-send",
+      "name": "Gmail / Email - Gửi phòng ban",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1648,
+        112
+      ],
+      "webhookId": "85ddd93e-05ad-4e48-8e44-9049b824f4cf",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Tra cứu đơn hàng và lịch sử').item.json.customer_telegram_id || $('Execute Workflow Trigger').item.json.customer_telegram_id || \"-10022334455\" }}",
+        "text": "=Chào Quý khách! Khiếu nại của Quý khách đã được tiếp nhận chính thức với mã: {{ $('Postgres/MySQL - Tạo case trong complaints').item.json.complaint_code }}.\\n\\nBộ phận {{ $('Xác định phòng ban & Priority').item.json.department_name }} đang tích cực xử lý. Thời hạn phản hồi dự kiến: {{ $('Postgres/MySQL - Tạo case trong complaints').item.json.due_at }}. Trân trọng cảm ơn Quý khách!",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-send-customer",
+      "name": "Telegram - Gửi mã khiếu nại & SLA cho khách",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1648,
+        304
+      ],
+      "webhookId": "6ef1b282-5f51-4e19-b4fe-7beb99c50125"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Xác định phòng ban & Priority').item.json.severity }}",
+              "rightValue": "CRITICAL",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "cond-severity-critical"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-critical",
+      "name": "IF - Mức nghiêm trọng (CRITICAL)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1904,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "z8uqZhPJuPuHGSoS",
+        "options": {}
+      },
+      "id": "node-exec-sub-l06",
+      "name": "Execute Workflow - Gọi L06 Leo thang",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2144,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "node-wait-department",
+      "name": "Wait - Chờ phản hồi phòng ban",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        208
+      ],
+      "webhookId": "0af37357-f1ab-451c-a60a-1eb2251b7535"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên viên chăm sóc khách hàng cao cấp. Hãy soạn một thông báo/thư phản hồi gửi khách hàng giải quyết khiếu nại sau đây:\n- Mã khiếu nại: {{ $('Postgres/MySQL - Tạo case trong complaints').item.json.complaint_code }}\n- Khách hàng: {{ $('Tra cứu đơn hàng và lịch sử').item.json.customer_name || \"Quý khách\" }}\n- Nội dung phản ánh ban đầu: {{ $('Information Extractor').item.json.output?.issue_description }}\n- Kết quả giải quyết từ bộ phận chuyên trách: {{ $json.body?.resolution || $json.resolution || \"Đã kiểm tra và xử lý thỏa đáng sự cố.\" }}\n- Hướng khắc phục/bồi thường (nếu có): {{ $json.body?.compensation || $json.compensation || \"Gửi tặng mã giảm giá và cam kết cải thiện chất lượng dịch vụ.\" }}\n\nYêu cầu văn phong: Chân thành, đồng cảm, chuyên nghiệp, rõ ràng và lịch sự.",
+        "batching": {}
+      },
+      "id": "node-llm-resolution",
+      "name": "Basic LLM Chain - Soạn giải pháp gửi khách",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $('Tra cứu đơn hàng và lịch sử').item.json.customer_telegram_id || \"-10022334455\" }}",
+        "message": "=📋 [DUYỆT GIẢI QUYẾT KHIẾU NẠI]\\nMã: {{ $('Postgres/MySQL - Tạo case trong complaints').item.json.complaint_code }}\\nMức độ: {{ $('Xác định phòng ban & Priority').item.json.severity }}\\n\\nNội dung dự thảo gửi khách:\\n{{ $json.text }}\\n\\nQuản lý vui lòng duyệt phương án giải quyết:",
+        "approvalOptions": {
+          "values": {}
+        },
+        "options": {}
+      },
+      "id": "node-telegram-human-approval",
+      "name": "Telegram (Send and Wait) - Duyệt Human",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2928,
+        208
+      ],
+      "webhookId": "2ec834f8-1024-4461-bbd5-fdf0cc7824c2"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE complaints\nSET status = 'RESOLVED',\n    resolution = '{{ ($('Wait - Chờ phản hồi phòng ban').item.json.body?.resolution || $('Basic LLM Chain - Soạn giải pháp gửi khách').item.json.text || \"Đã giải quyết theo quy trình\").replace(/'/g, \"\\\\'\") }}',\n    root_cause = '{{ ($('Wait - Chờ phản hồi phòng ban').item.json.body?.root_cause || $('Information Extractor').item.json.output?.complaint_target || \"Nguyên nhân nghiệp vụ/vận hành\").replace(/'/g, \"\\\\'\") }}',\n    resolved_at = NOW(),\n    updated_at = NOW()\nWHERE id = {{ $('Postgres/MySQL - Tạo case trong complaints').item.json.id }};\n\nUPDATE tickets\nSET status = 'RESOLVED',\n    resolved_at = NOW(),\n    updated_at = NOW()\nWHERE id = {{ $('Execute Workflow Trigger').item.json.ticket_id || 1 }};",
+        "options": {}
+      },
+      "id": "node-mysql-close-case",
+      "name": "Postgres/MySQL - Đóng case và ghi nguyên nhân gốc",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        3184,
+        208
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Text Classifier - Loại khiếu nại",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Basic LLM Chain - Soạn giải pháp gửi khách",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "Tra cứu đơn hàng và lịch sử",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tra cứu đơn hàng và lịch sử": {
+      "main": [
+        [
+          {
+            "node": "Tra cứu khiếu nại trước",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tra cứu khiếu nại trước": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier - Loại khiếu nại",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier - Loại khiếu nại": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier - Mức nghiêm trọng": {
+      "main": [
+        [
+          {
+            "node": "Switch - Chọn phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Chọn phòng ban": {
+      "main": [
+        [
+          {
+            "node": "Xác định phòng ban & Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Xác định phòng ban & Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Xác định phòng ban & Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Xác định phòng ban & Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Xác định phòng ban & Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Xác định phòng ban & Priority": {
+      "main": [
+        [
+          {
+            "node": "Postgres/MySQL - Lấy SLA và tính due_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres/MySQL - Lấy SLA và tính due_at": {
+      "main": [
+        [
+          {
+            "node": "Postgres/MySQL - Tạo case trong complaints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres/MySQL - Tạo case trong complaints": {
+      "main": [
+        [
+          {
+            "node": "Gmail / Email - Gửi phòng ban",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram - Gửi mã khiếu nại & SLA cho khách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail / Email - Gửi phòng ban": {
+      "main": [
+        [
+          {
+            "node": "IF - Mức nghiêm trọng (CRITICAL)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Mức nghiêm trọng (CRITICAL)?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow - Gọi L06 Leo thang",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait - Chờ phản hồi phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow - Gọi L06 Leo thang": {
+      "main": [
+        [
+          {
+            "node": "Wait - Chờ phản hồi phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait - Chờ phản hồi phòng ban": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn giải pháp gửi khách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Soạn giải pháp gửi khách": {
+      "main": [
+        [
+          {
+            "node": "Telegram (Send and Wait) - Duyệt Human",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram (Send and Wait) - Duyệt Human": {
+      "main": [
+        [
+          {
+            "node": "Postgres/MySQL - Đóng case và ghi nguyên nhân gốc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  }
+}
