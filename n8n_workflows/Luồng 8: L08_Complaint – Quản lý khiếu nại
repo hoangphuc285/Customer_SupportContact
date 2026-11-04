@@ -30,23 +30,6 @@
       ]
     },
     {
-      "parameters": {},
-      "id": "node-gemini-model",
-      "name": "Google Gemini Chat Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1.2,
-      "position": [
-        -768,
-        480
-      ],
-      "credentials": {
-        "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
-    },
-    {
       "parameters": {
         "text": "={{ $json.content_original || $json.body?.content_original || $json.body?.message || $json.subject || \"Sản phẩm bị lỗi không sử dụng được, yêu cầu đổi hàng\" }}",
         "attributes": {
@@ -81,7 +64,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id AS order_id, order_code, customer_id, total_amount, status AS order_status, ordered_at, delivered_at FROM orders WHERE customer_id = {{ $('Execute Workflow Trigger').item?.json?.customer_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.customer_id || 1 }} OR (order_code IS NOT NULL AND order_code = '{{ $json.output?.order_code || \"\" }}') ORDER BY ordered_at DESC LIMIT 1;",
+        "query": "SELECT id AS order_id, order_code, customer_id, total_amount, status AS order_status, ordered_at, delivered_at FROM orders WHERE customer_id = {{ $('Code - Chuẩn hóa đầu vào Complaint').first().json.customer_id || 1 }} OR (order_code IS NOT NULL AND order_code = '{{ $json.output?.order_code || \"\" }}') ORDER BY ordered_at DESC LIMIT 1;",
         "options": {}
       },
       "id": "node-mysql-orders",
@@ -103,7 +86,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT c.id AS prev_complaint_id, c.complaint_code, c.type, c.severity, c.status, c.created_at, c.resolution FROM complaints c JOIN tickets t ON c.ticket_id = t.id WHERE t.customer_id = {{ $('Execute Workflow Trigger').item?.json?.customer_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.customer_id || 1 }} AND c.ticket_id != {{ $('Execute Workflow Trigger').item?.json?.ticket_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.ticket_id || 0 }} ORDER BY c.created_at DESC LIMIT 5;",
+        "query": "SELECT c.id AS prev_complaint_id, c.complaint_code, c.type, c.severity, c.status, c.created_at, c.resolution FROM complaints c JOIN tickets t ON c.ticket_id = t.id WHERE t.customer_id = {{ $('Code - Chuẩn hóa đầu vào Complaint').item?.json?.customer_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.customer_id || 1 }} AND c.ticket_id != {{ $('Code - Chuẩn hóa đầu vào Complaint').item?.json?.ticket_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.ticket_id || 0 }} ORDER BY c.created_at DESC LIMIT 5;",
         "options": {}
       },
       "id": "node-mysql-history",
@@ -124,7 +107,7 @@
     },
     {
       "parameters": {
-        "inputText": "={{ $('Execute Workflow Trigger').item?.json?.content_original || $('Webhook - Nhận khiếu nại').item?.json?.body?.content_original || $('Information Extractor').item?.json?.output?.issue_description || \"Khiếu nại sản phẩm\" }}",
+        "inputText": "={{ $('Code - Chuẩn hóa đầu vào Complaint').item?.json?.content_original || $('Webhook - Nhận khiếu nại').item?.json?.body?.content_original || $('Information Extractor').item?.json?.output?.issue_description || \"Khiếu nại sản phẩm\" }}",
         "categories": {
           "categories": [
             {
@@ -162,7 +145,7 @@
     },
     {
       "parameters": {
-        "inputText": "={{ $('Execute Workflow Trigger').item?.json?.content_original || $('Webhook - Nhận khiếu nại').item?.json?.body?.content_original || $('Information Extractor').item?.json?.output?.issue_description || \"Khiếu nại sản phẩm\" }}",
+        "inputText": "={{ $('Code - Chuẩn hóa đầu vào Complaint').item?.json?.content_original || $('Webhook - Nhận khiếu nại').item?.json?.body?.content_original || $('Information Extractor').item?.json?.output?.issue_description || \"Khiếu nại sản phẩm\" }}",
         "categories": {
           "categories": [
             {
@@ -204,7 +187,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item?.json?.category }}",
+                    "leftValue": "={{ $(\"Text Classifier - Loại khiếu nại\").all(0).length > 0 ? \"PRODUCT\" : ($(\"Text Classifier - Loại khiếu nại\").all(1).length > 0 ? \"DELIVERY\" : ($(\"Text Classifier - Loại khiếu nại\").all(2).length > 0 ? \"STAFF\" : ($(\"Text Classifier - Loại khiếu nại\").all(3).length > 0 ? \"PAYMENT\" : \"OTHER\"))) }}",
                     "rightValue": "PRODUCT",
                     "operator": {
                       "type": "string",
@@ -225,7 +208,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item?.json?.category }}",
+                    "leftValue": "={{ $(\"Text Classifier - Loại khiếu nại\").all(0).length > 0 ? \"PRODUCT\" : ($(\"Text Classifier - Loại khiếu nại\").all(1).length > 0 ? \"DELIVERY\" : ($(\"Text Classifier - Loại khiếu nại\").all(2).length > 0 ? \"STAFF\" : ($(\"Text Classifier - Loại khiếu nại\").all(3).length > 0 ? \"PAYMENT\" : \"OTHER\"))) }}",
                     "rightValue": "DELIVERY",
                     "operator": {
                       "type": "string",
@@ -246,7 +229,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item?.json?.category }}",
+                    "leftValue": "={{ $(\"Text Classifier - Loại khiếu nại\").all(0).length > 0 ? \"PRODUCT\" : ($(\"Text Classifier - Loại khiếu nại\").all(1).length > 0 ? \"DELIVERY\" : ($(\"Text Classifier - Loại khiếu nại\").all(2).length > 0 ? \"STAFF\" : ($(\"Text Classifier - Loại khiếu nại\").all(3).length > 0 ? \"PAYMENT\" : \"OTHER\"))) }}",
                     "rightValue": "PAYMENT",
                     "operator": {
                       "type": "string",
@@ -267,7 +250,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Text Classifier - Loại khiếu nại').item?.json?.category }}",
+                    "leftValue": "={{ $(\"Text Classifier - Loại khiếu nại\").all(0).length > 0 ? \"PRODUCT\" : ($(\"Text Classifier - Loại khiếu nại\").all(1).length > 0 ? \"DELIVERY\" : ($(\"Text Classifier - Loại khiếu nại\").all(2).length > 0 ? \"STAFF\" : ($(\"Text Classifier - Loại khiếu nại\").all(3).length > 0 ? \"PAYMENT\" : \"OTHER\"))) }}",
                     "rightValue": "STAFF",
                     "operator": {
                       "type": "string",
@@ -295,7 +278,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const complaintType = $('Text Classifier - Loại khiếu nại').item?.json?.category || 'OTHER';\nconst severity = $('Text Classifier - Mức nghiêm trọng').item?.json?.category || 'MINOR';\nconst target = ($('Information Extractor').item?.json?.output?.complaint_target || '').toLowerCase();\n\nlet deptId = 1;\nlet deptCode = 'SUPPORT';\nlet deptName = 'Chăm sóc khách hàng';\nlet deptEmail = 'support@support.local';\n\nif (complaintType === 'PRODUCT') {\n  if (target.includes('kho') || target.includes('đóng gói') || target.includes('bao bì')) {\n    deptId = 2;\n    deptCode = 'WAREHOUSE';\n    deptName = 'Kho';\n    deptEmail = 'warehouse@support.local';\n  } else {\n    deptId = 4;\n    deptCode = 'TECH';\n    deptName = 'Kỹ thuật';\n    deptEmail = 'tech@support.local';\n  }\n} else if (complaintType === 'DELIVERY') {\n  deptId = 3;\n  deptCode = 'DELIVERY';\n  deptName = 'Giao hàng';\n  deptEmail = 'delivery@support.local';\n} else if (complaintType === 'PAYMENT') {\n  deptId = 5;\n  deptCode = 'ACCOUNTING';\n  deptName = 'Kế toán';\n  deptEmail = 'accounting@support.local';\n} else if (complaintType === 'STAFF') {\n  deptId = 6;\n  deptCode = 'SALES';\n  deptName = 'Kinh doanh';\n  deptEmail = 'sales@support.local';\n}\n\nlet priority = 'P3';\nif (severity === 'CRITICAL') priority = 'P1';\nelse if (severity === 'MAJOR') priority = 'P2';\n\nreturn [{\n  json: {\n    department_id: deptId,\n    department_code: deptCode,\n    department_name: deptName,\n    department_email: deptEmail,\n    complaint_type: complaintType,\n    severity: severity,\n    priority: priority\n  }\n}];"
+        "jsCode": "let complaintType = \"OTHER\";\ntry {\n  if ($(\"Text Classifier - Loại khiếu nại\").all(0).length > 0) complaintType = \"PRODUCT\";\n  else if ($(\"Text Classifier - Loại khiếu nại\").all(1).length > 0) complaintType = \"DELIVERY\";\n  else if ($(\"Text Classifier - Loại khiếu nại\").all(2).length > 0) complaintType = \"STAFF\";\n  else if ($(\"Text Classifier - Loại khiếu nại\").all(3).length > 0) complaintType = \"PAYMENT\";\n} catch(e) {}\n\nlet severity = \"MINOR\";\ntry {\n  if ($(\"Text Classifier - Mức nghiêm trọng\").all(2).length > 0) severity = \"CRITICAL\";\n  else if ($(\"Text Classifier - Mức nghiêm trọng\").all(1).length > 0) severity = \"MAJOR\";\n  else if ($(\"Text Classifier - Mức nghiêm trọng\").all(0).length > 0) severity = \"MINOR\";\n} catch(e) {}\n\nconst target = ($(\"Information Extractor\").first()?.json?.output?.complaint_target || \"\").toLowerCase();\n\nlet deptId = 1;\nlet deptCode = \"SUPPORT\";\nlet deptName = \"Chăm sóc khách hàng\";\nlet deptEmail = \"support@support.local\";\n\nif (complaintType === \"PRODUCT\") {\n  if (target.includes(\"kho\") || target.includes(\"đóng gói\") || target.includes(\"bao bì\")) {\n    deptId = 2;\n    deptCode = \"WAREHOUSE\";\n    deptName = \"Kho\";\n    deptEmail = \"warehouse@support.local\";\n  } else {\n    deptId = 4;\n    deptCode = \"TECH\";\n    deptName = \"Kỹ thuật\";\n    deptEmail = \"tech@support.local\";\n  }\n} else if (complaintType === \"DELIVERY\") {\n  deptId = 3;\n  deptCode = \"DELIVERY\";\n  deptName = \"Giao hàng\";\n  deptEmail = \"delivery@support.local\";\n} else if (complaintType === \"PAYMENT\") {\n  deptId = 5;\n  deptCode = \"ACCOUNTING\";\n  deptName = \"Kế toán\";\n  deptEmail = \"accounting@support.local\";\n} else if (complaintType === \"STAFF\") {\n  deptId = 6;\n  deptCode = \"SALES\";\n  deptName = \"Kinh doanh\";\n  deptEmail = \"sales@support.local\";\n}\n\nlet priority = \"P3\";\nif (severity === \"CRITICAL\") priority = \"P1\";\nelse if (severity === \"MAJOR\") priority = \"P2\";\n\nreturn [{\n  json: {\n    department_id: deptId,\n    department_code: deptCode,\n    department_name: deptName,\n    department_email: deptEmail,\n    complaint_type: complaintType,\n    severity: severity,\n    priority: priority\n  }\n}];"
       },
       "id": "node-code-dept-mapping",
       "name": "Xác định phòng ban & Priority",
@@ -329,7 +312,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const deptInfo = $('Xác định phòng ban & Priority').first().json;\nconst slaInfo = $input.first().json;\nconst triggerData = $('Execute Workflow Trigger').first()?.json || $('Webhook - Nhận khiếu nại').first()?.json?.body || {};\nconst orderData = $('Tra cứu đơn hàng và lịch sử').first()?.json || {};\nconst extractorData = $('Information Extractor').first()?.json?.output || {};\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst complaintCode = `CMP-${dateStr}-${randomCode}`;\n\nconst ticketId = triggerData.ticket_id || 1;\nconst orderId = orderData.order_id || null;\nconst issueDesc = (extractorData.issue_description || triggerData.content_original || 'Khiếu nại khách hàng').replace(/'/g, \"\\'\");\n\nlet dueAtStr = slaInfo.calculated_due_at;\nif (!dueAtStr) {\n  const d = new Date(Date.now() + (slaInfo.resolution_minutes || 120) * 60000);\n  dueAtStr = d.toISOString().slice(0, 19).replace('T', ' ');\n}\n\nreturn [{\n  json: {\n    complaint_code: complaintCode,\n    description: issueDesc,\n    due_at: dueAtStr,\n    severity: deptInfo.severity,\n    complaint_type: deptInfo.complaint_type,\n    department_id: deptInfo.department_id,\n    department_name: deptInfo.department_name,\n    department_email: deptInfo.department_email,\n    priority: deptInfo.priority,\n    order_id: orderId,\n    ticket_id: ticketId,\n    customer_telegram_id: triggerData.customer_telegram_id || \"-10022334455\",\n    customer_name: orderData.customer_name || \"Quý khách\"\n  }\n}];"
+        "jsCode": "const deptInfo = $('Xác định phòng ban & Priority').first().json;\nconst slaInfo = $input.first().json;\nconst triggerData = $('Code - Chuẩn hóa đầu vào Complaint').first()?.json || $('Webhook - Nhận khiếu nại').first()?.json?.body || {};\nconst orderData = $('Tra cứu đơn hàng và lịch sử').first()?.json || {};\nconst extractorData = $('Information Extractor').first()?.json?.output || {};\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst complaintCode = `CMP-${dateStr}-${randomCode}`;\n\nconst ticketId = triggerData.ticket_id || 1;\nconst orderId = orderData.order_id || null;\nconst issueDesc = (extractorData.issue_description || triggerData.content_original || 'Khiếu nại khách hàng').replace(/'/g, \"\\'\");\n\nlet dueAtStr = slaInfo.calculated_due_at;\nif (!dueAtStr) {\n  const d = new Date(Date.now() + (slaInfo.resolution_minutes || 120) * 60000);\n  dueAtStr = d.toISOString().slice(0, 19).replace('T', ' ');\n}\n\nreturn [{\n  json: {\n    complaint_code: complaintCode,\n    description: issueDesc,\n    due_at: dueAtStr,\n    severity: deptInfo.severity,\n    complaint_type: deptInfo.complaint_type,\n    department_id: deptInfo.department_id,\n    department_name: deptInfo.department_name,\n    department_email: deptInfo.department_email,\n    priority: deptInfo.priority,\n    order_id: orderId,\n    ticket_id: ticketId,\n    customer_telegram_id: triggerData.customer_telegram_id || \"-10022334455\",\n    customer_name: orderData.customer_name || \"Quý khách\"\n  }\n}];"
       },
       "id": "node-code-prep-case",
       "name": "Chuẩn bị dữ liệu Complaint Case",
@@ -392,19 +375,20 @@
       },
       "id": "node-gmail-send",
       "name": "Gmail / Email - Gửi phòng ban",
+      "webhookId": "f7536752-dc9e-4118-b638-1187f797ab5e",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
         1904,
         112
       ],
-      "webhookId": "f7536752-dc9e-4118-b638-1187f797ab5e",
       "credentials": {
         "smtp": {
           "id": "f5ELIXOhZR2kN5Ky",
           "name": "SMTP account 2"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -414,19 +398,20 @@
       },
       "id": "node-telegram-send-customer",
       "name": "Telegram - Gửi mã khiếu nại & SLA cho khách",
+      "webhookId": "af67f166-03fe-477d-bf92-22a36064585a",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
         1904,
         304
       ],
-      "webhookId": "af67f166-03fe-477d-bf92-22a36064585a",
       "credentials": {
         "telegramApi": {
           "id": "VCo7LBLtexut3AfT",
           "name": "Telegram account"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -473,7 +458,8 @@
       "position": [
         2384,
         80
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -483,13 +469,13 @@
       },
       "id": "node-wait-department",
       "name": "Wait - Chờ phản hồi phòng ban",
+      "webhookId": "3d2ac6fc-4a09-4c89-98e7-f76f087b5649",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
         2624,
         208
-      ],
-      "webhookId": "3d2ac6fc-4a09-4c89-98e7-f76f087b5649"
+      ]
     },
     {
       "parameters": {
@@ -518,19 +504,20 @@
       },
       "id": "node-telegram-human-approval",
       "name": "Telegram (Send and Wait) - Duyệt Human",
+      "webhookId": "971ba045-054b-44ca-ac17-61a6b1a14a0f",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
         3104,
         208
       ],
-      "webhookId": "971ba045-054b-44ca-ac17-61a6b1a14a0f",
       "credentials": {
         "telegramApi": {
           "id": "VCo7LBLtexut3AfT",
           "name": "Telegram account"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -573,6 +560,99 @@
           "name": "MySQL account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst data = item.body || item;\nconst content = data.content_original || data.message || data.text || data.issue_description || \"Khiếu nại về sản phẩm lỗi và giao trễ.\";\nreturn [{\n  json: {\n    ticket_id: data.ticket_id || data.id || 1,\n    ticket_code: data.ticket_code || \"TCK-CMP-001\",\n    customer_id: data.customer_id || 1,\n    customer_name: data.customer_name || \"Nguyễn Phúc Phi\",\n    customer_email: data.customer_email || \"nguyenphucphi213@gmail.com\",\n    chat_id: data.chat_id || 7919420845,\n    content_original: content,\n    message: content,\n    channel: (data.channel || \"TELEGRAM\").toUpperCase()\n  }\n}];"
+      },
+      "id": "node-code-norm-complaint",
+      "name": "Code - Chuẩn hóa đầu vào Complaint",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "id": "node-gemini-model-extractor",
+      "name": "Google Gemini Chat Model - Information Extractor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -768,
+        432
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "id": "node-gemini-model-type",
+      "name": "Google Gemini Chat Model - Loại khiếu nại",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -16,
+        432
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "id": "node-gemini-model-severity",
+      "name": "Google Gemini Chat Model - Mức nghiêm trọng",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        432
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "id": "node-gemini-model-resolution",
+      "name": "Google Gemini Chat Model - Soạn giải pháp",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2864,
+        432
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
     }
   ],
   "connections": {
@@ -580,7 +660,7 @@
       "main": [
         [
           {
-            "node": "Information Extractor",
+            "node": "Code - Chuẩn hóa đầu vào Complaint",
             "type": "main",
             "index": 0
           }
@@ -591,34 +671,8 @@
       "main": [
         [
           {
-            "node": "Information Extractor",
+            "node": "Code - Chuẩn hóa đầu vào Complaint",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Google Gemini Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Information Extractor",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
-            "node": "Text Classifier - Loại khiếu nại",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
-            "node": "Text Classifier - Mức nghiêm trọng",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
-            "node": "Basic LLM Chain - Soạn giải pháp gửi khách",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -665,11 +719,53 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Text Classifier - Mức nghiêm trọng": {
       "main": [
+        [
+          {
+            "node": "Switch - Chọn phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch - Chọn phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Switch - Chọn phòng ban",
@@ -857,6 +953,61 @@
           {
             "node": "Postgres/MySQL - Đóng Ticket",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn hóa đầu vào Complaint": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Information Extractor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Loại khiếu nại": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier - Loại khiếu nại",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Mức nghiêm trọng": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier - Mức nghiêm trọng",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Soạn giải pháp": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn giải pháp gửi khách",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]
