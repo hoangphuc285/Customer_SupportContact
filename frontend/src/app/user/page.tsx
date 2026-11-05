@@ -43,6 +43,7 @@ import {
     Users,
     TrendingUp,
     HeartHandshake,
+    Info,
     Sparkle
 } from 'lucide-react';
 
@@ -141,7 +142,7 @@ export default function LotusThemesStyleHelpCenterPage() {
         { title: 'Chuyển giao Chuyên viên', code: 'L06 Handover', desc: 'Gặp nhân viên tư vấn người thật không gián đoạn', icon: Users, color: 'text-purple-500 bg-purple-50', href: '/user/chat' },
         { title: 'Thanh toán & Đối soát COD', code: 'Accounting', desc: 'Xác thực thanh toán ngân hàng, MoMo, VNPAY', icon: CreditCard, color: 'text-sky-500 bg-sky-50', href: '/user/chat?query=thanh_toan' },
         { title: 'Lịch sử Vé hỗ trợ (Ticket)', code: 'L07 Monitor', desc: 'Theo dõi thời hạn giải quyết và mã tham chiếu', icon: Clock, color: 'text-indigo-500 bg-indigo-50', href: '/user/tickets' },
-        { title: 'Cơ sở tri thức & FAQ', code: 'Qdrant RAG', desc: 'Kho tài liệu chính sách và hướng dẫn sử dụng', icon: FileText, color: 'text-teal-500 bg-teal-50', href: '/user#faq' },
+        { title: 'Cơ sở tri thức & FAQ', code: 'L04/L05 KB', desc: 'Kho tài liệu chính sách và bài viết từ kb_documents', icon: FileText, color: 'text-teal-500 bg-teal-50', href: '/user/faq' },
     ];
 
     // Đối tác thương hiệu (Logo strip như Hình 1 & Hình 5)
@@ -514,72 +515,83 @@ export default function LotusThemesStyleHelpCenterPage() {
             </section>
 
             {/* ======================================================== */}
-            {/* 6. DỮ LIỆU ĐƠN HÀNG THỰC TẾ TỪ CƠ SỞ DỮ LIỆU MYSQL       */}
+            {/* 6. CỔNG TRA CỨU HỖ TRỢ VÀ TÍCH HỢP HỆ THỐNG BÁN HÀNG      */}
             {/* ======================================================== */}
             <section className="max-w-5xl mx-auto rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
                     <div>
                         <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                            <Package className="text-blue-600" size={20} />
-                            <span>Đơn Hàng Thực Tế Trong MySQL Database ({orders.length} Đơn)</span>
+                            <Search className="text-blue-600" size={20} />
+                            <span>Cổng Tra Cứu Hỗ Trợ Kỹ Thuật & Đơn Hàng Tự Động (L02, L09, L10)</span>
                         </h3>
                         <p className="text-xs text-slate-500 mt-0.5">
-                            Truy vấn trực tiếp từ bảng <strong>orders</strong> và <strong>order_items</strong> qua API Spring Boot
+                            Hệ thống tích hợp dữ liệu bán hàng qua Mã đơn hàng hoặc Số Serial thiết bị
                         </p>
                     </div>
 
                     <Link href="/user/orders" className="text-xs font-bold text-blue-600 hover:underline">
-                        Quản lý toàn bộ đơn &rarr;
+                        Mở màn hình tra cứu chi tiết &rarr;
                     </Link>
                 </div>
 
-                {loadingData ? (
-                    <div className="py-8 text-center text-xs text-slate-400">Đang đồng bộ dữ liệu từ MySQL...</div>
-                ) : (
-                    <div className="space-y-3">
-                        {orders.slice(0, 3).map((order) => (
-                            <div key={order.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                                <div className="flex items-center gap-3.5">
-                                    <img
-                                        src={
-                                            order.orderCode.includes('992') ? '/images/products/keyboard.jpg' :
-                                            order.orderCode.includes('881') ? '/images/products/headphones.jpg' :
-                                            order.orderCode.includes('762') ? '/images/products/charger.jpg' :
-                                            '/images/products/smartwatch.jpg'
-                                        }
-                                        alt="Sản phẩm"
-                                        className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                                    />
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-black text-slate-900">{order.orderCode}</span>
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                                                {order.status}
-                                            </span>
-                                        </div>
-                                        <p className="text-[11px] text-slate-600 font-semibold mt-0.5">
-                                            {order.items && order.items[0] ? order.items[0].productName : 'Sản phẩm công nghệ'}
-                                        </p>
-                                        <p className="text-[10px] text-slate-400 font-mono">
-                                            Mã tracking: {order.trackingCode || 'Đang cập nhật'}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="text-right sm:border-l sm:pl-4 border-slate-200">
-                                    <span className="text-slate-400 block text-[10px]">Tổng thanh toán</span>
-                                    <span className="font-black text-sm text-slate-900">{formatCurrency(order.totalAmount)}</span>
-                                    <Link
-                                        href={`/user/orders?q=${order.orderCode}`}
-                                        className="block text-[11px] font-bold text-blue-600 hover:underline mt-0.5"
-                                    >
-                                        Xem chi tiết &rarr;
-                                    </Link>
-                                </div>
-                            </div>
-                        ))}
+                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+                    <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                        <p className="font-bold text-amber-950">Ghi chú kiến trúc hệ thống (Báo cáo đồ án):</p>
+                        <p className="text-amber-800 leading-relaxed">
+                            Đây là hệ thống hỗ trợ khách hàng và contact center, tích hợp với hệ thống bán hàng có sẵn qua <strong>Mã đơn hàng (#DH...)</strong> hoặc <strong>Số Serial (SN-...)</strong>. Hệ thống không hỏi <em>&ldquo;bạn chọn sản phẩm nào&rdquo;</em> mà hỏi <em>&ldquo;bạn cho tôi mã đơn / số serial / email&rdquo;</em>; bảng <code>orders</code> và <code>warranties</code> được mô phỏng trong CSDL để phục vụ việc trích xuất thực thể AI (Information Extractor) và kiểm tra điều kiện đổi trả/bảo hành tự động.
+                        </p>
                     </div>
-                )}
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                        <input
+                            type="text"
+                            placeholder="Nhập mã đơn (#DH1024), serial (SN-XYZ-1024) hoặc email..."
+                            className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none focus:border-blue-500"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const val = (e.target as HTMLInputElement).value.trim();
+                                    if (val) router.push(`/user/orders?q=${encodeURIComponent(val)}`);
+                                }
+                            }}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => router.push('/user/orders?q=DH1024')}
+                            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                            <Search size={14} />
+                            <span>Tra cứu kết quả</span>
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                        <span className="text-slate-400 font-semibold text-[11px]">Thử nhanh mã mẫu:</span>
+                        <button
+                            type="button"
+                            onClick={() => router.push('/user/orders?q=DH1024')}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-blue-600 font-mono font-bold text-xs cursor-pointer transition"
+                        >
+                            DH1024 (Tai nghe XYZ)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => router.push('/user/orders?q=SN-XYZ-1024')}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-blue-600 font-mono font-bold text-xs cursor-pointer transition"
+                        >
+                            SN-XYZ-1024
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => router.push('/user/orders?q=DH-1001')}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-slate-700 font-mono font-semibold text-xs cursor-pointer transition"
+                        >
+                            DH-1001
+                        </button>
+                    </div>
+                </div>
             </section>
 
         </div>

@@ -44,10 +44,11 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
     // TÊN MENU NGẮN GỌN, CHUẨN MỰC, KHÔNG BỊ XUỐNG DÒNG (100% TRÊN 1 HÀNG)
     const mainNavLinks = [
         { href: '/user', label: 'Trang Chủ', exact: true },
-        { href: '/user/orders', label: 'Đơn Hàng' },
-        { href: '/user/warranty', label: 'Bảo Hành' },
-        { href: '/user/refund', label: 'Đổi Trả' },
-        { href: '/user/complaint', label: 'Khiếu Nại' },
+        { href: '/user/faq', label: 'Trợ Giúp (FAQ)' },
+        { href: '/user/orders', label: 'Tra Cứu Đơn' },
+        { href: '/user/warranty', label: 'Bảo Hành (L10)' },
+        { href: '/user/refund', label: 'Đổi Trả (L09)' },
+        { href: '/user/complaint', label: 'Khiếu Nại (L08)' },
         { href: '/user/tickets', label: 'Vé Hỗ Trợ' },
     ];
 

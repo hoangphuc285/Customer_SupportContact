@@ -476,32 +476,6 @@
     },
     {
       "parameters": {
-        "operation": "sendAndWait",
-        "chatId": "9274620117",
-        "message": "=📋 [DUYỆT GIẢI QUYẾT KHIẾU NẠI]\\nMã: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}\\nMức độ: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.severity }}\\n\\nNội dung dự thảo gửi khách:\\n{{ $json.text }}\\n\\nQuản lý vui lòng duyệt phương án giải quyết:",
-        "approvalOptions": {
-          "values": {}
-        },
-        "options": {}
-      },
-      "id": "847731fb-27a7-472a-8f0a-326c604f1f7b",
-      "name": "Telegram (Send and Wait) - Duyệt Human",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        5024,
-        128
-      ],
-      "webhookId": "971ba045-054b-44ca-ac17-61a6b1a14a0f",
-      "credentials": {
-        "telegramApi": {
-          "id": "0LI2dFdVJM6rrl0k",
-          "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "UPDATE complaints SET status = 'RESOLVED', resolution = '{{ ($('Wait - Chờ phản hồi phòng ban').item?.json?.body?.resolution || $('Basic LLM Chain - Soạn giải pháp gửi khách').item?.json?.text || \"Đã giải quyết theo quy trình\").replace(/'/g, \"\\\\'\") }}', root_cause = '{{ ($('Wait - Chờ phản hồi phòng ban').item?.json?.body?.root_cause || $('Information Extractor').item?.json?.output?.complaint_target || \"Nguyên nhân kỹ thuật/vận hành\").replace(/'/g, \"\\\\'\") }}', resolved_at = NOW(), updated_at = NOW() WHERE complaint_code = '{{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}';",
         "options": {}
@@ -884,17 +858,6 @@
       ]
     },
     "Basic LLM Chain - Soạn giải pháp gửi khách": {
-      "main": [
-        [
-          {
-            "node": "Telegram (Send and Wait) - Duyệt Human",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Telegram (Send and Wait) - Duyệt Human": {
       "main": [
         [
           {

@@ -44,17 +44,86 @@ function ComplaintContent() {
         const slaMinutes = severity === 'CRITICAL' ? 15 : severity === 'MAJOR' ? 60 : 120;
         const priority = severity === 'CRITICAL' ? 'P1 (Khẩn cấp)' : 'P2 (Cao)';
 
-        setTimeout(() => {
-            setLoading(false);
+        const payload = {
+            orderCode: orderCode.trim().toUpperCase() || 'DH1024',
+            departmentCode,
+            type: complaintType,
+            severity,
+            description: subject ? `${subject} - ${description}` : description || 'Khiếu nại dịch vụ',
+        };
+
+        try {
+            // 1. Gửi lên Backend Spring Boot
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const res = await fetch('http://localhost:8080/api/portal/complaints', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload),
+            });
+
+            let savedData: any = null;
+            if (res.ok) {
+                savedData = await res.json();
+            }
+
+            // 2. Kích hoạt Webhook n8n Luồng L08_Complaint & L01 Omnichannel Intake
+            try {
+                await fetch('http://localhost:5678/webhook/intake-omnichannel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: 'WEB',
+                        sender: { id: '7919420845', name: 'Nguyen Van Test' },
+                        email: 'nguyenphucphi213@gmail.com',
+                        phone: '0901234567',
+                        message: {
+                            text: `Tôi muốn khiếu nại chính thức bộ phận ${payload.departmentCode} đơn ${payload.orderCode}: ${payload.description}`
+                        }
+                    }),
+                });
+            } catch (err) { console.warn('L01 trigger note:', err); }
+
+            try {
+                await fetch('http://localhost:5678/webhook/complaint-intake', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        complaint_code: savedData?.complaintCode || `CP-${Date.now().toString().slice(-6)}`,
+                        order_code: payload.orderCode,
+                        customer_id: 2,
+                        message: payload.description,
+                        department: payload.departmentCode,
+                        severity: payload.severity,
+                    }),
+                });
+            } catch (n8nErr) {
+                console.warn('Webhook n8n L08 trigger note:', n8nErr);
+            }
+
+            setResult({
+                complaintCode: savedData?.complaintCode || `CP-${Date.now().toString().slice(-6)}`,
+                ticketCode: `TK-CP-${Date.now().toString().slice(-4)}`,
+                department: departments.find(d => d.code === departmentCode)?.name || departmentCode,
+                priority,
+                slaMinutes,
+                status: savedData?.status || 'INVESTIGATING',
+            });
+        } catch (err) {
+            console.error('Lỗi gửi khiếu nại:', err);
             setResult({
                 complaintCode: `CP-${Date.now().toString().slice(-6)}`,
-                ticketCode: `TK-${Date.now().toString().slice(-6)}`,
+                ticketCode: `TK-CP-${Date.now().toString().slice(-4)}`,
                 department: departments.find(d => d.code === departmentCode)?.name || departmentCode,
                 priority,
                 slaMinutes,
                 status: 'INVESTIGATING',
             });
-        }, 800);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

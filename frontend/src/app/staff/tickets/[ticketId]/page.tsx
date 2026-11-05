@@ -6,348 +6,325 @@ import Link from 'next/link';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { 
     ArrowLeft, 
-    Save, 
-    Sparkles, 
-    Clock, 
+    Send, 
+    Bot, 
     User, 
-    Mail, 
-    Phone, 
-    FileText
+    Languages, 
+    ShieldAlert, 
+    Flame, 
+    Lock, 
+    Unlock, 
+    RotateCcw,
+    CheckCircle2,
+    Clock,
+    Sparkles,
+    AlertTriangle
 } from 'lucide-react';
-import { 
-    formatStatus, 
-    formatPriority, 
-    formatCategory, 
-    formatLogAction,
-    STATUS_MAP,
-    PRIORITY_MAP
-} from '@/utils/formatters';
 
 export default function ProcessTicketDetailPage() {
     const params = useParams();
     const ticketId = params.ticketId as string;
 
-    const [ticket, setTicket] = useState<any>(null);
-    const [logs, setLogs] = useState<any[]>([]);
+    const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [resolutionText, setResolutionText] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [generatingDraft, setGeneratingDraft] = useState(false);
-    const [agentName, setAgentName] = useState('Chuyên viên CSKH');
+    const [replyText, setReplyText] = useState('');
+    const [sendingReply, setSendingReply] = useState(false);
+    const [showTranslated, setShowTranslated] = useState(true);
+    const [togglingAi, setTogglingAi] = useState(false);
 
     useEffect(() => {
         if (!ticketId) return;
-
-        const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
-        if (savedInfo) {
-            try {
-                const user = JSON.parse(savedInfo);
-                if (user.name) setAgentName(user.name);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        fetchTicketAndLogs();
+        fetchDetail();
     }, [ticketId]);
 
-    const fetchTicketAndLogs = async () => {
+    const fetchDetail = async () => {
         setLoading(true);
         try {
-            const [resTicket, resLogs] = await Promise.all([
-                fetch(`http://localhost:8080/api/agent/tickets/${ticketId}`),
-                fetch(`http://localhost:8080/api/tickets/${ticketId}/logs`)
-            ]);
-
-            if (resTicket.ok) {
-                const ticketData = await resTicket.json();
-                setTicket(ticketData);
-                if (ticketData.resolution) setResolutionText(ticketData.resolution);
-            }
-
-            if (resLogs.ok) {
-                const logsData = await resLogs.json();
-                setLogs(Array.isArray(logsData) ? logsData : []);
+            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}`);
+            if (res.ok) {
+                const json = await res.json();
+                setData(json);
             }
         } catch (err) {
-            console.error('Lỗi khi tải dữ liệu Ticket và Logs:', err);
+            console.error('Lỗi khi tải chi tiết ticket:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGenerateAiDraft = async () => {
-        setGeneratingDraft(true);
+    const handleToggleAi = async () => {
+        if (!ticketId) return;
+        setTogglingAi(true);
         try {
-            const res = await fetch(`http://localhost:8080/api/agent/tickets/${ticketId}/generate-ai-draft`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rawAgentNote: 'Đã kiểm tra và xử lý xong sự cố cho khách hàng' }),
+            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/toggle-ai`, {
+                method: 'PATCH'
             });
-
             if (res.ok) {
-                const data = await res.json();
-                if (data.aiDraft) {
-                    setResolutionText(data.aiDraft);
-                }
-            } else {
-                setResolutionText(
-                    `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nNếu cần hỗ trợ thêm thông tin, xin vui lòng phản hồi lại ticket này.\n\nTrân trọng,\nĐội ngũ CSKH Support Center.`
-                );
+                const updatedTicket = await res.json();
+                setData((prev: any) => ({
+                    ...prev,
+                    ticket: updatedTicket
+                }));
             }
         } catch (err) {
-            setResolutionText(
-                `Kính gửi quý khách,\n\nBộ phận hỗ trợ đã tiếp nhận và xử lý yêu cầu #${ticket?.ticketCode || ticketId}.\nSự cố của bạn đã được kiểm tra và khắc phục hoàn tất.\n\nTrân trọng,\nĐội ngũ CSKH Support Center.`
-            );
+            console.error('Lỗi toggle AI:', err);
         } finally {
-            setGeneratingDraft(false);
+            setTogglingAi(false);
         }
     };
 
-    const handleSaveAndTriggerN8n = async () => {
-        if (!resolutionText.trim()) return alert('Vui lòng nhập nội dung giải pháp xử lý!');
-        setSubmitting(true);
+    const handleSendReply = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!replyText.trim() || sendingReply) return;
+        setSendingReply(true);
 
         try {
-            const res = await fetch(`http://localhost:8080/api/agent/tickets/${ticketId}/send-resolution`, {
+            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/reply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    finalResolution: resolutionText,
-                    agentName: agentName,
-                }),
+                body: JSON.stringify({ message: replyText.trim() })
             });
-
             if (res.ok) {
-                alert('✅ Đã lưu kết quả vào CSDL, ghi log và kích hoạt n8n Luồng 3 thành công!');
-                fetchTicketAndLogs();
-            } else {
-                alert('Lưu kết quả thất bại!');
+                const newMsg = await res.json();
+                setData((prev: any) => ({
+                    ...prev,
+                    messages: [...(prev?.messages || []), newMsg]
+                }));
+                setReplyText('');
             }
         } catch (err) {
-            alert('Đã xảy ra lỗi khi kết nối Server!');
+            console.error('Lỗi gửi trả lời:', err);
         } finally {
-            setSubmitting(false);
+            setSendingReply(false);
         }
-    };
-
-    const formatDateTime = (dateString?: string) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
     };
 
     if (loading) {
         return (
             <ProtectedRoute>
-                <div className="p-16 text-center text-sm font-semibold text-slate-500">
-                    Đang tải thông tin chi tiết ticket...
+                <div className="p-8 text-center text-slate-400">
+                    <RotateCcw className="animate-spin inline-block mb-3" size={24} />
+                    <p>Đang tải hội thoại ticket #{ticketId}...</p>
                 </div>
             </ProtectedRoute>
         );
     }
 
-    const statusMeta = STATUS_MAP[String(ticket?.status || '').toUpperCase()];
-    const statusLabel = statusMeta?.label || formatStatus(ticket?.status);
-    const statusBg = statusMeta?.bg || 'bg-slate-100';
-    const statusColor = statusMeta?.color || 'text-slate-700';
-    const statusBorder = statusMeta?.border || 'border-slate-200';
+    const ticket = data?.ticket || {};
+    const messages = data?.messages || [];
 
-    const priorityMeta = PRIORITY_MAP[String(ticket?.priority || '').toUpperCase()];
-    const priorityLabel = priorityMeta?.label || formatPriority(ticket?.priority);
-    const priorityBg = priorityMeta?.bg || 'bg-slate-100';
-    const priorityColor = priorityMeta?.color || 'text-slate-700';
-    const priorityBorder = priorityMeta?.border || 'border-slate-200';
+    const getSentimentBadge = (sentiment?: string) => {
+        switch (sentiment) {
+            case 'VERY_NEGATIVE':
+                return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">😡 Rất tiêu cực</span>;
+            case 'NEGATIVE':
+                return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">🙁 Tiêu cực</span>;
+            case 'POSITIVE':
+                return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">😊 Tích cực</span>;
+            default:
+                return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">😐 Trung tính</span>;
+        }
+    };
 
     return (
         <ProtectedRoute>
-            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
-                <div className="flex items-center justify-between">
-                    <Link
-                        href="/staff/tickets"
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition"
-                    >
-                        <ArrowLeft size={16} /> Quay lại danh sách Ticket
-                    </Link>
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100">
+                {/* TOP BAR */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href="/staff/tickets"
+                            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors"
+                        >
+                            <ArrowLeft size={18} />
+                        </Link>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                                    L02, L03, L06
+                                </span>
+                                <h1 className="text-xl md:text-2xl font-black text-white">
+                                    Chi tiết Ticket #{ticket.ticketCode || ticketId}
+                                </h1>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                Kênh: <strong className="text-slate-200">{ticket.channel}</strong> | Khách hàng: <strong className="text-slate-200">{ticket.customerName || 'Vãng lai'}</strong>
+                            </p>
+                        </div>
+                    </div>
 
+                    {/* AI LOCK BUTTON & TRANSLATE TOGGLE */}
                     <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm text-slate-500 font-medium">Trạng thái:</span>
-                        <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold border ${statusBg} ${statusColor} ${statusBorder}`}>
-                            {statusLabel}
-                        </span>
+                        <button
+                            onClick={() => setShowTranslated(!showTranslated)}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                showTranslated 
+                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' 
+                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                            }`}
+                        >
+                            <Languages size={15} />
+                            {showTranslated ? 'Đang bật bản dịch (L03)' : 'Đang xem bản gốc'}
+                        </button>
+
+                        <button
+                            onClick={handleToggleAi}
+                            disabled={togglingAi}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                ticket.aiLocked
+                                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30'
+                                    : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
+                            }`}
+                        >
+                            {ticket.aiLocked ? (
+                                <>
+                                    <Lock size={15} />
+                                    AI Đã Khóa (Chỉ trả lời tay)
+                                </>
+                            ) : (
+                                <>
+                                    <Unlock size={15} />
+                                    AI Đang Mở (Tự động L05)
+                                </>
+                            )}
+                        </button>
                     </div>
                 </div>
 
-                {/* TICKET HEADER OVERVIEW */}
-                <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <span className="font-mono text-xs sm:text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">
-                                {ticket?.ticketCode || `#${ticket?.id}`}
-                            </span>
-                            <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-2.5">
-                                {ticket?.subject}
-                            </h1>
+                {/* METRICS STRIP: Sentiment, Risk Score, Intent, SLA */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            Cảm xúc khách (Sentiment)
                         </div>
+                        {getSentimentBadge(ticket.sentiment)}
+                    </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                            {ticket?.priority && (
-                                <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold border ${priorityBg} ${priorityColor} ${priorityBorder}`}>
-                                    Ưu tiên: {priorityLabel}
-                                </span>
-                            )}
-                            {ticket?.category && (
-                                <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                                    {formatCategory(ticket.category)}
+                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            Điểm rủi ro (L06 Leo thang)
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-base font-black ${
+                                (ticket.riskScore || 0) >= 70 ? 'text-rose-400' : (ticket.riskScore || 0) >= 40 ? 'text-amber-400' : 'text-emerald-400'
+                            }`}>
+                                {ticket.riskScore || 15}/100
+                            </span>
+                            {(ticket.riskScore || 0) >= 70 && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                    <Flame size={10} /> Nguy cơ cao
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-6 text-sm text-slate-600">
-                        <div className="flex items-center gap-2">
-                            <User size={16} className="text-slate-400" />
-                            <span>Khách hàng: <strong className="text-slate-800">{ticket?.customerName || 'Khách vãng lai'}</strong></span>
+                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            Ý định trích xuất (L02)
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Mail size={16} className="text-slate-400" />
-                            <span>{ticket?.customerEmail || 'Chưa có email'}</span>
+                        <span className="font-mono text-xs font-bold text-indigo-400">
+                            {ticket.intent || 'CHỜ PHÂN LOẠI'}
+                        </span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            Cờ kiểm duyệt (L05/L03)
                         </div>
-                        {ticket?.customerPhone && (
-                            <div className="flex items-center gap-2">
-                                <Phone size={16} className="text-slate-400" />
-                                <span>{ticket.customerPhone}</span>
-                            </div>
+                        {ticket.needHumanReview ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400">
+                                <ShieldAlert size={13} /> Cần nhân viên duyệt
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                                <CheckCircle2 size={13} className="text-emerald-400" /> Tự động đạt chuẩn
+                            </span>
                         )}
                     </div>
                 </div>
 
-                {/* 2-COLUMN WORKBENCH */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* LEFT COLUMN: REQUEST & TIMELINE */}
-                    <div className="space-y-6">
-                        {/* INITIAL DESCRIPTION */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <FileText size={16} />
-                                <span>Nội dung yêu cầu ban đầu</span>
-                            </h3>
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 text-sm text-slate-800 leading-relaxed whitespace-pre-line font-medium">
-                                {ticket?.description || ticket?.subject}
+                {/* CONVERSATION HISTORY */}
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl flex flex-col h-[540px] shadow-2xl overflow-hidden">
+                    {/* Message scroll area */}
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                        {messages.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                                Chưa có tin nhắn nào trong hội thoại này
                             </div>
-                        </div>
+                        ) : (
+                            messages.map((m: any) => {
+                                const isCustomer = m.senderType === 'CUSTOMER';
+                                const isAi = m.senderType === 'AI';
+                                const isStaff = m.senderType === 'STAFF';
 
-                        {/* ACTIVITY LOGS */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                    <Clock size={16} />
-                                    <span>Lịch sử Log & Phản hồi</span>
-                                </h3>
-                                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
-                                    {logs.length} bản ghi
-                                </span>
-                            </div>
+                                return (
+                                    <div
+                                        key={m.id}
+                                        className={`flex flex-col ${
+                                            isCustomer ? 'items-start' : 'items-end'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-1.5 mb-1 px-1 text-xs text-slate-400 font-medium">
+                                            {isCustomer && <><User size={13} className="text-sky-400" /> <span>Khách hàng</span></>}
+                                            {isAi && <><Bot size={13} className="text-purple-400" /> <span className="text-purple-400 font-bold">AI Assistant</span></>}
+                                            {isStaff && <><Sparkles size={13} className="text-emerald-400" /> <span className="text-emerald-400 font-bold">Chuyên viên CSKH</span></>}
+                                            <span>•</span>
+                                            <span className="text-[11px] text-slate-500">
+                                                {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            </span>
+                                        </div>
 
-                            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                                {logs.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic py-4 text-center">Chưa có lịch sử ghi nhận.</p>
-                                ) : (
-                                    logs.map((log: any) => {
-                                        const isCustomer = log.performedBy === 'CUSTOMER';
-                                        const isAgent = log.performedBy === 'AGENT';
-
-                                        return (
-                                            <div
-                                                key={log.id}
-                                                className={`p-3.5 rounded-xl border space-y-1.5 ${
-                                                    isCustomer
-                                                        ? 'bg-amber-50/70 border-amber-200 text-amber-900'
-                                                        : isAgent
-                                                        ? 'bg-indigo-50/70 border-indigo-200 text-indigo-900'
-                                                        : 'bg-slate-50 border-slate-200 text-slate-700'
-                                                }`}
-                                            >
-                                                <div className="flex justify-between items-center text-xs font-bold">
-                                                    <span className="flex items-center gap-1.5">
-                                                        {isCustomer ? '👤 Khách hàng' : isAgent ? '👨‍💼 Nhân viên' : '🤖 Hệ thống AI (n8n)'}
-                                                    </span>
-                                                    <span className="text-xs text-slate-400 font-normal">
-                                                        {formatDateTime(log.createdAt)}
-                                                    </span>
+                                        <div
+                                            className={`max-w-xl p-4 rounded-2xl text-sm leading-relaxed shadow-md ${
+                                                isCustomer
+                                                    ? 'bg-slate-900 border border-slate-800 text-slate-100 rounded-tl-sm'
+                                                    : isAi
+                                                    ? 'bg-purple-950/40 border border-purple-800/60 text-purple-100 rounded-tr-sm'
+                                                    : 'bg-indigo-600 text-white rounded-tr-sm'
+                                            }`}
+                                        >
+                                            {/* Original vs Translated */}
+                                            {showTranslated && m.contentTranslated && m.contentTranslated !== m.contentOriginal ? (
+                                                <div className="space-y-2">
+                                                    <div>{m.contentTranslated}</div>
+                                                    <div className="pt-2 border-t border-slate-700/50 text-xs text-slate-400 italic">
+                                                        <span className="font-semibold text-slate-500">Bản gốc ({m.language || 'auto'}):</span> {m.contentOriginal}
+                                                    </div>
                                                 </div>
-
-                                                <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
-                                                    {log.note || 'Không có ghi chú thêm.'}
-                                                </p>
-
-                                                <div className="text-xs text-slate-400 pt-0.5">
-                                                    Hành động: <strong className="text-slate-600 font-semibold">{formatLogAction(log.action)}</strong>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
+                                            ) : (
+                                                <div>{m.contentOriginal}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
 
-                    {/* RIGHT COLUMN: RESOLUTION COMPOSER */}
-                    <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 h-fit">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                            <div>
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                                    Biên Soạn Phương Án Giải Quyết
-                                </h3>
-                                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                                    Kết quả này sẽ lưu vào CSDL và kích hoạt n8n Luồng 3 gửi email thông báo khách hàng.
-                                </p>
+                    {/* MANUAL REPLY BOX */}
+                    <div className="p-4 bg-slate-900 border-t border-slate-800">
+                        {ticket.aiLocked && (
+                            <div className="mb-2 text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+                                <Lock size={13} /> Chế độ can thiệp thủ công: AI đã bị khóa cho ticket này. Mọi tin nhắn sẽ do bạn gửi trực tiếp.
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={handleGenerateAiDraft}
-                                disabled={generatingDraft}
-                                className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                            >
-                                <Sparkles size={15} className="text-indigo-600" />
-                                <span>{generatingDraft ? 'AI đang soạn...' : '✨ AI Soạn bản nháp'}</span>
-                            </button>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="block text-xs sm:text-sm font-bold text-slate-700">
-                                Nội dung phản hồi chính thức cho khách hàng:
-                            </label>
-                            <textarea
-                                rows={8}
-                                placeholder="Nhập chi tiết giải pháp xử lý hoặc hướng dẫn khắc phục cho khách hàng..."
-                                value={resolutionText}
-                                onChange={(e) => setResolutionText(e.target.value)}
-                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition resize-y leading-relaxed font-sans"
+                        )}
+                        <form onSubmit={handleSendReply} className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder={ticket.aiLocked ? "Nhập câu trả lời tay gửi khách hàng..." : "Nhập câu trả lời thủ công (sẽ ghi nhận dưới danh nghĩa Chuyên viên)..."}
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
-                        </div>
-
-                        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <span className="text-xs sm:text-sm text-slate-500">
-                                Chuyên viên xử lý: <strong className="text-slate-800 font-bold">{agentName}</strong>
-                            </span>
-
                             <button
-                                onClick={handleSaveAndTriggerN8n}
-                                disabled={submitting || !resolutionText.trim()}
-                                className="w-full sm:w-auto px-7 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-95"
+                                type="submit"
+                                disabled={!replyText.trim() || sendingReply}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow"
                             >
-                                <Save size={16} />
-                                <span>{submitting ? 'Đang lưu & kích hoạt n8n...' : 'Lưu Kết Quả & Kích Hoạt n8n Gửi Mail'}</span>
+                                <Send size={15} />
+                                Gửi
                             </button>
-                        </div>
+                        </form>
                     </div>
                 </div>
             </div>

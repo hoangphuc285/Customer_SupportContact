@@ -6,6 +6,7 @@ public enum Channel {
     MESSENGER,
     EMAIL,
     LIVECHAT,
+    WEB,
     INSTAGRAM,
     PHONE
 }

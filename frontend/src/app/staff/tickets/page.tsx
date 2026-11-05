@@ -9,43 +9,36 @@ import {
     ArrowRight, 
     AlertTriangle, 
     Clock, 
-    Ticket as TicketIcon 
+    Ticket as TicketIcon,
+    ShieldAlert,
+    Filter,
+    CheckCircle2,
+    Flame,
+    Bot,
+    Languages
 } from 'lucide-react';
-import { formatStatus, STATUS_MAP } from '@/utils/formatters';
 
 export default function StaffTicketListPage() {
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterOnlyMyTickets, setFilterOnlyMyTickets] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [agentId, setAgentId] = useState<number | null>(null);
-
-    useEffect(() => {
-        const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
-        if (savedInfo) {
-            try {
-                const user = JSON.parse(savedInfo);
-                const id = user.agentId || user.id || user.accountId;
-                if (id) setAgentId(Number(id));
-            } catch (e) {
-                console.error('Lỗi parse user info:', e);
-            }
-        }
-    }, []);
+    
+    // Filters as specified in prompt table
+    const [channelFilter, setChannelFilter] = useState('');
+    const [intentFilter, setIntentFilter] = useState('');
+    const [urgencyFilter, setUrgencyFilter] = useState('');
+    const [needHumanReviewFilter, setNeedHumanReviewFilter] = useState<boolean | null>(null);
 
     const fetchTickets = async () => {
         setLoading(true);
         try {
-            let url = 'http://localhost:8080/api/agent/tickets?';
-            if (filterOnlyMyTickets && agentId) {
-                url += `agentId=${agentId}&`;
-            }
-            if (filterStatus) {
-                url += `status=${filterStatus}&`;
-            }
+            const params = new URLSearchParams();
+            if (channelFilter) params.append('channel', channelFilter);
+            if (intentFilter) params.append('intent', intentFilter);
+            if (urgencyFilter) params.append('priority', urgencyFilter);
+            if (needHumanReviewFilter !== null) params.append('needHumanReview', String(needHumanReviewFilter));
 
-            const res = await fetch(url);
+            const res = await fetch(`http://localhost:8080/api/staff/tickets?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 setTickets(Array.isArray(data) ? data : []);
@@ -59,188 +52,282 @@ export default function StaffTicketListPage() {
 
     useEffect(() => {
         fetchTickets();
-    }, [agentId, filterStatus, filterOnlyMyTickets]);
+    }, [channelFilter, intentFilter, urgencyFilter, needHumanReviewFilter]);
 
-    const filteredTickets = tickets
-        .filter((t) => {
-            if (!searchQuery.trim()) return true;
-            const q = searchQuery.toLowerCase();
+    const filteredTickets = tickets.filter((t) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
+            (t.subject && t.subject.toLowerCase().includes(q)) ||
+            (t.customerName && t.customerName.toLowerCase().includes(q))
+        );
+    });
+
+    const getSlaBadge = (ticket: any) => {
+        if (ticket.slaBreached) {
             return (
-                (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
-                (t.subject && t.subject.toLowerCase().includes(q)) ||
-                (t.customerName && t.customerName.toLowerCase().includes(q))
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                    SLA: Đỏ (Vi phạm)
+                </span>
             );
-        })
-        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+        }
+        if (ticket.dueAt) {
+            const due = new Date(ticket.dueAt).getTime();
+            const now = Date.now();
+            const diffMins = Math.round((due - now) / 60000);
+            if (diffMins <= 0) {
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        SLA: Đỏ (Quá hạn)
+                    </span>
+                );
+            }
+            if (diffMins <= 60) {
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <Clock size={12} />
+                        SLA: Vàng ({diffMins}p)
+                    </span>
+                );
+            }
+        }
+        return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <CheckCircle2 size={12} />
+                SLA: Xanh (An toàn)
+            </span>
+        );
+    };
 
-    const statusTabs = [
-        { id: '', label: 'Tất cả trạng thái' },
-        { id: 'NEW', label: 'Mới tiếp nhận' },
-        { id: 'ASSIGNED', label: 'Đã phân công' },
-        { id: 'IN_PROGRESS', label: 'Đang xử lý' },
-        { id: 'RESOLVED', label: 'Đã giải quyết' },
-        { id: 'CLOSED', label: 'Đã đóng' },
-    ];
+    const getRiskScoreBadge = (score?: number) => {
+        if (!score && score !== 0) return null;
+        if (score >= 70) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-rose-950 text-rose-400 border border-rose-800">
+                    <Flame size={12} /> Rủi ro cao: {score}/100
+                </span>
+            );
+        }
+        if (score >= 40) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-950 text-amber-400 border border-amber-800">
+                    Rủi ro TB: {score}/100
+                </span>
+            );
+        }
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                Rủi ro thấp: {score}/100
+            </span>
+        );
+    };
 
     return (
         <ProtectedRoute>
-            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100">
                 {/* HEADER */}
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                            Quản lý Ticket Nội bộ
-                        </h1>
-                        <p className="text-sm text-slate-500 mt-1">
-                            {filterOnlyMyTickets ? 'Đang lọc các Ticket do bạn phụ trách' : 'Toàn bộ danh sách Ticket yêu cầu trong hệ thống CSKH'}
+                        <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                                L01, L02, L07
+                            </span>
+                            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+                                Inbox Ticket & Phân luồng
+                            </h1>
+                        </div>
+                        <p className="text-sm text-slate-400 mt-1">
+                            Hộp thư đa kênh tổng hợp, theo dõi SLA thời gian thực & cảnh báo can thiệp nhân viên
                         </p>
                     </div>
 
                     <button
                         onClick={fetchTickets}
-                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm"
                     >
-                        <RotateCcw size={15} />
-                        <span>Tải lại dữ liệu</span>
+                        <RotateCcw size={15} className={loading ? 'animate-spin' : ''} />
+                        Làm mới
                     </button>
                 </div>
 
-                {/* FILTER TOOLBAR */}
-                <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                        {/* SEARCH INPUT */}
-                        <div className="relative w-full md:w-80">
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                {/* FILTERS TOOLBAR */}
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-4 shadow-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        {/* Search input */}
+                        <div className="md:col-span-2 relative">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                             <input
                                 type="text"
+                                placeholder="Tìm mã ticket, tiêu đề, khách hàng..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Tìm theo mã ticket, tiêu đề, tên khách..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
 
-                        {/* TOGGLE ONLY MY TICKETS */}
-                        <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-700 cursor-pointer self-start md:self-auto">
-                            <input
-                                type="checkbox"
-                                checked={filterOnlyMyTickets}
-                                onChange={(e) => setFilterOnlyMyTickets(e.target.checked)}
-                                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
-                            />
-                            <span>Chỉ hiện Ticket của tôi</span>
-                        </label>
+                        {/* Channel filter */}
+                        <div>
+                            <select
+                                value={channelFilter}
+                                onChange={(e) => setChannelFilter(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Tất cả kênh</option>
+                                <option value="WEB">Cổng Web Khách</option>
+                                <option value="LIVECHAT">Live Chat</option>
+                                <option value="TELEGRAM">Telegram</option>
+                                <option value="ZALO">Zalo OA</option>
+                                <option value="EMAIL">Email</option>
+                            </select>
+                        </div>
+
+                        {/* Intent filter */}
+                        <div>
+                            <select
+                                value={intentFilter}
+                                onChange={(e) => setIntentFilter(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Tất cả Ý định (L02)</option>
+                                <option value="COMPLAINT">Khiếu nại (L08)</option>
+                                <option value="REFUND">Hoàn tiền (L09)</option>
+                                <option value="WARRANTY">Bảo hành (L10)</option>
+                                <option value="ORDER_STATUS">Tra cứu đơn (L02)</option>
+                                <option value="FAQ">Hỏi đáp chính sách</option>
+                            </select>
+                        </div>
+
+                        {/* Urgency filter */}
+                        <div>
+                            <select
+                                value={urgencyFilter}
+                                onChange={(e) => setUrgencyFilter(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Độ khẩn cấp</option>
+                                <option value="P1">P1 - Khẩn cấp / Nghiêm trọng</option>
+                                <option value="P2">P2 - Cao</option>
+                                <option value="P3">P3 - Trung bình</option>
+                                <option value="P4">P4 - Thấp</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {/* STATUS PILL TABS */}
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
-                        {statusTabs.map((tab) => {
-                            const isSelected = filterStatus === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setFilterStatus(tab.id)}
-                                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                                        isSelected
-                                            ? 'bg-slate-900 text-white shadow-xs'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-
-                        <span className="ml-auto text-xs sm:text-sm font-semibold text-slate-500">
-                            Hiển thị {filteredTickets.length} ticket
+                    {/* Quick filter pills */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800 text-xs">
+                        <span className="text-slate-400 font-medium mr-1 flex items-center gap-1">
+                            <Filter size={13} /> Lọc nhanh:
                         </span>
+                        <button
+                            onClick={() => setNeedHumanReviewFilter(null)}
+                            className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                                needHumanReviewFilter === null 
+                                    ? 'bg-indigo-600 text-white shadow' 
+                                    : 'bg-slate-900 text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            Tất cả ({tickets.length})
+                        </button>
+                        <button
+                            onClick={() => setNeedHumanReviewFilter(true)}
+                            className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+                                needHumanReviewFilter === true 
+                                    ? 'bg-amber-500 text-slate-950 shadow' 
+                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
+                            }`}
+                        >
+                            <ShieldAlert size={13} />
+                            Cần nhân viên can thiệp (need_human_review)
+                        </button>
                     </div>
                 </div>
 
-                {/* TICKETS TABLE */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+                {/* TICKET LIST TABLE */}
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
                     {loading ? (
-                        <div className="p-16 text-center text-sm font-semibold text-slate-500">
-                            Đang tải danh sách ticket từ CSDL...
+                        <div className="p-12 text-center text-slate-400">
+                            <RotateCcw className="animate-spin inline-block mb-3" size={24} />
+                            <p>Đang tải danh sách ticket...</p>
                         </div>
                     ) : filteredTickets.length === 0 ? (
-                        <div className="p-16 text-center space-y-2">
-                            <TicketIcon size={36} className="mx-auto text-slate-300" />
-                            <p className="text-sm font-bold text-slate-700">Không tìm thấy Ticket nào phù hợp</p>
-                            <p className="text-xs text-slate-400">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                        <div className="p-12 text-center text-slate-500">
+                            <TicketIcon className="inline-block mb-3 opacity-30" size={36} />
+                            <p className="font-medium text-slate-400">Không có ticket nào thỏa mãn bộ lọc</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm border-collapse">
+                            <table className="w-full text-left border-collapse text-sm">
                                 <thead>
-                                    <tr className="bg-slate-50/90 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        <th className="p-4 pl-6">Mã Ticket</th>
-                                        <th className="p-4">Tiêu đề yêu cầu</th>
-                                        <th className="p-4">Khách hàng</th>
-                                        <th className="p-4">Phụ trách</th>
-                                        <th className="p-4">Hạn mức SLA</th>
-                                        <th className="p-4">Trạng thái</th>
-                                        <th className="p-4 pr-6 text-right">Thao tác</th>
+                                    <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                        <th className="py-3.5 px-4">Ticket</th>
+                                        <th className="py-3.5 px-4">Khách hàng / Kênh</th>
+                                        <th className="py-3.5 px-4">Ý định (Intent)</th>
+                                        <th className="py-3.5 px-4">Cờ Review</th>
+                                        <th className="py-3.5 px-4">SLA (L07)</th>
+                                        <th className="py-3.5 px-4">Rủi ro (L06)</th>
+                                        <th className="py-3.5 px-4 text-right">Chi tiết</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 text-slate-700">
-                                    {filteredTickets.map((t) => {
-                                        const statusMeta = STATUS_MAP[String(t.status || '').toUpperCase()];
-                                        const statusLabel = statusMeta?.label || formatStatus(t.status);
-                                        const statusBg = statusMeta?.bg || 'bg-slate-100';
-                                        const statusColor = statusMeta?.color || 'text-slate-700';
-                                        const statusBorder = statusMeta?.border || 'border-slate-200';
+                                <tbody className="divide-y divide-slate-800/60">
+                                    {filteredTickets.map((t) => (
+                                        <tr key={t.id} className="hover:bg-slate-900/40 transition-colors">
+                                            <td className="py-3.5 px-4">
+                                                <div className="font-mono font-bold text-indigo-400">
+                                                    #{t.ticketCode || t.id}
+                                                </div>
+                                                <div className="text-xs text-slate-300 font-medium max-w-xs truncate mt-0.5">
+                                                    {t.subject || 'Yêu cầu hỗ trợ'}
+                                                </div>
+                                            </td>
 
-                                        return (
-                                            <tr key={t.id} className="hover:bg-slate-50/80 transition group">
-                                                <td className="p-4 pl-6 font-mono font-bold text-indigo-600">
-                                                    <Link href={`/staff/tickets/${t.id}`} className="hover:underline">
-                                                        {t.ticketCode || `#${t.id}`}
-                                                    </Link>
-                                                </td>
-                                                <td className="p-4 font-semibold text-slate-900 max-w-xs truncate" title={t.subject}>
-                                                    {t.subject}
-                                                </td>
-                                                <td className="p-4 text-slate-600 font-medium">
+                                            <td className="py-3.5 px-4">
+                                                <div className="text-white font-medium">
                                                     {t.customerName || 'Khách vãng lai'}
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                        !t.agentName || t.agentName === 'Chưa phân công'
-                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
-                                                    }`}>
-                                                        {t.agentName || 'Chưa phân công'}
+                                                </div>
+                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                                    {t.channel}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                <span className="px-2 py-1 rounded text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800">
+                                                    {t.intent || 'CHỜ PHÂN LOẠI'}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                {t.needHumanReview ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
+                                                        <ShieldAlert size={12} /> Cần duyệt
                                                     </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    {t.isSlaOverdue ? (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
-                                                            <AlertTriangle size={13} /> Quá {Math.abs(t.slaRemainingMinutes || 0)}p
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
-                                                            <Clock size={13} /> Còn {t.slaRemainingMinutes || 0}p
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${statusBg} ${statusColor} ${statusBorder}`}>
-                                                        {statusLabel}
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-slate-500">
+                                                        <Bot size={13} className="text-slate-400" /> Tự động
                                                     </span>
-                                                </td>
-                                                <td className="p-4 pr-6 text-right">
-                                                    <Link
-                                                        href={`/staff/tickets/${t.id}`}
-                                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                                                    >
-                                                        <span>Xử lý</span>
-                                                        <ArrowRight size={14} />
-                                                    </Link>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                                )}
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                {getSlaBadge(t)}
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                {getRiskScoreBadge(t.riskScore)}
+                                            </td>
+
+                                            <td className="py-3.5 px-4 text-right">
+                                                <Link
+                                                    href={`/staff/tickets/${t.id}`}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors shadow"
+                                                >
+                                                    Mở <ArrowRight size={13} />
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>

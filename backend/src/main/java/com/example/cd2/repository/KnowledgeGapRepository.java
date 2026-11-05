@@ -12,4 +12,6 @@ import java.util.Optional;
 public interface KnowledgeGapRepository extends JpaRepository<KnowledgeGap, Long> {
 
     List<KnowledgeGap> findByStatus(GapStatus status);
+
+    List<KnowledgeGap> findAllByOrderByCreatedAtDesc();
 }
