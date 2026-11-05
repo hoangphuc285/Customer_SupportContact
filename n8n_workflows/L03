@@ -1,0 +1,752 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ticket_id",
+              "type": "number"
+            },
+            {
+              "name": "message"
+            },
+            {
+              "name": "message_id",
+              "type": "number"
+            },
+            {
+              "name": "direction"
+            }
+          ]
+        }
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "L03_Multilingual",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        1728,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "multilingual-intake",
+        "options": {}
+      },
+      "id": "85b375d1-09e0-4172-84fe-be727431ca6c",
+      "name": "Webhook - Nhận bản dịch",
+      "webhookId": "multilingual-intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.direction || $json.body?.direction || 'in' }}",
+                    "rightValue": "out",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ce659b38-71b6-4680-98a9-952d4b280cfb"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "434da087-c588-41a1-9f88-bf01acec3693",
+      "name": "Switch - Chiều dịch (in / out)",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2032,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text || $json.content_original || $json.body?.text || $json.message || 'Xin chào' }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "detected_language",
+              "description": "Mã ISO 2 ký tự của ngôn ngữ (vi, en, ja, ko, zh, fr, de, th, es...)",
+              "required": true
+            },
+            {
+              "name": "confidence",
+              "type": "number",
+              "description": "Độ tin cậy từ 0.0 đến 1.0",
+              "required": true
+            },
+            {
+              "name": "language_name",
+              "description": "Tên ngôn ngữ đầy đủ (Vietnamese, English, Japanese, Korean, Chinese...)",
+              "required": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fce12b16-d53a-4093-aa89-94dbd6eb70aa",
+      "name": "Information Extractor - Nhận diện ngôn ngữ",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        2256,
+        1520
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Switch - Chiều dịch (in / out)').first()?.json || {};\nconst detector = $input.first().json.output || {};\n\nconst rawText = trigger.text || trigger.content_original || trigger.body?.text || trigger.message || '';\nconst lang = (detector.detected_language || 'vi').toLowerCase();\nconst conf = detector.confidence || 0.95;\n\nreturn [{\n  json: {\n    ticket_id: trigger.ticket_id || trigger.body?.ticket_id || 1,\n    message_id: trigger.message_id || trigger.body?.message_id || null,\n    customer_id: trigger.customer_id || trigger.body?.customer_id || 1,\n    original_text: rawText,\n    detected_language: lang,\n    language_name: detector.language_name || 'Vietnamese',\n    confidence: conf,\n    is_vietnamese: lang === 'vi',\n    is_supported: ['vi', 'en', 'ja', 'ko', 'zh'].includes(lang)\n  }\n}];"
+      },
+      "id": "fced9b1d-196f-4005-89ab-9bbadcbcbf7c",
+      "name": "Code - Tổng hợp thông tin ngôn ngữ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_vietnamese }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-is-vi"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "23c4864c-ac46-4780-9351-ac5823dd57ca",
+      "name": "IF - Ngôn ngữ là vi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2736,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_supported }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-is-supported"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4f1e15d0-b353-4bf2-88b2-54bfa9153d03",
+      "name": "IF - Thuộc danh sách hỗ trợ (vi,en,ja,ko,zh)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2960,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    ...data,\n    unsupported_notice: \"Hệ thống ghi nhận ngôn ngữ của Quý khách (\" + data.language_name + \") ngoài danh sách hỗ trợ chính thức (vi, en, ja, ko, zh). AI sẽ hỗ trợ dịch tự động tốt nhất có thể.\"\n  }\n}];"
+      },
+      "id": "f280d602-4213-4bc4-8a36-5d85ef113b04",
+      "name": "Edit Fields - Tạo thông báo ngôn ngữ ngoài danh sách",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3184,
+        1808
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên gia dịch thuật dịch vụ khách hàng đa ngữ. Hãy dịch đoạn văn bản sau sang Tiếng Việt chuẩn mực, tự nhiên và chuyên nghiệp:\n\"\"\"{{ $json.original_text }}\"\"\"\n\nYÊU CẦU BẮT BUỘC:\n1. GIỮ NGUYÊN TOÀN BỘ: mã đơn hàng (ORD-...), mã vé (TCK-...), số serial (S/N...), tên riêng sản phẩm, link URL, địa chỉ email và số tiền.\n2. Giữ nguyên sắc thái và thông điệp khách truyền tải.\n3. Chỉ trả về nội dung đã dịch sang tiếng Việt, không kèm giải thích.",
+        "batching": {}
+      },
+      "id": "4b65e87b-77c5-4966-895d-6f43085e9670",
+      "name": "Basic LLM Chain - Dịch sang Tiếng Việt",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        3376,
+        1664
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Code - Tổng hợp thông tin ngôn ngữ').first().json;\nconst translated = $input.first().json.text || prev.original_text;\n\nreturn [{\n  json: {\n    ...prev,\n    normalized_text: translated.trim(),\n    content_translated: translated.trim()\n  }\n}];"
+      },
+      "id": "4895b863-1a3c-4267-966b-f897bb1bb733",
+      "name": "Code - Hợp nhất bản dịch tiếng Việt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3776,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET language = '{{ $json.detected_language }}', updated_at = NOW() WHERE id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "id": "f774a411-672b-4410-9469-147f9d0d3846",
+      "name": "MySQL - Lưu ngôn ngữ vào Ticket",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        4032,
+        1504
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Đổi $input bằng $('Tên_Node_Chứa_Dữ_Liệu')\nconst data = $('Code - Hợp nhất bản dịch tiếng Việt').first().json;\n\nreturn [{\n  json: {\n    ticket_id: data.ticket_id,\n    original_text: data.original_text,\n    normalized_text: data.normalized_text,\n    message: data.normalized_text || data.original_text,\n    language: data.detected_language,\n    confidence: data.confidence,\n    direction: \"in\",\n    status: \"SUCCESS\"\n  }\n}];"
+      },
+      "id": "6d19ee67-0a4c-484d-8e93-d70efea04eae",
+      "name": "Edit Fields - Trả normalized_text về luồng gọi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4240,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên viên chăm sóc khách hàng quốc tế. Hãy dịch câu trả lời sau đây sang ngôn ngữ của khách hàng (Mã ngôn ngữ đích: {{ $json.target_lang || $json.body?.target_lang || 'en' }}):\n\"\"\"{{ $json.text || $json.content || $json.body?.text }}\"\"\"\n\nYÊU CẦU:\n1. Văn phong lịch sự, trang trọng, chân thành và tôn trọng khách hàng (Customer service polite tone).\n2. GIỮ NGUYÊN các mã định danh: Mã đơn hàng, mã ticket, số serial, số tiền, tên thương hiệu, đường link.\n3. Chỉ trả về nội dung đã dịch sang ngôn ngữ đích.",
+        "batching": {}
+      },
+      "id": "c207567a-22ac-4070-9eca-06ac468d7a34",
+      "name": "Basic LLM Chain (Nhánh out) - Dịch sang ngôn ngữ khách",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2272,
+        1120
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Dịch đoạn văn sau đây ngược lại sang Tiếng Việt thật sát nghĩa để đối chiếu chất lượng:\n\"\"\"{{ $json.text }}\"\"\"\n\nChỉ trả về nội dung bản dịch ngược tiếng Việt, không kèm lời dẫn.",
+        "batching": {}
+      },
+      "id": "ecefdee9-4370-4a51-b75b-1f8afe55b0d6",
+      "name": "Basic LLM Chain - Back-translation sang Tiếng Việt",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2528,
+        1120
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là giám khảo kiểm định chất lượng dịch thuật. Hãy so sánh 2 văn bản tiếng Việt sau đây:\n1. Bản gốc: \"\"\"{{ $('Switch - Chiều dịch (in / out)').item?.json?.text || $('Switch - Chiều dịch (in / out)').item?.json?.body?.text }}\"\"\"\n2. Bản dịch ngược (Back-translation): \"\"\"{{ $json.text }}\"\"\"\n\nHãy chấm điểm mức độ trùng khớp ý nghĩa (semantic match) và phát hiện xem có lỗi lệch ý nghiêm trọng (sai số, sai mã, đảo nghĩa khẳng định/phủ định) hay không.\n\nBẮT BUỘC trả về JSON duy nhất:\n{\n  \"match_score\": 95,\n  \"has_critical_discrepancy\": false,\n  \"explanation\": \"Nội dung bảo toàn đúng nghĩa\"\n}",
+        "batching": {}
+      },
+      "id": "b0c96422-8888-459e-a214-e8d2d24d63bf",
+      "name": "AI Agent - Chấm độ lệch ý bản dịch",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2784,
+        1120
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Switch - Chiều dịch (in / out)').first()?.json || {};\nconst outboundTranslated = $('Basic LLM Chain (Nhánh out) - Dịch sang ngôn ngữ khách').first()?.json?.text || '';\nconst backTranslated = $('Basic LLM Chain - Back-translation sang Tiếng Việt').first()?.json?.text || '';\nconst evalText = $input.first().json.text || '{}';\n\nlet evalResult = { match_score: 90, has_critical_discrepancy: false, explanation: 'OK' };\ntry {\n  evalResult = JSON.parse(evalText.replace(/```json|```/g, '').trim());\n} catch(e) {}\n\nconst isMajorDiscrepancy = evalResult.has_critical_discrepancy === true || (evalResult.match_score < 70);\n\nreturn [{\n  json: {\n    ticket_id: trigger.ticket_id || trigger.body?.ticket_id || 1,\n    original_vietnamese: trigger.text || trigger.body?.text || '',\n    final_translated_text: outboundTranslated.trim(),\n    back_translated_text: backTranslated.trim(),\n    match_score: evalResult.match_score || 90,\n    has_major_discrepancy: isMajorDiscrepancy,\n    explanation: evalResult.explanation || 'Đạt chuẩn',\n    customer_telegram_id: trigger.customer_telegram_id || trigger.body?.customer_telegram_id || '-10022334455'\n  }\n}];"
+      },
+      "id": "e5202c8a-20d6-4c5f-b016-e30103c7e147",
+      "name": "Code - Tổng hợp đánh giá bản dịch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_major_discrepancy }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-discrepancy-high"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "eb328dd2-c91b-4856-9f97-e84d4ba40e1f",
+      "name": "IF - Lệch nhiều?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3248,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "9274620117",
+        "message": "=⚠️ [KIỂM DUYỆT BẢN DỊCH KHÁCH HÀNG]\\nPhát hiện độ lệch nghĩa cao giữa bản gốc và bản dịch (Điểm trùng khớp: {{ $json.match_score }}/100).\\n\\n- Bản gốc Tiếng Việt: {{ $json.original_vietnamese }}\\n- Bản dịch gửi khách: {{ $json.final_translated_text }}\\n- Bản dịch ngược đối chiếu: {{ $json.back_translated_text }}\\n- Lý do cảnh báo: {{ $json.explanation }}\\n\\nNhân viên vui lòng duyệt trước khi gửi khách:",
+        "approvalOptions": {
+          "values": {}
+        },
+        "options": {}
+      },
+      "id": "919456e0-8aef-4d8d-9482-3d8e31424557",
+      "name": "Telegram (Send and Wait) - Duyệt Human",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3616,
+        1104
+      ],
+      "webhookId": "bbed53f0-ade1-4828-bb85-84387cb2017d",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Code - Tổng hợp đánh giá bản dịch').first().json;\nreturn [{\n  json: {\n    ticket_id: data.ticket_id,\n    original_vietnamese: data.original_vietnamese,\n    final_translated_text: data.final_translated_text,\n    semantic_score: data.match_score,\n    direction: \"out\",\n    status: \"READY_TO_SEND\"\n  }\n}];"
+      },
+      "id": "0452545b-879c-4003-b944-5b7c486e84b1",
+      "name": "Edit Fields - Trả bản dịch cuối cho bước gửi tin",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3248,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2528,
+        1328
+      ],
+      "id": "492097e2-9dd2-45a8-8af3-c34347dadb5a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2256,
+        1776
+      ],
+      "id": "61e79bbf-8e63-4e6e-ab27-e1c5c6a10aeb",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        3376,
+        1840
+      ],
+      "id": "ec294769-806a-4b45-bede-40c7ef9b6457",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "L03_Multilingual": {
+      "main": [
+        [
+          {
+            "node": "Switch - Chiều dịch (in / out)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Nhận bản dịch": {
+      "main": [
+        [
+          {
+            "node": "Switch - Chiều dịch (in / out)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Chiều dịch (in / out)": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain (Nhánh out) - Dịch sang ngôn ngữ khách",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Information Extractor - Nhận diện ngôn ngữ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor - Nhận diện ngôn ngữ": {
+      "main": [
+        [
+          {
+            "node": "Code - Tổng hợp thông tin ngôn ngữ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tổng hợp thông tin ngôn ngữ": {
+      "main": [
+        [
+          {
+            "node": "IF - Ngôn ngữ là vi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Ngôn ngữ là vi?": {
+      "main": [
+        [
+          {
+            "node": "Code - Hợp nhất bản dịch tiếng Việt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Thuộc danh sách hỗ trợ (vi,en,ja,ko,zh)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Thuộc danh sách hỗ trợ (vi,en,ja,ko,zh)?": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Dịch sang Tiếng Việt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Tạo thông báo ngôn ngữ ngoài danh sách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Tạo thông báo ngôn ngữ ngoài danh sách": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Dịch sang Tiếng Việt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Dịch sang Tiếng Việt": {
+      "main": [
+        [
+          {
+            "node": "Code - Hợp nhất bản dịch tiếng Việt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Hợp nhất bản dịch tiếng Việt": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lưu ngôn ngữ vào Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lưu ngôn ngữ vào Ticket": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Trả normalized_text về luồng gọi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain (Nhánh out) - Dịch sang ngôn ngữ khách": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Back-translation sang Tiếng Việt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Back-translation sang Tiếng Việt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Chấm độ lệch ý bản dịch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Chấm độ lệch ý bản dịch": {
+      "main": [
+        [
+          {
+            "node": "Code - Tổng hợp đánh giá bản dịch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tổng hợp đánh giá bản dịch": {
+      "main": [
+        [
+          {
+            "node": "IF - Lệch nhiều?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Lệch nhiều?": {
+      "main": [
+        [
+          {
+            "node": "Telegram (Send and Wait) - Duyệt Human",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Trả bản dịch cuối cho bước gửi tin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram (Send and Wait) - Duyệt Human": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Trả bản dịch cuối cho bước gửi tin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain (Nhánh out) - Dịch sang ngôn ngữ khách",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Basic LLM Chain - Back-translation sang Tiếng Việt",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent - Chấm độ lệch ý bản dịch",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor - Nhận diện ngôn ngữ",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Dịch sang Tiếng Việt",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "L03_Multilingual": [
+      {
+        "ticket_id": 1,
+        "message": "Tôi muốn hỗ trợ kiểm tra đơn hàng bị giao chậm"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
+}
