@@ -20,6 +20,17 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     const pathname = usePathname();
     const router = useRouter();
     const [agentName, setAgentName] = useState('Chuyên viên CSKH');
+    const [agentRole, setAgentRole] = useState('Chuyên viên CSKH');
+
+    const getRoleTitle = (role: string) => {
+        const r = role.toUpperCase();
+        if (r.includes('ADMIN')) return 'Quản trị hệ thống';
+        if (r.includes('MANAGER')) return 'Quản lý CSKH';
+        if (r.includes('TEAM_LEAD')) return 'Trưởng nhóm CSKH';
+        if (r.includes('TECH')) return 'Kỹ thuật viên';
+        if (r.includes('LEGAL')) return 'Ban Pháp chế';
+        return 'Chuyên viên CSKH';
+    };
 
     useEffect(() => {
         if (pathname === '/staff/login') return;
@@ -33,12 +44,17 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         try {
             const user = JSON.parse(savedInfo);
             const roleStr = String(user.role || '').toUpperCase();
-            const isStaff = roleStr.includes('STAFF') || roleStr.includes('AGENT') || roleStr === '1';
+            const staffRoles = ['STAFF', 'AGENT', 'ADMIN', 'MANAGER', 'TEAM_LEAD', 'TECHNICIAN', 'LEGAL', '1'];
+            const isStaff = staffRoles.some(r => roleStr.includes(r));
             if (!isStaff) {
                 router.push('/staff/login');
                 return;
             }
-            if (user.name) setAgentName(user.name);
+            if (user.fullName) setAgentName(user.fullName);
+            else if (user.name) setAgentName(user.name);
+            else if (user.email) setAgentName(user.email);
+
+            setAgentRole(getRoleTitle(roleStr));
         } catch (e) {
             console.error(e);
             router.push('/staff/login');
@@ -127,26 +143,24 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 {/* BOTTOM AGENT CARD & ACTIONS */}
                 <div className="p-4 border-t border-slate-800/80 space-y-3 bg-slate-950/80">
                     <Link
-                        href="/support"
-                        target="_blank"
-                        className="flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 transition"
+                        href="/user"
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition"
                     >
-                        <span>Xem Cổng Khách Hàng</span>
+                        <span>Cổng Help Center Khách Hàng</span>
                         <ExternalLink size={14} />
                     </Link>
 
                     <div className="flex items-center justify-between bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
                                 {agentName ? agentName.charAt(0).toUpperCase() : 'A'}
                             </div>
                             <div className="min-w-0">
-                                <div className="text-sm font-bold text-white truncate max-w-[100px]" title={agentName}>
+                                <div className="text-sm font-bold text-white truncate max-w-[110px]" title={agentName}>
                                     {agentName}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                    <span>Trực tuyến</span>
+                                <div className="text-[11px] text-indigo-400 font-medium truncate max-w-[110px]">
+                                    {agentRole}
                                 </div>
                             </div>
                         </div>
