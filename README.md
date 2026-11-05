@@ -3,7 +3,8 @@ Nếu cần reset toàn bộ dữ liệu Database:
 docker compose down -v
 docker compose up -d
 
-docker compose up db -d
+docker compose up -d mysql (database)
+docker compose up -d phpmyadmin (phpmyadmin)
 
 # Backend
 cd backend
