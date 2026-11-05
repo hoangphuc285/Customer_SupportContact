@@ -2,23 +2,6 @@
   "nodes": [
     {
       "parameters": {
-        "updates": [
-          "message"
-        ],
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.telegramTrigger",
-      "typeVersion": 1.5,
-      "position": [
-        -144,
-        -160
-      ],
-      "id": "745f481e-2c11-4440-a520-b7412020eb93",
-      "name": "Telegram Trigger",
-      "webhookId": "1a8c2575-bf61-4f67-ba9f-232d90d95704"
-    },
-    {
-      "parameters": {
         "httpMethod": "POST",
         "path": "intake-omnichannel",
         "options": {}
@@ -26,8 +9,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -144,
-        32
+        128,
+        48
       ],
       "id": "3384793c-680c-434e-97e1-cdabadd990a0",
       "name": "Webhook",
@@ -49,7 +32,7 @@
       "type": "n8n-nodes-base.gmailTrigger",
       "typeVersion": 1.4,
       "position": [
-        -144,
+        128,
         224
       ],
       "id": "efde974f-75c5-41d9-868e-c88c3e216ef2",
@@ -60,91 +43,6 @@
           "name": "Gmail account"
         }
       }
-    },
-    {
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{$json.body.channel}}",
-                    "rightValue": "zalo",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "id": "b97c833f-1591-49bb-96dd-720d2a53bf40"
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "5f4e9731-e670-4a3e-af06-9d2c046eb31a",
-                    "leftValue": "={{$json.body.object}}",
-                    "rightValue": "=page",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "dfdb3a45-f2d6-4372-8bc9-0151ff4c9f26",
-                    "leftValue": "={{$json.body.channel}}",
-                    "rightValue": "=livechat",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.4,
-      "position": [
-        160,
-        16
-      ],
-      "id": "645dc0c6-8ee9-4963-8efc-a35c4088d0e6",
-      "name": "Switch"
     },
     {
       "parameters": {
@@ -183,19 +81,19 @@
             {
               "id": "1cf1c5d3-fec5-4f75-a524-340b149f1bae",
               "name": "message",
-              "value": "={{ $json.body.message.text }}",
+              "value": "={{ $json.body.message }}",
               "type": "string"
             },
             {
               "id": "cbca32ef-3187-4146-8b1d-dc419441deb9",
               "name": "has_attachment",
-              "value": "={{ !!($json.body.attachments) }}",
+              "value": "={{ $json.body.has_attachment ?? !!($json.body.attachment_url || $json.body.attachments) }}",
               "type": "boolean"
             },
             {
               "id": "9e2674f1-2173-41d9-b941-513919f37a5e",
               "name": "attachment_url",
-              "value": "={{ $json.body.attachments?.[0]?.payload?.url || $json.body.message?.attachments?.[0]?.payload?.url || null }}",
+              "value": "={{ $json.body.attachment_url || $json.body.attachments?.[0]?.url || $json.body.attachments?.[0]?.payload?.url || null }}",
               "type": "string"
             }
           ]
@@ -205,8 +103,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        416,
-        32
+        480,
+        48
       ],
       "id": "2552f34b-204e-4a92-92eb-7868956ea8b4",
       "name": "Edit Fields - Webhook"
@@ -379,7 +277,7 @@
       "typeVersion": 2.3,
       "position": [
         1040,
-        32
+        48
       ],
       "id": "705aea5c-c412-4d60-8d25-6b55b20e5e64",
       "name": "Filter"
@@ -407,7 +305,7 @@
       "typeVersion": 3,
       "position": [
         1712,
-        -160
+        -144
       ],
       "id": "4e0fdf6a-e8da-419d-9d8b-eb469fd6f806",
       "name": "Upload file",
@@ -433,7 +331,7 @@
       "typeVersion": 4.5,
       "position": [
         1504,
-        -160
+        -144
       ],
       "id": "a13f9e93-ab98-4661-8a27-a86421cb3cab",
       "name": "Tải File đính kèm"
@@ -518,7 +416,7 @@
       "typeVersion": 3.4,
       "position": [
         2752,
-        16
+        32
       ],
       "id": "c121d15a-f7a6-4b5e-9292-883f8f2c1c40",
       "name": "Switch1"
@@ -536,7 +434,7 @@
       "typeVersion": 4.5,
       "position": [
         2992,
-        208
+        224
       ],
       "id": "362614a9-1ee1-4fa0-951f-71637217281a",
       "name": "HTTP Request"
@@ -544,14 +442,14 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO audit_logs (\n  created_at, updated_at, action, actor,\n  entity_type, entity_id, workflow, detail\n)\nVALUES (\n  NOW(), NOW(),\n  'INTAKE_SUCCESS', 'SYSTEM',\n  'TICKET',\n  {{ $('Call \\'My Sub-Workflow 1\\'').item.json.ticket_id }},\n  'L01_Intake',\n  '{{ JSON.stringify({ channel: $('Set Header').first().json.channel, sender_id: $('Set Header').first().json.sender_id, message_id: $json.message_id }) }}'\n);",
+        "query": "INSERT INTO audit_logs (\n  created_at, updated_at, action, actor,\n  entity_type, entity_id, workflow, detail\n)\nVALUES (\n  NOW(), NOW(),\n  'INTAKE_SUCCESS', 'SYSTEM',\n  'TICKET',\n{{ $json.ticket_id || $('HTTP Request1').first().json.ticketId || 'NULL' }},  \n  'L01_Intake',\n  '{{ JSON.stringify({ channel: $('Set Header').first().json.channel, sender_id: $('Set Header').first().json.sender_id, message_id: $json.message_id }) }}'\n);",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
         3248,
-        32
+        48
       ],
       "id": "9703ee21-a57f-420a-87e6-8a62581e2b8d",
       "name": "Insert Audit Log",
@@ -564,19 +462,25 @@
     },
     {
       "parameters": {
-        "chatId": "=={{ $('Set Header').item.json.sender_id }}",
-        "text": "=Cảm ơn bạn! Hệ thống đã ghi nhận yêu cầu hỗ trợ.  📌 Mã Ticket của bạn: #{{ $('Create Ticket mới').item.json.ticket_code || $('Update ticket').item.json.ticket_code }} 💬 Nội dung: \"{{ $('Set Header').item.json.message }}\"  Đội ngũ CSKH sẽ phản hồi bạn trong thời gian sớm nhất!",
+        "chatId": "9274620117",
+        "text": "=Cảm ơn bạn! Hệ thống đã ghi nhận yêu cầu hỗ trợ.  📌 Mã Ticket của bạn: #{{ $('If1').item.json.ticketCode }} 💬 Nội dung: \"{{ $('Set Header').item.json.message }}\"  Đội ngũ CSKH sẽ phản hồi bạn trong thời gian sớm nhất!",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
         2992,
-        -144
+        -128
       ],
       "id": "06d39d9d-1d7a-408d-aa3e-56ec13e0eb81",
       "name": "Send a text message",
-      "webhookId": "1fb33757-0375-4a66-a4e6-71355d29aeda"
+      "webhookId": "1fb33757-0375-4a66-a4e6-71355d29aeda",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
@@ -620,7 +524,7 @@
       "typeVersion": 2.3,
       "position": [
         1248,
-        32
+        48
       ],
       "id": "a19e3a05-1ad4-4a95-be64-ac2fc1aee0f2",
       "name": "kiểm tra File đính kèm"
@@ -640,14 +544,14 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    \"channel\": $('Set Header').first().json.channel.toUpperCase(),\n    \"senderId\": $('Set Header').first().json.sender_id.toString(),\n    \"name\": $('Set Header').first().json.sender_name || null,\n    \"email\": $('Set Header').first().json.email || null,\n    \"phone\": $('Set Header').first().json.phone || null,\n    \"subject\": $('Set Header').first().json.subject || null,\n    \"message\": $('Set Header').first().json.message,\n    \"language\": \"vi\",\n    \"externalMessageId\": $('Set Header').first().json.message_id ? $('Set Header').first().json.message_id.toString() : null,\n    \"attachments\": $('Upload file').all()?.[0]?.json?.id ? [\n      {\n        \"url\": \"https://drive.google.com/file/d/\" + $('Upload file').first().json.id,\n        \"fileName\": $('Upload file').first().json.name || \"attachment\",\n        \"mimeType\": $('Upload file').first().json.mimeType || \"image/jpeg\"\n      }\n    ] : []\n  }\n}}",
+        "jsonBody": "={{\nJSON.stringify({\n  \"channel\": $('Set Header').first().json.channel ? $('Set Header').first().json.channel.toUpperCase() : null,\n  \"senderId\": $('Set Header').first().json.sender_id ? $('Set Header').first().json.sender_id.toString() : null,\n  \"name\": $('Set Header').first().json.sender_name || null,\n  \"email\": $('Set Header').first().json.email || null,\n  \"phone\": $('Set Header').first().json.phone || null,\n  \"subject\": $('Set Header').first().json.subject || null,\n  \"message\": $('Set Header').first().json.message || null,\n  \"language\": null,\n  \"externalMessageId\": $('Set Header').first().json.message_id ? $('Set Header').first().json.message_id.toString() : null,\n  \"attachments\": $('Set Header').first().json.has_attachment ? [\n    {\n      \"url\": \"https://drive.google.com/file/d/\" + $('Upload file').first().json.id,\n      \"fileName\": $('Upload file').first().json.name || \"attachment\",\n      \"mimeType\": $('Upload file').first().json.mimeType || \"image/jpeg\"\n    }\n  ] : []\n})\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
         2048,
-        48
+        64
       ],
       "id": "a08451a7-2aef-40de-830d-39e1beb8b4b4",
       "name": "HTTP Request1"
@@ -681,10 +585,34 @@
       "typeVersion": 2.3,
       "position": [
         2208,
-        48
+        64
       ],
       "id": "42e4768d-06cb-4355-8142-e488dd18c526",
       "name": "If1"
+    },
+    {
+      "parameters": {
+        "fromEmail": "phucnh.24it@vku.udn.vn",
+        "toEmail": "hoangphucsjw@gmail.com",
+        "subject": "==[Re: Ticket #{{ $json.ticket_code || $('HTTP Request1').first().json.ticketCode }}] Xác nhận tiếp nhận thông tin",
+        "html": "=={{ \n  $json.is_new_ticket \n    ? 'Cảm ơn bạn! Yêu cầu hỗ trợ của bạn đã được khởi tạo. Mã hỗ trợ của bạn là: #' + ($json.ticket_code || $('HTTP Request1').first().json.ticketCode)\n    : 'Hệ thống đã ghi nhận thêm tin nhắn mới vào Ticket: #' + ($json.ticket_code || $('HTTP Request1').first().json.ticketCode)\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2992,
+        48
+      ],
+      "id": "a1f995ab-67a8-4496-99e0-3d68ad072f1d",
+      "name": "Send an Email",
+      "webhookId": "650b8cbe-3a94-40d6-bc90-b84f17d820f3",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      }
     },
     {
       "parameters": {
@@ -693,7 +621,7 @@
           "value": "3RCImubbeGJbvwPP",
           "mode": "list",
           "cachedResultUrl": "/workflow/3RCImubbeGJbvwPP",
-          "cachedResultName": "My Sub-Workflow 1"
+          "cachedResultName": "L02_Intent – Phân loại ý định và cảm xúc"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -704,7 +632,8 @@
             "message_id": "={{ $json.messageId }}",
             "channel": "={{ $('Set Header').first().json.channel }}",
             "message": "={{ $('Set Header').first().json.message }}",
-            "is_new_ticket": "={{ $json.newTicket }}"
+            "is_new_ticket": "={{ $json.newTicket }}",
+            "attachment_url": "={{ $('kiểm tra File đính kèm').item.json.attachment_url }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -777,64 +706,41 @@
               "canBeUsedToMatch": true,
               "type": "boolean",
               "removed": false
+            },
+            {
+              "id": "attachment_url",
+              "displayName": "attachment_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
         },
-        "options": {}
+        "options": {
+          "waitForSubWorkflow": true
+        }
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
         2464,
-        32
+        48
       ],
       "id": "71a05960-24ad-447f-902b-5ed25bf487f4",
       "name": "Call 'My Sub-Workflow 1'"
-    },
-    {
-      "parameters": {
-        "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "hoangphucsjw@gmail.com",
-        "subject": "==[Re: Ticket #{{ $json.ticket_code }}] Xác nhận tiếp nhận thông tin",
-        "html": "={{  $json.is_new_ticket\n    ? 'Cảm ơn bạn! Yêu cầu hỗ trợ của bạn đã được khởi tạo. Mã hỗ trợ của bạn là: #' + $json.ticket_code\n    : 'Hệ thống đã ghi nhận thêm tin nhắn mới vào Ticket: #' + $('Call Intake API').first().json.ticketCode }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        2992,
-        32
-      ],
-      "id": "a1f995ab-67a8-4496-99e0-3d68ad072f1d",
-      "name": "Send an Email",
-      "webhookId": "650b8cbe-3a94-40d6-bc90-b84f17d820f3",
-      "credentials": {
-        "smtp": {
-          "id": "4pmZoybZrTzFUyeL",
-          "name": "SMTP account"
-        }
-      }
     }
   ],
   "connections": {
-    "Telegram Trigger": {
-      "main": [
-        [
-          {
-            "node": "Edit Fields - Telegram",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Webhook": {
       "main": [
         [
           {
-            "node": "Switch",
+            "node": "Edit Fields - Webhook",
             "type": "main",
             "index": 0
           }
@@ -846,31 +752,6 @@
         [
           {
             "node": "Edit Fields - Gmail",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch": {
-      "main": [
-        [
-          {
-            "node": "Edit Fields - Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Edit Fields - Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Edit Fields - Webhook",
             "type": "main",
             "index": 0
           }
@@ -1041,17 +922,6 @@
         ]
       ]
     },
-    "Call 'My Sub-Workflow 1'": {
-      "main": [
-        [
-          {
-            "node": "Switch1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Send an Email": {
       "main": [
         [
@@ -1062,9 +932,48 @@
           }
         ]
       ]
+    },
+    "Call 'My Sub-Workflow 1'": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "pinData": {},
+  "pinData": {
+    "Webhook": [
+      {
+        "headers": {
+          "host": "localhost:5678",
+          "user-agent": "curl/8.18.0",
+          "accept": "*/*",
+          "content-type": "application/json",
+          "content-length": "265"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "channel": "TELEGRAM",
+          "sender": {
+            "id": "7919420845",
+            "name": "Nguyen Van Test"
+          },
+          "email": "nguyenphucphi213@gmail.com",
+          "phone": "0901234567",
+          "message": {
+            "text": "Cho mình hỏi chính sách đổi trả của shop như thế nào, được đổi trong bao nhiêu ngày?"
+          }
+        },
+        "webhookUrl": "http://localhost:5678/webhook/intake-omnichannel",
+        "executionMode": "production"
+      }
+    ]
+  },
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"

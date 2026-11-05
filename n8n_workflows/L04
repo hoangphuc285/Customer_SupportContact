@@ -1,0 +1,1920 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "97ce7faa-b3f2-4c5a-b893-887a3e157e3b",
+      "name": "Execute Workflow Trigger - Nạp KB",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1008,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kb-ingest-trigger",
+        "options": {}
+      },
+      "id": "6a5fca2c-a5ba-4d6f-963d-462c29a986f3",
+      "name": "Webhook - Nhận tài liệu mới hoặc sửa",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1008,
+        240
+      ],
+      "webhookId": "kb-ingest-trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "0f6fa218-4bb9-4e9b-9dcf-2a6b2fb90e8a",
+      "name": "Schedule Trigger - Quét lại lúc 2h sáng",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1520,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aae70a88-1337-45f2-86c6-4f80d47d9bf6",
+              "name": "source_key",
+              "value": "={{ String($json.body.source_key || $json.body.doc_title || $json.body.source_url || '').slice(0, 200) }}",
+              "type": "string"
+            },
+            {
+              "id": "b53267f6-9a8f-4a30-986e-b30844737b90",
+              "name": "doc_title",
+              "value": "={{ $json.body.doc_title || $json.body.source_key || $json.body.source_url }}",
+              "type": "string"
+            },
+            {
+              "id": "32b9ab23-736e-4512-bb87-682fd0201999",
+              "name": "source_url",
+              "value": "={{ $json.body.source_url }}",
+              "type": "string"
+            },
+            {
+              "id": "3acd67b6-0436-4191-abbd-2773e0e3419a",
+              "name": "category",
+              "value": "={{ $json.body.category || 'GENERAL' }}",
+              "type": "string"
+            },
+            {
+              "id": "f6275c9d-1a96-41de-a6d4-43ce3036b86b",
+              "name": "language",
+              "value": "={{ $json.body.language || 'vi' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ef42b848-9032-4f01-ac75-bea4164c8605",
+      "name": "Edit Fields - Webhook",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -752,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://172.17.0.1:8080/api/n8n/kb-documents",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "315e09bb-839a-4515-ad08-9e683f981406",
+      "name": "HTTP Request - Lấy danh sách tài liệu (backend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1264,
+        448
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d5fab950-45ba-4d4c-bbe0-9acb6a522b36",
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              },
+              "rightValue": "ARCHIVED"
+            },
+            {
+              "id": "1deb69e4-0106-46fb-9ab0-ab531c3b5f19",
+              "leftValue": "={{ $json.sourceUrl }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "56050073-176e-4e0a-ad91-c4968aaf9569",
+      "name": "Filter - Bỏ tài liệu đã lưu trữ",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -1008,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9350592e-f32f-4f07-87ec-d58a48a061df",
+              "name": "source_key",
+              "value": "={{ $json.sourceKey }}",
+              "type": "string"
+            },
+            {
+              "id": "5e8face6-7a08-4162-86f9-5229c9908178",
+              "name": "doc_title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "cb914e8d-66f1-4c54-9ca8-40646e4b3931",
+              "name": "source_url",
+              "value": "={{ $json.sourceUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "54b8ab11-771e-4af6-83f4-dbce66d61c75",
+              "name": "category",
+              "value": "={{ $json.category || 'GENERAL' }}",
+              "type": "string"
+            },
+            {
+              "id": "8caf5bac-e03c-4326-9be6-c73ab6caf54b",
+              "name": "language",
+              "value": "={{ $json.language || 'vi' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb31f470-cd8b-46fa-999e-b6429095f407",
+      "name": "Edit Fields - Schedule",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -752,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "860f3fcf-eae4-45b6-8d54-201344e020ca",
+              "name": "source_key",
+              "value": "={{ String($json.source_key || $json.doc_title || $json.source_url || '').slice(0, 200) }}",
+              "type": "string"
+            },
+            {
+              "id": "9869a96f-f6ec-4cd7-8272-8f4c7bc9a5c4",
+              "name": "doc_title",
+              "value": "={{ $json.doc_title || $json.source_key || $json.source_url }}",
+              "type": "string"
+            },
+            {
+              "id": "113aac06-39f8-4a81-b1ca-544656008e74",
+              "name": "source_url",
+              "value": "={{ $json.source_url }}",
+              "type": "string"
+            },
+            {
+              "id": "d83e5612-ffe8-46e8-9e7d-5b78eee1a032",
+              "name": "category",
+              "value": "={{ $json.category || 'GENERAL' }}",
+              "type": "string"
+            },
+            {
+              "id": "f3f6e51a-9e88-4b55-acbf-13335675e56f",
+              "name": "language",
+              "value": "={{ $json.language || 'vi' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ad0c7680-65e3-4399-a6fb-e92df6930196",
+      "name": "Edit Fields - Execute Workflow",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -752,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "6288f6d6-5909-48d1-9f7a-850a7c4dcbd0",
+      "name": "Loop Over Documents",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -352,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.source_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "31740e02-51a0-4498-bbde-1e0de9db2eee",
+      "name": "HTTP Request - Tải tài liệu PDF hoặc TXT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -96,
+        240
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c1312bf8-2540-4ee1-af58-593aec3338a1",
+                    "leftValue": "={{ ($binary.data?.mimeType || '') + ' ' + ($binary.data?.fileExtension || '') }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "rightValue": "pdf"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "dd4e748b-a375-4d1f-8715-8fac3632b9ac",
+                    "leftValue": "={{ ($binary.data?.mimeType || '') + ' ' + ($binary.data?.fileExtension || '') }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "rightValue": "text/plain"
+                  },
+                  {
+                    "id": "97f776e7-e7d6-43c0-a68b-2a1a15020199",
+                    "leftValue": "={{ ($binary.data?.mimeType || '') + ' ' + ($binary.data?.fileExtension || '') }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "rightValue": "markdown"
+                  }
+                ],
+                "combinator": "or"
+              },
+              "renameOutput": true,
+              "outputKey": "TXT/MD"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "f90fd453-5735-4db8-a82e-f79f06a739c3",
+      "name": "Switch - Loại file",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "5b3b5606-0112-4265-93eb-c2938dad799c",
+      "name": "Extract From File - PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "id": "07cdeb20-491e-41a0-92ec-b2f2433e46ff",
+      "name": "Extract From File - Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        224
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cf9a782a-7595-4219-9ba6-a2b2d7f07bc5",
+              "name": "error_message",
+              "value": "Định dạng tệp không hỗ trợ (chỉ nhận PDF, TXT, MD). Hãy chuyển DOCX sang PDF trước khi nạp.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "53fa93ab-d3bb-47ec-8982-ff7b8bf9bdd7",
+      "name": "Edit Fields - Định dạng không hỗ trợ",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const meta = $('Loop Over Documents').item.json;\nconst raw = $json.data ?? $json.text ?? $json.content ?? '';\nconst base = {\n  source_key: meta.source_key,\n  doc_title: meta.doc_title || meta.source_key,\n  category: meta.category || 'GENERAL',\n  language: meta.language || 'vi',\n  source_url: meta.source_url || ''\n};\n\n// Không dùng nội dung giả: nếu không đọc được thì báo lỗi, không nạp.\nif (typeof raw !== 'string' || raw.trim().length < 50) {\n  return { json: { ...base, ok: false, error_message: 'Không trích xuất được nội dung (file rỗng hoặc là PDF dạng ảnh scan)' } };\n}\n\nconst cleaned = raw\n  .normalize('NFC')\n  .replace(/\\r\\n/g, '\\n')\n  .replace(/Page\\s+\\d+\\s+of\\s+\\d+/gi, '')\n  .replace(/Trang\\s+\\d+(\\s*\\/\\s*\\d+)?/gi, '')\n  .replace(/[-=_]{3,}/g, '')\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/\\n\\s*\\n+/g, '\\n\\n')\n  .trim();\n\nreturn { json: { ...base, ok: true, clean_text: cleaned } };"
+      },
+      "id": "e1186432-b9d1-4f06-bebd-862036dba6fe",
+      "name": "Code - Chuẩn hóa Unicode NFC & Clean Header Footer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "aa6d1a54-7ca0-40eb-a341-41ab76e57a00",
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9f05377a-0250-4a39-b123-4800026f367c",
+      "name": "IF - Trích xuất hợp lệ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        976,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $json.clean_text }}",
+        "dataPropertyName": "content_hash"
+      },
+      "id": "779429a0-b021-4021-a4dd-fbea34cca67a",
+      "name": "Crypto - SHA-256",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://172.17.0.1:8080/api/n8n/kb-documents/lookup",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sourceKey",
+              "value": "={{ $json.source_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e729f99e-a4fe-4a44-a973-63760ae1c273",
+      "name": "HTTP Request - Tra cứu backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        192
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f01385dd-eb67-4843-bd23-bc7190bf0f4c",
+              "leftValue": "={{ $json.exists }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "14515726-730d-44ca-bf13-3205918ee717",
+              "leftValue": "={{ $json.document?.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "ACTIVE"
+            },
+            {
+              "id": "5bc92ce3-bda9-4dde-b489-4d53263d31b4",
+              "leftValue": "={{ $json.document?.contentHash }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "={{ $('Crypto - SHA-256').item.json.content_hash }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b0634a4a-b08e-412a-963f-40021e020030",
+      "name": "IF - Tài liệu không đổi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1696,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9aa02bf7-6c2a-422c-b3c9-b09c5dd22781",
+              "name": "doc_title",
+              "value": "={{ $('Crypto - SHA-256').item.json.doc_title }}",
+              "type": "string"
+            },
+            {
+              "id": "41bdba4e-c747-49ed-9db4-9042b3116704",
+              "name": "status",
+              "value": "SKIPPED",
+              "type": "string"
+            },
+            {
+              "id": "5b715c40-dbaf-4f3b-89f6-92775eb99822",
+              "name": "version",
+              "value": "={{ $json.document?.version }}",
+              "type": "string"
+            },
+            {
+              "id": "85248429-95e6-4cb2-ba4b-8df746fef2b5",
+              "name": "chunk_count",
+              "value": "={{ $json.document?.chunkCount }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4bc8fbe0-6680-4b29-a6f6-fb4636b5f538",
+      "name": "Edit Fields - Kết quả bỏ qua",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1952,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9353b6f3-7f9d-4acb-81d1-5e588b5c25d2",
+              "name": "source_key",
+              "value": "={{ $('Crypto - SHA-256').item.json.source_key }}",
+              "type": "string"
+            },
+            {
+              "id": "e8e4d01e-2ba2-46fc-b4af-b218f0796d02",
+              "name": "doc_title",
+              "value": "={{ $('Crypto - SHA-256').item.json.doc_title }}",
+              "type": "string"
+            },
+            {
+              "id": "2fb8bec1-0ebf-40f7-b77e-481c3c480711",
+              "name": "category",
+              "value": "={{ $('Crypto - SHA-256').item.json.category }}",
+              "type": "string"
+            },
+            {
+              "id": "effffe73-4d62-457c-84e9-a8fe65e800d3",
+              "name": "language",
+              "value": "={{ $('Crypto - SHA-256').item.json.language }}",
+              "type": "string"
+            },
+            {
+              "id": "8809c0b2-8f1f-4f5e-8a4f-03382faed3af",
+              "name": "source_url",
+              "value": "={{ $('Crypto - SHA-256').item.json.source_url }}",
+              "type": "string"
+            },
+            {
+              "id": "6200c44c-b062-4e34-a9e3-8c47f3d1fa57",
+              "name": "content_hash",
+              "value": "={{ $('Crypto - SHA-256').item.json.content_hash }}",
+              "type": "string"
+            },
+            {
+              "id": "57e8038e-4213-4c51-92d3-d3dc6f332424",
+              "name": "clean_text",
+              "value": "={{ $('Crypto - SHA-256').item.json.clean_text }}",
+              "type": "string"
+            },
+            {
+              "id": "2bdbac3c-2511-435a-8c64-2b89571a7c3b",
+              "name": "updated_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "437214b2-648f-40d5-af1a-d5f06f6febcf",
+      "name": "Edit Fields - Gắn Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1968,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/vku_knowledge/points/delete?wait=true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: { must: [ { key: 'metadata.source_key', match: { value: $json.source_key } } ] } }) }}",
+        "options": {}
+      },
+      "id": "f5b8dcc8-5902-4a2c-86a8-70a7e1b9b7a3",
+      "name": "Qdrant - Xóa chunk cũ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2224,
+        208
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "vku_knowledge",
+          "mode": "list",
+          "cachedResultName": "vku_knowledge"
+        },
+        "options": {}
+      },
+      "id": "a3abd482-b393-47e7-b22f-e72f6b7d5d5a",
+      "name": "Qdrant Vector Store - Insert Documents",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2480,
+        208
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "y730vllKiyJ4P0LX",
+          "name": "Qdrant account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Edit Fields - Gắn Metadata').item.json.clean_text }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "source_key",
+                "value": "={{ $('Edit Fields - Gắn Metadata').item.json.source_key }}"
+              },
+              {
+                "name": "doc_title",
+                "value": "={{ $('Edit Fields - Gắn Metadata').item.json.doc_title }}"
+              },
+              {
+                "name": "category",
+                "value": "={{ $('Edit Fields - Gắn Metadata').item.json.category }}"
+              },
+              {
+                "name": "language",
+                "value": "={{ $('Edit Fields - Gắn Metadata').item.json.language }}"
+              },
+              {
+                "name": "content_hash",
+                "value": "={{ $('Edit Fields - Gắn Metadata').item.json.content_hash }}"
+              },
+              {
+                "name": "updated_at",
+                "value": "={{ $('Edit Fields - Gắn Metadata').item.json.updated_at }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "617d971f-a104-4e24-a3bf-6192a9826dc0",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 700,
+        "chunkOverlap": 80,
+        "options": {}
+      },
+      "id": "eb3e31b2-808d-4618-b7a3-4ffafe51ad69",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        704
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "6df5dde5-3028-4c78-8690-a0be83705c2c",
+      "name": "Embeddings Google Gemini",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2480,
+        416
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:6333/collections/vku_knowledge/points/count",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ exact: true, filter: { must: [ { key: 'metadata.source_key', match: { value: $('Edit Fields - Gắn Metadata').item.json.source_key } } ] } }) }}",
+        "options": {}
+      },
+      "id": "f88b3b49-b775-4f44-8a76-da8ae42ebe16",
+      "name": "HTTP Request - Đếm chunk (Qdrant)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2736,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://172.17.0.1:8080/api/n8n/kb-documents",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sourceKey: $('Edit Fields - Gắn Metadata').item.json.source_key, title: $('Edit Fields - Gắn Metadata').item.json.doc_title, category: $('Edit Fields - Gắn Metadata').item.json.category, language: $('Edit Fields - Gắn Metadata').item.json.language, sourceUrl: $('Edit Fields - Gắn Metadata').item.json.source_url, contentHash: $('Edit Fields - Gắn Metadata').item.json.content_hash, chunkCount: $json.result.count, vectorCollection: 'vku_knowledge', status: 'ACTIVE' }) }}",
+        "options": {}
+      },
+      "id": "7e28d205-d929-430f-90e3-3e9e66024dee",
+      "name": "HTTP Request - Báo backend (ACTIVE)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2992,
+        208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "445a0ab4-08c2-4a03-8595-d21c25fa4d22",
+              "name": "doc_title",
+              "value": "={{ $('Edit Fields - Gắn Metadata').item.json.doc_title }}",
+              "type": "string"
+            },
+            {
+              "id": "71234416-159c-4dd2-ad0a-066e6be95e6b",
+              "name": "status",
+              "value": "INGESTED",
+              "type": "string"
+            },
+            {
+              "id": "04de97c8-6f1f-4742-87fe-6d8d15fc09d6",
+              "name": "version",
+              "value": "={{ $json.version }}",
+              "type": "string"
+            },
+            {
+              "id": "20386b69-9305-4b8a-9492-1161c2f8acdc",
+              "name": "chunk_count",
+              "value": "={{ $('HTTP Request - Đếm chunk (Qdrant)').item.json.result.count }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "752b9373-9cd7-4252-835d-0b1463005dff",
+      "name": "Edit Fields - Kết quả nạp",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3248,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8fc4bdea-79da-4bde-a8ab-ce9cc552a00b",
+              "name": "source_key",
+              "value": "={{ $('Loop Over Documents').item.json.source_key }}",
+              "type": "string"
+            },
+            {
+              "id": "2b0789a8-a306-4412-8dac-a81a2ad8ee34",
+              "name": "doc_title",
+              "value": "={{ $('Loop Over Documents').item.json.doc_title || $('Loop Over Documents').item.json.source_key }}",
+              "type": "string"
+            },
+            {
+              "id": "fb9374ec-da49-4adb-a5fb-e523bcc6f641",
+              "name": "source_url",
+              "value": "={{ $('Loop Over Documents').item.json.source_url }}",
+              "type": "string"
+            },
+            {
+              "id": "deef20eb-7aae-42ee-b88e-33e426bb4fd2",
+              "name": "category",
+              "value": "={{ $('Loop Over Documents').item.json.category }}",
+              "type": "string"
+            },
+            {
+              "id": "3bc4166c-de24-4dcb-aa29-e83563ba5d91",
+              "name": "language",
+              "value": "={{ $('Loop Over Documents').item.json.language }}",
+              "type": "string"
+            },
+            {
+              "id": "6292cec9-e6c9-4917-8518-19677acbba63",
+              "name": "error_message",
+              "value": "={{ String($json.error_message || $json.error?.message || (typeof $json.error === 'string' ? $json.error : '') || 'Lỗi không xác định').slice(0, 1900) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5df80b46-ee95-430f-b02e-41b7f3820efb",
+      "name": "Edit Fields - Chuẩn bị báo lỗi",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        928,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://172.17.0.1:8080/api/n8n/kb-documents",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sourceKey: $json.source_key, title: $json.doc_title, category: $json.category, language: $json.language, sourceUrl: $json.source_url, status: 'FAILED', errorMessage: $json.error_message }) }}",
+        "options": {}
+      },
+      "id": "5f42f057-7f5f-49dd-b8d0-09a65f35d440",
+      "name": "HTTP Request - Báo backend (FAILED)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1184,
+        544
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5329148a-7a44-4c33-beb9-0bf12a1691b7",
+              "name": "doc_title",
+              "value": "={{ $('Edit Fields - Chuẩn bị báo lỗi').item.json.doc_title }}",
+              "type": "string"
+            },
+            {
+              "id": "d9bd0f7f-cd13-4d1f-88b1-0083abc5ce5f",
+              "name": "status",
+              "value": "FAILED",
+              "type": "string"
+            },
+            {
+              "id": "7418e9c2-d6fc-4703-8994-39dac50a9647",
+              "name": "error_message",
+              "value": "={{ $('Edit Fields - Chuẩn bị báo lỗi').item.json.error_message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "67385105-eeed-4ac9-8626-fe5c82610275",
+      "name": "Edit Fields - Kết quả lỗi",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst by = s => items.filter(i => i.status === s);\nreturn [{ json: {\n  total: items.length,\n  ingested: by('INGESTED').length,\n  skipped: by('SKIPPED').length,\n  failed: by('FAILED').length,\n  details: items.map(i => ({ doc_title: i.doc_title, status: i.status, version: i.version ?? '', chunk_count: i.chunk_count ?? '', error_message: i.error_message ?? '' }))\n} }];"
+      },
+      "id": "8dfcffdc-4349-4ad6-9239-d9b98d4c4565",
+      "name": "Code - Tổng hợp nạp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "663d8fb1-b7a4-48d1-af06-b6e08b4824c3",
+              "leftValue": "={{ $json.ingested }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b3f4467d-0e9d-44ce-b54e-31d363fa261f",
+      "name": "IF - Có tài liệu mới nạp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        160,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0a6bc4d3-0dc6-4149-abea-10364cb671bb",
+              "name": "benchmark_skipped",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8e7cec6c-e59e-4fe8-b62e-7a8c20c6c0d7",
+      "name": "Edit Fields - Bỏ qua benchmark",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 5 câu hỏi kiểm thử cố định cho kho tri thức (sửa lại cho khớp tài liệu của bạn)\nreturn [\n  { json: { test_id: 1, question: 'Khách hàng được quyền đổi trả sản phẩm trong vòng bao nhiêu ngày kể từ ngày nhận?', expected_keyword: '7 ngày' } },\n  { json: { test_id: 2, question: 'Thời hạn bảo hành tiêu chuẩn miễn phí của cửa hàng là bao lâu?', expected_keyword: '12 tháng' } },\n  { json: { test_id: 3, question: 'Các trường hợp nào bị từ chối bảo hành miễn phí?', expected_keyword: 'rơi vỡ' } },\n  { json: { test_id: 4, question: 'Thời gian xử lý hoàn tiền về tài khoản là bao nhiêu ngày làm việc?', expected_keyword: '3-5 ngày' } },\n  { json: { test_id: 5, question: 'Chi phí vận chuyển khi bảo hành hợp lệ do ai chi trả?', expected_keyword: 'cửa hàng' } }\n];"
+      },
+      "id": "7d77803d-dbd8-43e8-bbae-a9fa9682cbf8",
+      "name": "Code - Tập câu hỏi kiểm thử cố định",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c2915ade-bd2d-4419-a9bb-ad1af9e4c057",
+      "name": "Loop Over Test Questions",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        672,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Trả lời ngắn gọn câu hỏi sau, chỉ dựa trên kết quả tra cứu từ công cụ 'Vector Store Tool'.\nNếu công cụ không trả về thông tin liên quan, hãy trả lời đúng một câu: KHÔNG TÌM THẤY.\n\nCâu hỏi: {{ $json.question }}",
+        "options": {
+          "systemMessage": "Bạn là trợ lý tra cứu chính sách chăm sóc khách hàng. Luôn gọi công cụ tra cứu trước khi trả lời và không dùng kiến thức bên ngoài."
+        }
+      },
+      "id": "a74b7c42-0654-4b24-901b-0c4a149d2c21",
+      "name": "AI Agent - Trả lời thử câu hỏi kiểm thử",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        992,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "499b9ef2-a49e-4a61-9162-a22ba0d68f7e",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        992,
+        1712
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Tra cứu tài liệu chính sách đổi trả, bảo hành và dịch vụ khách hàng từ kho tri thức vku_knowledge",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "vku_knowledge",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "0a0c4698-0176-44aa-a4b7-e30812aa6e2b",
+      "name": "Vector Store Tool",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1056,
+        1824
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "y730vllKiyJ4P0LX",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "c9e2fb4c-3d86-47c6-aebb-62edd2ca0f63",
+      "name": "Embeddings Google Gemini (Tool)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        1968
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0e9ae2bb-f222-410d-be57-08c40d5b3e4c",
+              "leftValue": "={{ String($json.output || $json.text || '') }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              },
+              "rightValue": "={{ $('Loop Over Test Questions').item.json.expected_keyword }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "72909ace-4466-41d7-9020-688d3e7d0a7b",
+      "name": "IF - Câu trả lời chứa từ khóa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1264,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "118e05a5-8605-453d-9191-7f73df24e2cd",
+              "name": "test_id",
+              "value": "={{ $('Loop Over Test Questions').item.json.test_id }}",
+              "type": "number"
+            },
+            {
+              "id": "8a20cf6f-2456-47f9-9fb5-c4e0e43c2304",
+              "name": "question",
+              "value": "={{ $('Loop Over Test Questions').item.json.question }}",
+              "type": "string"
+            },
+            {
+              "id": "017c714b-0d7b-43ac-9806-cd9ea48abf92",
+              "name": "expected_keyword",
+              "value": "={{ $('Loop Over Test Questions').item.json.expected_keyword }}",
+              "type": "string"
+            },
+            {
+              "id": "f5371ec8-3872-43db-a0a1-53adfc6ed2f9",
+              "name": "answer",
+              "value": "={{ $json.output || $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "cfc8d70e-dea5-46a5-8eff-00d2119d2228",
+              "name": "passed",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "079d6844-fa81-4685-9b0c-d0a16f54b0ac",
+      "name": "Edit Fields - Câu đạt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d149f18-7ee7-43d9-af1f-88d84edea127",
+              "name": "test_id",
+              "value": "={{ $('Loop Over Test Questions').item.json.test_id }}",
+              "type": "number"
+            },
+            {
+              "id": "fbc03c14-45c7-4a50-b0db-8edfeda1f37d",
+              "name": "question",
+              "value": "={{ $('Loop Over Test Questions').item.json.question }}",
+              "type": "string"
+            },
+            {
+              "id": "25acd969-68a6-463c-828b-f700bec07b4d",
+              "name": "expected_keyword",
+              "value": "={{ $('Loop Over Test Questions').item.json.expected_keyword }}",
+              "type": "string"
+            },
+            {
+              "id": "3bdd9f30-7f95-4305-8c05-bb343fa735c5",
+              "name": "answer",
+              "value": "={{ $json.output || $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "f7999f3e-f333-4566-81a6-9b25ed614d77",
+              "name": "passed",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29f3af0e-d3a8-4cb1-8781-9a3e66000f54",
+      "name": "Edit Fields - Câu không đạt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1296,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sum = $('Code - Tổng hợp nạp').first().json;\nconst items = $input.all().map(i => i.json);\nlet warn = sum.failed > 0;\nconst icon = { INGESTED: '✅', SKIPPED: '⏭', FAILED: '❌' };\n\nconst docLines = sum.details.map(d => {\n  if (d.status === 'FAILED') return `${icon.FAILED} ${d.doc_title}: LỖI - ${d.error_message}`;\n  if (d.status === 'SKIPPED') return `${icon.SKIPPED} ${d.doc_title}: không đổi (v${d.version}, ${d.chunk_count} chunk)`;\n  return `${icon.INGESTED} ${d.doc_title}: đã nạp ${d.chunk_count} chunk (v${d.version})`;\n});\n\nlet bench;\nif (items[0] && items[0].benchmark_skipped) {\n  bench = '🧪 Kiểm định: bỏ qua (không có tài liệu mới nạp)';\n} else {\n  const total = items.length;\n  const passed = items.filter(i => i.passed === true).length;\n  const rate = total ? Math.round(passed / total * 100) : 0;\n  if (rate < 80) warn = true;\n  const failedQ = items.filter(i => i.passed !== true).map(i => `   • Câu ${i.test_id}: ${i.question}`);\n  bench = `🧪 Kiểm định tự động: ${passed}/${total} câu đạt (${rate}%)` + (failedQ.length ? '\\n' + failedQ.join('\\n') : '');\n}\n\nconst head = warn ? '⚠️ [CẢNH BÁO - NẠP KHO TRI THỨC L04]' : '📚 [BÁO CÁO NẠP KHO TRI THỨC L04]';\nconst text = [\n  head,\n  `Tổng: ${sum.total} | Đã nạp: ${sum.ingested} | Bỏ qua: ${sum.skipped} | Lỗi: ${sum.failed}`,\n  '',\n  ...docLines,\n  '',\n  bench,\n  `🕒 ${new Date().toISOString()}`\n].join('\\n');\n\nreturn [{ json: { report_text: text, warn } }];"
+      },
+      "id": "8b95c2b7-5641-47e3-bdc3-20b3c343b05b",
+      "name": "Code - Tổng hợp benchmark",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "9274620117",
+        "text": "={{ $json.report_text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "2b00013a-8b1c-4790-8f89-bd55e800ba0e",
+      "name": "Telegram - Báo kết quả nạp",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1072,
+        1168
+      ],
+      "webhookId": "8851e5f0-d527-4d42-a4b4-8c974b7b09b0",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger - Nạp KB": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Nhận tài liệu mới hoặc sửa": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Quét lại lúc 2h sáng": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Lấy danh sách tài liệu (backend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Webhook": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Lấy danh sách tài liệu (backend)": {
+      "main": [
+        [
+          {
+            "node": "Filter - Bỏ tài liệu đã lưu trữ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter - Bỏ tài liệu đã lưu trữ": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Schedule": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Documents": {
+      "main": [
+        [
+          {
+            "node": "Code - Tổng hợp nạp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request - Tải tài liệu PDF hoặc TXT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Tải tài liệu PDF hoặc TXT": {
+      "main": [
+        [
+          {
+            "node": "Switch - Loại file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị báo lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Loại file": {
+      "main": [
+        [
+          {
+            "node": "Extract From File - PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract From File - Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Định dạng không hỗ trợ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract From File - PDF": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa Unicode NFC & Clean Header Footer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị báo lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract From File - Text": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa Unicode NFC & Clean Header Footer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị báo lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Định dạng không hỗ trợ": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị báo lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn hóa Unicode NFC & Clean Header Footer": {
+      "main": [
+        [
+          {
+            "node": "IF - Trích xuất hợp lệ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Trích xuất hợp lệ?": {
+      "main": [
+        [
+          {
+            "node": "Crypto - SHA-256",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị báo lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto - SHA-256": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Tra cứu backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Tra cứu backend": {
+      "main": [
+        [
+          {
+            "node": "IF - Tài liệu không đổi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Tài liệu không đổi?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Kết quả bỏ qua",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Gắn Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Kết quả bỏ qua": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Gắn Metadata": {
+      "main": [
+        [
+          {
+            "node": "Qdrant - Xóa chunk cũ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant - Xóa chunk cũ": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store - Insert Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store - Insert Documents": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Đếm chunk (Qdrant)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị báo lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store - Insert Documents",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store - Insert Documents",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Đếm chunk (Qdrant)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Báo backend (ACTIVE)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Báo backend (ACTIVE)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Kết quả nạp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Kết quả nạp": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Chuẩn bị báo lỗi": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Báo backend (FAILED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Báo backend (FAILED)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Kết quả lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Kết quả lỗi": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tổng hợp nạp": {
+      "main": [
+        [
+          {
+            "node": "IF - Có tài liệu mới nạp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có tài liệu mới nạp?": {
+      "main": [
+        [
+          {
+            "node": "Code - Tập câu hỏi kiểm thử cố định",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Bỏ qua benchmark",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Bỏ qua benchmark": {
+      "main": [
+        [
+          {
+            "node": "Code - Tổng hợp benchmark",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tập câu hỏi kiểm thử cố định": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Test Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Test Questions": {
+      "main": [
+        [
+          {
+            "node": "Code - Tổng hợp benchmark",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent - Trả lời thử câu hỏi kiểm thử",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Trả lời thử câu hỏi kiểm thử": {
+      "main": [
+        [
+          {
+            "node": "IF - Câu trả lời chứa từ khóa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Trả lời thử câu hỏi kiểm thử",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent - Trả lời thử câu hỏi kiểm thử",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini (Tool)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Câu trả lời chứa từ khóa?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Câu đạt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Câu không đạt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Câu đạt": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Test Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Câu không đạt": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Test Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tổng hợp benchmark": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Báo kết quả nạp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
+}

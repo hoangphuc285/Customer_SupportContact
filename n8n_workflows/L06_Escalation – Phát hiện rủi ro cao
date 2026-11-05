@@ -2,6 +2,36 @@
   "nodes": [
     {
       "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ticket_id",
+              "type": "number"
+            },
+            {
+              "name": "urgency"
+            },
+            {
+              "name": "sentiment"
+            },
+            {
+              "name": "need_human_review",
+              "type": "boolean"
+            }
+          ]
+        }
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "L06 Escalation Parallel",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -464,
+        1280
+      ]
+    },
+    {
+      "parameters": {
         "httpMethod": "POST",
         "path": "escalation-check",
         "options": {}
@@ -9,30 +39,30 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -16,
-        16
+        -448,
+        1072
       ],
-      "id": "38dc0b78-e635-4d9d-b1d2-4ee2cc28ef86",
+      "id": "af0eb8d9-1dec-42c8-bba7-af3174367f1f",
       "name": "Webhook",
       "webhookId": "d14d8390-c69a-4d74-9a0a-2e1ab7c6c402"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM messages WHERE ticket_id = {{ $json.body.ticket_id }} ORDER BY created_at ASC;",
+        "query": "SELECT * FROM messages WHERE ticket_id = {{ $json.ticket_id }} ORDER BY created_at ASC;",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        208,
-        16
+        -224,
+        1072
       ],
-      "id": "84dc68f7-9294-4480-86f8-5f6b19758a90",
+      "id": "6e3aec2c-9b2e-475d-81a6-4ed2f9a1ab14",
       "name": "Execute a SQL query",
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -44,10 +74,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        448,
-        16
+        16,
+        1072
       ],
-      "id": "25057add-1bca-4baa-bb3f-77bb9d852b8a",
+      "id": "a16af399-0535-47ce-8ea7-acfc104559a7",
       "name": "Code in JavaScript"
     },
     {
@@ -129,10 +159,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        672,
-        0
+        240,
+        1056
       ],
-      "id": "05906013-93ba-4c71-a45b-dddb4b4c6e3f",
+      "id": "224f86d5-715c-40d4-bc07-48feb446b6a6",
       "name": "Switch"
     },
     {
@@ -144,14 +174,14 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        896,
-        -112
+        464,
+        896
       ],
-      "id": "887d7806-7e0e-47ee-9346-513e67966994",
+      "id": "b8643edc-e474-4a17-8c9e-9dd56a7aeb88",
       "name": "Execute a SQL query1",
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -159,7 +189,7 @@
     {
       "parameters": {
         "fromEmail": "nguyenphucphi2102@gmail.com",
-        "toEmail": "nguyenphucphi213@gmail.com",
+        "toEmail": "hoangphuc2855@gmail.com",
         "subject": "CẢNH BÁO KHẨN CẤP: Phát hiện ticket rủi ro cao!",
         "html": "=<h3>⚠️ Cảnh báo khẩn cấp: Phát hiện rủi ro cao!</h3>\n<p><b>Mã Ticket:</b> {{ $('Switch').first().json.ticket_id }}</p>\n<p><b>Nội dung khách hàng:</b> \"{{ $('Switch').first().json.content_original }}\"</p>\n<p><b>Điểm rủi ro (Risk Score):</b> {{ $('Switch').first().json.riskScore }}/100</p>\n<p><b>Mức độ:</b> <span style=\"color: red;\">{{ $('Switch').first().json.riskLevel }}</span></p>\n<hr>\n<p>Hệ thống đã tự động khóa AI và chuyển trạng thái sang <b>ESCALATED</b>.</p>",
         "options": {}
@@ -167,16 +197,16 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1120,
-        -112
+        688,
+        896
       ],
-      "id": "3b006efc-dd43-4a55-8fff-3b997c369274",
+      "id": "b3d3ed56-ffcc-420e-a264-7bbb155b007f",
       "name": "Send an Email",
       "webhookId": "1c841f97-ac68-42b5-98ad-2fe653d59f67",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       }
     },
@@ -189,14 +219,14 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        1344,
-        -112
+        912,
+        896
       ],
-      "id": "78cde987-7250-43a9-8746-69f829151db7",
+      "id": "a6650213-f838-4047-9d8d-a38285424445",
       "name": "Execute a SQL query2",
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -204,20 +234,20 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET status = 'REVIEW_NEEDED', risk_score = {{ $json.riskScore }} \nWHERE id = {{ $json.ticket_id }};",
+        "query": "UPDATE tickets \nSET status = 'OPEN', risk_score = {{ $json.riskScore }} \nWHERE id = {{ $json.ticket_id }};",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        896,
-        64
+        464,
+        1072
       ],
-      "id": "70226a02-de07-4e99-8d1e-da968f9dae20",
+      "id": "4270d0c1-934d-4c35-b17f-0bc34bb127d4",
       "name": "Execute a SQL query3",
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -225,20 +255,20 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET status = 'ACTIVE', risk_score = {{ $json.riskScore }} \nWHERE id = {{ $json.ticket_id }};",
+        "query": "UPDATE tickets\nSET status = 'OPEN', risk_score = {{ $json.riskScore }}\nWHERE id = {{ $json.ticket_id }}",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        896,
-        240
+        464,
+        1248
       ],
-      "id": "44e000e3-7e57-4870-a664-02c74e8ae8e1",
+      "id": "0dc487e8-d64e-43b6-a5cc-79155b874563",
       "name": "Execute a SQL query4",
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -246,33 +276,34 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $('Webhook').first().json.content_original }}",
+        "text": "={{ $('Code in JavaScript').item.json.content_original }}",
         "batching": {}
       },
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        1168,
-        144
+        736,
+        1168
       ],
-      "id": "2e187abf-edc7-4f88-90e2-7e80aa07882e",
+      "id": "baa98582-c66d-4014-9655-19329053e031",
       "name": "Basic LLM Chain"
     },
     {
       "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        1168,
-        352
+        736,
+        1360
       ],
-      "id": "4397ed3a-400b-4a9e-b785-33432e839d01",
+      "id": "f1ce4530-a77b-42ec-85b3-1b4f756aabf0",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -280,28 +311,39 @@
     {
       "parameters": {
         "fromEmail": "nguyenphucphi2102@gmail.com",
-        "toEmail": "nguyenphucphi213@gmail.com",
+        "toEmail": "hoangphuc2855@gmail.com",
         "html": "={{ $json.text }}",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1664,
-        144
+        1232,
+        1168
       ],
-      "id": "d989d21c-47e9-4222-b4b0-ba13d9cfaa7f",
+      "id": "919a50f8-5efb-4e0a-a378-340e073f6dc1",
       "name": "Send an Email1",
       "webhookId": "1c841f97-ac68-42b5-98ad-2fe653d59f67",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       }
     }
   ],
   "connections": {
+    "L06 Escalation Parallel": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Webhook": {
       "main": [
         [
@@ -427,9 +469,17 @@
       ]
     }
   },
-  "pinData": {},
+  "pinData": {
+    "L06 Escalation Parallel": [
+      {
+        "ticket_id": 2,
+        "urgency": "LOW",
+        "sentiment": "NEUTRAL",
+        "need_human_review": false
+      }
+    ]
+  },
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
 }

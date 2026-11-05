@@ -2,15 +2,29 @@
   "nodes": [
     {
       "parameters": {
-        "inputSource": "passthrough"
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ticket_id",
+              "type": "number"
+            },
+            {
+              "name": "message"
+            },
+            {
+              "name": "customer_id",
+              "type": "number"
+            }
+          ]
+        }
       },
-      "id": "node-exec-trigger",
+      "id": "5557e6a2-80bc-41bf-beda-493ba2a38802",
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -1200,
-        304
+        -2496,
+        208
       ]
     },
     {
@@ -19,45 +33,45 @@
         "path": "warranty-intake",
         "options": {}
       },
-      "id": "node-webhook-trigger",
+      "id": "5bf9d8fd-52aa-4c3d-b260-f2c56e9a8096",
       "name": "Webhook - Tiếp nhận bảo hành",
       "webhookId": "warranty-intake-id",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -1200,
-        144
+        -2496,
+        48
       ]
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst data = item.body || item;\nconst content = data.content_original || data.message || data.text || data.issue_description || \"Bàn phím cơ bị liệt hàng phím số và mất kết nối bluetooth\";\nreturn [{\n  json: {\n    ticket_id: data.ticket_id || data.id || 1,\n    customer_id: data.customer_id || 1,\n    customer_name: data.customer_name || \"Nguyễn Phúc Phi\",\n    customer_email: data.customer_email || \"nguyenphucphi213@gmail.com\",\n    chat_id: data.chat_id || 7919420845,\n    serial_number: data.serial_number || data.serial || \"\",\n    order_code: data.order_code || \"\",\n    preferred_resolution: data.preferred_resolution || \"SERVICE_CENTER\",\n    content_original: content,\n    message: content,\n    channel: (data.channel || \"TELEGRAM\").toUpperCase()\n  }\n}];"
+        "jsCode": "const item = $input.first().json;\nconst data = item.body || item;\nconst content = data.content_original || data.message || data.text || data.issue_description ;\nreturn [{\n  json: {\n    ticket_id: data.ticket_id || data.id ,\n    customer_id: data.customer_id ,\n    serial_number: data.serial_number || data.serial || \"\",\n    content_original: content,\n    message: content,\n  }\n}];"
       },
-      "id": "node-code-normalize-input",
+      "id": "67310f89-85fa-4b52-9109-036f4f7f66c8",
       "name": "Code - Chuẩn hóa đầu vào Warranty",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1008,
-        224
+        -2304,
+        128
       ]
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3.5-flash",
+        "modelName": "models/gemini-3.1-flash-lite",
         "options": {}
       },
-      "id": "node-gemini-model-extractor",
+      "id": "0f15e7d9-46c7-4fd9-a798-a32d99edfa94",
       "name": "Google Gemini Chat Model - Information Extractor",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        -768,
-        448
+        -2096,
+        352
       ],
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -92,14 +106,16 @@
         },
         "options": {}
       },
-      "id": "node-info-extractor",
+      "id": "269599e5-247c-4296-bb51-f531d3df0be9",
       "name": "Information Extractor",
       "type": "@n8n/n8n-nodes-langchain.informationExtractor",
       "typeVersion": 1.2,
       "position": [
-        -768,
-        224
-      ]
+        -2096,
+        128
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -108,7 +124,7 @@
             "caseSensitive": true,
             "leftValue": "",
             "typeValidation": "strict",
-            "version": 3
+            "version": 2
           },
           "conditions": [
             {
@@ -125,33 +141,33 @@
         },
         "options": {}
       },
-      "id": "node-if-missing-serial",
+      "id": "09ff153e-e3e8-4870-9de3-e91dcbf25fa7",
       "name": "IF - Thiếu serial / mã đơn?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -528,
-        224
+        -1824,
+        128
       ]
     },
     {
       "parameters": {
-        "chatId": "={{ $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.chat_id || 7919420845 }}",
+        "chatId": "9274620117",
         "text": "Chào Quý khách! Để kiểm tra chế độ bảo hành, Quý khách vui lòng cung cấp số Serial (S/N in dưới đáy thiết bị) hoặc Mã đơn hàng (ví dụ: ORD-1001).",
         "additionalFields": {}
       },
-      "id": "node-telegram-ask-serial",
+      "id": "91db7713-389d-4330-94ba-e12b253b794f",
       "name": "Telegram - Hỏi lại số Serial",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        -304,
-        80
+        -1600,
+        -16
       ],
       "webhookId": "dae5b3d0-0824-4ba8-8872-d5ce2957c3b1",
       "credentials": {
         "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
+          "id": "0LI2dFdVJM6rrl0k",
           "name": "Telegram account"
         }
       },
@@ -163,13 +179,13 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "node-wait-serial-webhook",
+      "id": "49997894-3bbd-4b66-94aa-669812c19396",
       "name": "Wait - Chờ khách cung cấp Serial",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -80,
-        80
+        -1376,
+        -16
       ],
       "webhookId": "f21cb85c-abd1-4dd5-b858-d3a55b0a5193"
     },
@@ -179,17 +195,17 @@
         "query": "SELECT w.id AS warranty_id, w.serial_number, w.start_date, w.end_date, w.status AS warranty_status, w.customer_id AS warranty_customer_id, oi.id AS order_item_id, oi.product_name, oi.warranty_months, o.id AS order_id, o.order_code, o.customer_id AS order_customer_id, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id FROM warranties w JOIN order_items oi ON w.order_item_id = oi.id JOIN orders o ON oi.order_id = o.id JOIN customers c ON w.customer_id = c.id WHERE w.serial_number = '{{ $('Information Extractor').first()?.json?.output?.serial_number || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.serial_number || \"SN-KB-998877\" }}' OR o.order_code = '{{ $('Information Extractor').first()?.json?.output?.order_code || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.order_code || \"ORD-1001\" }}' LIMIT 1;",
         "options": {}
       },
-      "id": "node-mysql-get-warranty",
+      "id": "6045cbdb-c1fd-4189-9b1e-41c3985c8b31",
       "name": "MySQL - Tra cứu Warranty & Order",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        144,
-        224
+        -1152,
+        144
       ],
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -201,7 +217,7 @@
             "caseSensitive": true,
             "leftValue": "",
             "typeValidation": "strict",
-            "version": 3
+            "version": 2
           },
           "conditions": [
             {
@@ -227,26 +243,26 @@
         },
         "options": {}
       },
-      "id": "node-if-valid-owner",
+      "id": "86faf283-bc83-411a-a050-5b603b4ccffa",
       "name": "IF - Sản phẩm do shop bán & Đúng chủ?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        384,
-        224
+        -912,
+        144
       ]
     },
     {
       "parameters": {
         "jsCode": "const data = $input.first().json;\nconst now = new Date();\nconst endDate = new Date(data.end_date);\nconst diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));\nconst isValid = diffDays >= 0 && data.warranty_status === 'ACTIVE';\n\nreturn [{\n  json: {\n    ...data,\n    days_remaining: diffDays,\n    is_valid_warranty: isValid,\n    warranty_check_message: isValid ? `Còn hạn bảo hành (${diffDays} ngày)` : `Đã hết hạn bảo hành (${Math.abs(diffDays)} ngày trước)`\n  }\n}];"
       },
-      "id": "node-code-check-warranty-expiration",
+      "id": "e4707eae-4f65-4161-abd8-559556f9ae34",
       "name": "Code - Kiểm tra ngày hết hạn bảo hành",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        624,
-        224
+        -672,
+        128
       ]
     },
     {
@@ -256,7 +272,7 @@
             "caseSensitive": true,
             "leftValue": "",
             "typeValidation": "strict",
-            "version": 3
+            "version": 2
           },
           "conditions": [
             {
@@ -273,31 +289,31 @@
         },
         "options": {}
       },
-      "id": "node-if-warranty-active",
+      "id": "4135e2a7-f3bc-43d2-a697-886a2556ebf7",
       "name": "IF - Còn hạn bảo hành?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        864,
-        224
+        -432,
+        128
       ]
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3.5-flash",
+        "modelName": "models/gemini-3.1-flash-lite",
         "options": {}
       },
-      "id": "node-gemini-model-quote",
+      "id": "ab78f708-77cb-4b4f-b673-57811306334d",
       "name": "Google Gemini Chat Model - Báo giá hết hạn",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        1104,
-        -80
+        -192,
+        384
       ],
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -308,31 +324,33 @@
         "text": "=Bạn là nhân viên hỗ trợ bảo hành. Hãy soạn tin thông báo lịch sự cho khách hàng {{ $json.customer_name }} về việc sản phẩm {{ $json.product_name }} (Serial: {{ $json.serial_number }}) đã hết hạn bảo hành vào {{ $json.end_date }}.\nĐồng thời, giới thiệu dịch vụ sửa chữa chính hãng có tính phí (Phí kiểm tra và sửa chữa dự kiến: 200.000 VNĐ - 500.000 VNĐ tùy mức độ hỏng hóc linh kiện) và hỏi ý kiến khách hàng có muốn tiếp tục gửi sửa chữa không.",
         "batching": {}
       },
-      "id": "node-llm-expired-quote",
+      "id": "9f0d6dd2-396d-4f15-b8a7-711bf8649751",
       "name": "Basic LLM Chain - Báo hết hạn & Báo giá sửa có phí",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        1104,
-        80
-      ]
+        -192,
+        144
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3.5-flash",
+        "modelName": "models/gemini-3.1-flash-lite",
         "options": {}
       },
-      "id": "node-gemini-model-classify",
+      "id": "6f96ae0a-e8f8-4aef-884e-fd63c99a3748",
       "name": "Google Gemini Chat Model - Phân loại lỗi",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        1104,
-        448
+        -192,
+        -48
       ],
       "credentials": {
         "googlePalmApi": {
-          "id": "cX7fnfdkzS2VbNj4",
+          "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -343,14 +361,16 @@
         "text": "=Bạn là chuyên gia phân loại kỹ thuật bảo hành. Dựa vào triệu chứng mô tả lỗi sau:\n- Sản phẩm: {{ $('Code - Kiểm tra ngày hết hạn bảo hành').item.json.product_name }}\n- Mô tả lỗi: {{ $('Information Extractor').first()?.json?.output?.issue_description || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.content_original }}\n\nHãy phân loại nguyên nhân lỗi:\n1. MANUFACTURER: Lỗi phần cứng/linh kiện tự nhiên từ nhà sản xuất (không lên nguồn không rõ lý do, lỗi màn hình sọc, phím liệt tự nhiên...)\n2. USER_DAMAGE: Lỗi do tác động người dùng (rơi vỡ, nứt móp, ẩm ướt, vào nước, cháy nổ do cắm sai điện áp...)\n3. UNKNOWN: Chưa xác định rõ, cần kỹ thuật viên mở máy thẩm định.\n\nTrả về đúng định dạng JSON:\n{\n  \"fault_type\": \"MANUFACTURER|USER_DAMAGE|UNKNOWN\",\n  \"reason_analysis\": \"giải thích ngắn gọn\",\n  \"eligibility\": \"ELIGIBLE|INELIGIBLE|NEED_INSPECTION\"\n}",
         "batching": {}
       },
-      "id": "node-ai-classify-fault",
+      "id": "55891728-d2c3-4428-bd72-3b020a87e15b",
       "name": "AI Agent - Phân loại lỗi (NSX vs Người dùng)",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        1104,
-        272
-      ]
+        -192,
+        -224
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
@@ -362,7 +382,7 @@
                   "caseSensitive": true,
                   "leftValue": "",
                   "typeValidation": "strict",
-                  "version": 3
+                  "version": 2
                 },
                 "conditions": [
                   {
@@ -384,7 +404,7 @@
                   "caseSensitive": true,
                   "leftValue": "",
                   "typeValidation": "strict",
-                  "version": 3
+                  "version": 2
                 },
                 "conditions": [
                   {
@@ -406,26 +426,26 @@
           "fallbackOutput": "extra"
         }
       },
-      "id": "node-switch-eligibility",
+      "id": "c9cc0792-f6c7-4d95-81f4-e719c5e79b24",
       "name": "Switch - Đủ ĐK / Không đủ / Cần kiểm tra",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1360,
-        272
+        176,
+        -240
       ]
     },
     {
       "parameters": {
         "jsCode": "const prev = $('Code - Kiểm tra ngày hết hạn bảo hành').first().json;\nconst triggerData = $('Code - Chuẩn hóa đầu vào Warranty').first().json;\nconst extracted = $('Information Extractor').first()?.json?.output || {};\n\nlet aiResult = {};\ntry {\n  const aiText = $('AI Agent - Phân loại lỗi (NSX vs Người dùng)').first()?.json?.text || '{}';\n  aiResult = JSON.parse(aiText.replace(/```json|```/g, '').trim());\n} catch(e) {\n  aiResult = { fault_type: 'UNKNOWN', eligibility: 'NEED_INSPECTION' };\n}\n\nconst pref = (extracted.preferred_resolution || triggerData.preferred_resolution || 'SERVICE_CENTER').toUpperCase();\nlet resType = 'SERVICE_CENTER';\nif (pref.includes('SHIP') || pref.includes('GỬI')) resType = 'SHIP_IN';\nelse if (pref.includes('ONSITE') || pref.includes('NHÀ')) resType = 'ONSITE';\n\nlet repairFee = 0;\nif (aiResult.eligibility === 'INELIGIBLE' || !prev.is_valid_warranty) {\n  resType = 'PAID_REPAIR';\n  repairFee = 250000;\n}\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst caseCode = `WAR-${dateStr}-${randomCode}`;\n\nreturn [{\n  json: {\n    ...prev,\n    case_code: caseCode,\n    fault_type: aiResult.fault_type || 'MANUFACTURER',\n    eligibility: aiResult.eligibility || 'ELIGIBLE',\n    resolution_type: resType,\n    repair_fee: repairFee,\n    service_center: 'Trung tâm Bảo hành VKU Support - 470 Trần Đại Nghĩa, Đà Nẵng',\n    issue_desc: extracted.issue_description || triggerData.content_original || 'Yêu cầu bảo hành thiết bị',\n    ticket_id: triggerData.ticket_id || 1,\n    customer_telegram_id: prev.customer_telegram_id || triggerData.chat_id || 7919420845,\n    customer_name: prev.customer_name || triggerData.customer_name || 'Quý khách',\n    customer_email: prev.customer_email || triggerData.customer_email || 'nguyenphucphi213@gmail.com'\n  }\n}];"
       },
-      "id": "node-code-prepare-case",
+      "id": "c5b51d41-e421-4191-b2f9-e875f7b8a71f",
       "name": "Code - Chuẩn hóa Case Bảo hành",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1632,
-        224
+        480,
+        144
       ]
     },
     {
@@ -434,17 +454,17 @@
         "query": "INSERT INTO warranty_cases (case_code, fault_type, issue_description, repair_fee, resolution_type, service_center, status, ticket_id, warranty_id, created_at, updated_at) VALUES ('{{ $json.case_code }}', '{{ $json.fault_type }}', '{{ ($json.issue_desc || \"Bảo hành thiết bị\").replace(/'/g, \"\\\\'\") }}', {{ $json.repair_fee }}, '{{ $json.resolution_type }}', '{{ $json.service_center }}', 'CREATED', {{ $json.ticket_id || 1 }}, {{ $json.warranty_id }}, NOW(), NOW());",
         "options": {}
       },
-      "id": "node-mysql-insert-warranty-case",
+      "id": "e0052eff-e1f9-459a-b9f6-1de64deb3cd1",
       "name": "MySQL - Tạo warranty_cases",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        1872,
-        224
+        720,
+        144
       ],
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -525,33 +545,33 @@
           "fallbackOutput": "extra"
         }
       },
-      "id": "node-switch-resolution-type",
+      "id": "40d8660f-7746-45eb-b026-ad209ab16272",
       "name": "Switch - Hình thức bảo hành (Ship/Tại chỗ/Tận nơi)",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        2112,
-        224
+        960,
+        112
       ]
     },
     {
       "parameters": {
-        "chatId": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_telegram_id || 7919420845 }}",
+        "chatId": "9274620117",
         "text": "=🛡️ [TIẾP NHẬN BẢO HÀNH THÀNH CÔNG]\\n- Mã phiếu: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}\\n- Sản phẩm: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.product_name }} (S/N: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.serial_number }})\\n- Hình thức: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}\\n- Địa chỉ: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.service_center }}\\n- Chi phí dự kiến: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee === 0 ? 'MIỄN PHÍ' : Number($('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee).toLocaleString('vi-VN') + ' VNĐ' }}\\n\\nKỹ thuật viên sẽ liên hệ và xử lý trong thời gian sớm nhất!",
         "additionalFields": {}
       },
-      "id": "node-telegram-send-instructions",
+      "id": "1dc32bc8-cfb7-46e6-b9cc-7a0b4548f8b5",
       "name": "Telegram - Gửi hướng dẫn & Mã phiếu",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2352,
-        112
+        1200,
+        16
       ],
       "webhookId": "045f93df-0d6e-4232-ab01-b8f59d2a281c",
       "credentials": {
         "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
+          "id": "0LI2dFdVJM6rrl0k",
           "name": "Telegram account"
         }
       },
@@ -560,23 +580,23 @@
     {
       "parameters": {
         "fromEmail": "support@support.local",
-        "toEmail": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_email || 'customer@example.com' }}",
+        "toEmail": "=hoangphuc2855@gmail.com",
         "subject": "=Xác nhận tiếp nhận bảo hành - {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}",
         "options": {}
       },
-      "id": "node-email-send-instructions",
+      "id": "b23acc46-6f55-4dbe-870f-8d9a7b7c90f2",
       "name": "Gmail / Email - Gửi xác nhận cho khách",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        2352,
-        320
+        1200,
+        224
       ],
       "webhookId": "1eef34a6-0af8-4063-84cd-f59d280c99d1",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       },
       "continueOnFail": true
@@ -584,23 +604,23 @@
     {
       "parameters": {
         "fromEmail": "support@support.local",
-        "toEmail": "tech@support.local",
+        "toEmail": "hoangphuc2855@gmail.com",
         "subject": "=[KỸ THUẬT] Phiếu bảo hành mới: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}",
         "options": {}
       },
-      "id": "node-notify-tech-team",
+      "id": "6ed88d11-713a-41fd-bd24-3c9ed8797fe5",
       "name": "Slack / Email - Báo Kỹ thuật nhận case",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        2592,
-        224
+        1440,
+        128
       ],
       "webhookId": "5349d340-7f03-4d67-a8ab-1a31ac76a15f",
       "credentials": {
         "smtp": {
-          "id": "f5ELIXOhZR2kN5Ky",
-          "name": "SMTP account 2"
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
         }
       },
       "continueOnFail": true
@@ -611,34 +631,34 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "node-wait-repair-progress",
+      "id": "e53422c7-d7f9-4ea9-9671-cbcff4b38708",
       "name": "Wait - Theo dõi: Nhận máy -> Đang sửa -> Xong",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2832,
-        224
+        1680,
+        128
       ],
       "webhookId": "c98e4ff5-d5ac-488c-9391-b1e771184f3d"
     },
     {
       "parameters": {
-        "chatId": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_telegram_id || 7919420845 }}",
+        "chatId": "9274620117",
         "text": "=✅ [BẢO HÀNH HOÀN TẤT]\\nThiết bị của Quý khách theo mã phiếu {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }} đã được sửa chữa và kiểm tra hoàn tất. Quý khách có thể đến nhận máy hoặc đợi giao hàng tận nơi. Cảm ơn Quý khách!",
         "additionalFields": {}
       },
-      "id": "node-telegram-update-progress",
+      "id": "85c779d0-7212-4be0-85e5-b7f6e4e378f8",
       "name": "Telegram - Cập nhật tiến độ cho khách",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        3072,
-        224
+        1920,
+        128
       ],
       "webhookId": "31012a05-769a-4c81-8f9a-b7854ef2b928",
       "credentials": {
         "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
+          "id": "0LI2dFdVJM6rrl0k",
           "name": "Telegram account"
         }
       },
@@ -650,17 +670,17 @@
         "query": "UPDATE warranty_cases SET status = 'CLOSED', updated_at = NOW() WHERE case_code = '{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}';",
         "options": {}
       },
-      "id": "node-mysql-close-warranty-case",
+      "id": "6f5870e1-c641-4efd-94e7-75ede5abe13c",
       "name": "MySQL - Đóng case warranty",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        3312,
-        224
+        2160,
+        128
       ],
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -671,17 +691,17 @@
         "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.ticket_id || 1 }};",
         "options": {}
       },
-      "id": "node-mysql-update-ticket",
+      "id": "62a7b393-7402-44e8-9a59-f7ab1f00d75b",
       "name": "MySQL - Cập nhật ticket",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        3552,
-        224
+        2400,
+        128
       ],
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -692,17 +712,17 @@
         "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('WARRANTY_CLOSED', 'TECHNICIAN', JSON_OBJECT('case_code', '{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}', 'resolution_type', '{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}', 'repair_fee', {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee }}), {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.warranty_id }}, 'warranty_case', 'L10_Warranty', NOW(), NOW());",
         "options": {}
       },
-      "id": "node-mysql-insert-audit-log",
+      "id": "56912914-29ea-45aa-8965-22e6b305cef0",
       "name": "MySQL - Ghi audit_logs",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        3792,
-        224
+        2640,
+        128
       ],
       "credentials": {
         "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
+          "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
@@ -823,8 +843,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Code - Kiểm tra ngày hết hạn bảo hành": {
@@ -1066,8 +1085,16 @@
       ]
     }
   },
-  "pinData": {},
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "ticket_id": 20,
+        "message": "{\"text\":\"Laptop VKU Book serial SN-LAP-0003 của mình bị sọc màn hình, cho mình bảo hành với.\"}",
+        "customer_id": 2
+      }
+    ]
+  },
   "meta": {
-    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
 }
