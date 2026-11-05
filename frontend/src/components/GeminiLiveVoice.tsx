@@ -61,7 +61,7 @@ function toBase64(samples: Int16Array): string {
     let binary = "";
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        binary += String.fromCharCode(...Array.from(bytes.subarray(i, i + chunkSize)));
     }
     return btoa(binary);
 }
@@ -240,7 +240,7 @@ export default function GeminiLiveVoice({ conversationId, customerId = 1 }: Gemi
 
                         setStatus("Đang tra cứu tài liệu VKU Support...");
                         try {
-                            c// Trong hàm socket.onmessage -> phần xử lý functionCalls (searchCustomerSupport)
+                            // Trong hàm socket.onmessage -> phần xử lý functionCalls (searchCustomerSupport)
                             const ragResponse = await fetch(`${BACKEND_URL}/api/chat/voice-message`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -335,7 +335,7 @@ export default function GeminiLiveVoice({ conversationId, customerId = 1 }: Gemi
 
                         const samples = pcm24kToFloat32(inlineData.data);
                         const audioBuffer = outputContext.createBuffer(1, samples.length, 24000);
-                        audioBuffer.copyToChannel(samples, 0);
+                        audioBuffer.copyToChannel(samples as any, 0);
 
                         const sourceNode = outputContext.createBufferSource();
                         sourceNode.buffer = audioBuffer;
