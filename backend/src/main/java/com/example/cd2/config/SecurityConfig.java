@@ -68,6 +68,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,
                         "/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
                 .requestMatchers("/actuator/health", "/error").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/portal/**").permitAll()
                 .requestMatchers("/api/n8n/**").hasRole("N8N")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/portal/**").hasRole("CUSTOMER")
