@@ -123,7 +123,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                             Phân hệ Quản trị
                         </div>
 
-                        {menuItems.filter(item => !item.adminOnly || isAdmin).map((item) => {
+                        {menuItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = pathname === item.path || (item.path !== '/staff/dashboard' && pathname.startsWith(item.path));
                             return (
