@@ -13,7 +13,8 @@ import {
     LogOut, 
     ShieldCheck, 
     Headphones,
-    ExternalLink
+    ExternalLink,
+    Shield
 } from 'lucide-react';
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
     const [agentName, setAgentName] = useState('Chuyên viên CSKH');
     const [agentRole, setAgentRole] = useState('Chuyên viên CSKH');
+    const [isAdmin, setIsAdmin] = useState(false);
 
     const getRoleTitle = (role: string) => {
         const r = role.toUpperCase();
@@ -55,6 +57,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             else if (user.email) setAgentName(user.email);
 
             setAgentRole(getRoleTitle(roleStr));
+            setIsAdmin(roleStr === 'ADMIN' || roleStr.includes('ADMIN'));
         } catch (e) {
             console.error(e);
             router.push('/staff/login');
@@ -84,6 +87,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         { name: 'Khách hàng', path: '/staff/customers', icon: Users },
         { name: 'Báo cáo & SLA', path: '/staff/reports', icon: BarChart3 },
         { name: 'Kho Tri thức RAG', path: '/staff/knowledge', icon: BookOpen },
+        { name: 'Quản trị Admin', path: '/admin', icon: Shield, badge: 'Admin', adminOnly: true },
     ];
 
     return (
@@ -112,7 +116,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                             Phân hệ Quản trị
                         </div>
 
-                        {menuItems.map((item) => {
+                        {menuItems.filter(item => !item.adminOnly || isAdmin).map((item) => {
                             const Icon = item.icon;
                             const isActive = pathname === item.path || (item.path !== '/staff/dashboard' && pathname.startsWith(item.path));
                             return (

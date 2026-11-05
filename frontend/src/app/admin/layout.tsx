@@ -33,11 +33,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         try {
             const parsed = JSON.parse(savedAccount);
             const roleStr = String(parsed.role || '').toUpperCase();
-            const isAdmin = roleStr.includes('ADMIN') || roleStr.includes('MANAGER');
+            const isAdmin = roleStr === 'ADMIN' || roleStr === 'ROLE_ADMIN';
 
             if (!isAdmin) {
-                alert('Tài khoản của bạn không có quyền Quản trị viên (ADMIN)!');
-                router.push('/staff/dashboard');
+                alert('Truy cập bị từ chối: Chỉ tài khoản Quản trị viên (Role: ADMIN) mới có quyền vào Cổng Quản Trị Admin!');
+                const isStaff = ['MANAGER', 'TEAM_LEAD', 'AGENT', 'TECHNICIAN', 'LEGAL', 'STAFF'].some(r => roleStr.includes(r));
+                if (isStaff) {
+                    router.push('/staff/dashboard');
+                } else {
+                    router.push('/user');
+                }
                 return;
             }
 

@@ -97,7 +97,12 @@ export default function StaffLoginPage() {
             localStorage.setItem('user_info', JSON.stringify(accountData));
             localStorage.setItem('user_role', roleStr);
             
-            router.push('/staff/dashboard');
+            const isAdmin = roleStr === 'ADMIN' || roleStr === 'ROLE_ADMIN' || roleStr.includes('ADMIN');
+            if (isAdmin) {
+                router.push('/admin');
+            } else {
+                router.push('/staff/dashboard');
+            }
         } catch (err: any) {
             setError(err.message || 'Lỗi kết nối máy chủ backend!');
         } finally {
