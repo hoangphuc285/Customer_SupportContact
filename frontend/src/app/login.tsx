@@ -107,7 +107,11 @@ export default function LoginPage() {
                                 roleStr.includes('TECHNICIAN') || 
                                 roleStr === '1';
 
-                if (isStaff) {
+                const isAdmin = roleStr === 'ADMIN' || roleStr === 'ROLE_ADMIN' || roleStr.includes('ADMIN');
+
+                if (isAdmin) {
+                    router.push('/admin');
+                } else if (isStaff) {
                     router.push('/staff/dashboard');
                 } else {
                     router.push('/user');

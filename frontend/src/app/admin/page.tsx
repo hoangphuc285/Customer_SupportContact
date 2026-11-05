@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
     Users, 
@@ -14,29 +14,80 @@ import {
     AlertTriangle, 
     Bot,
     Server,
-    ShieldCheck
+    ShieldCheck,
+    Check,
+    X,
+    KeyRound,
+    Headphones,
+    Wrench,
+    Scale,
+    Activity,
+    Ticket
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
-    // Dữ liệu SLA khởi tạo từ data.sql của hệ thống
-    const slaRules = [
-        { priority: 'P1', category: 'DEFAULT', firstResponse: '15 phút', resolution: '4 giờ', note: 'Sự cố tê liệt dịch vụ' },
-        { priority: 'P1', category: 'COMPLAINT', firstResponse: '15 phút', resolution: '2 giờ', note: 'Khiếu nại nghiêm trọng' },
-        { priority: 'P2', category: 'DEFAULT', firstResponse: '1 giờ', resolution: '24 giờ', note: 'Ảnh hưởng luồng chính' },
-        { priority: 'P2', category: 'REFUND', firstResponse: '1 giờ', resolution: '12 giờ', note: 'Yêu cầu hoàn trả tiền' },
-        { priority: 'P3', category: 'DEFAULT', firstResponse: '24 giờ', resolution: '72 giờ', note: 'Thắc mắc & Tư vấn tính năng' },
-        { priority: 'P4', category: 'DEFAULT', firstResponse: '48 giờ', resolution: '120 giờ', note: 'Góp ý & cải tiến' },
+    const [stats, setStats] = useState<any>({
+        totalStaff: 5,
+        activeStaff: 5,
+        agentsCount: 1,
+        managersCount: 2,
+        techniciansCount: 1,
+        adminsCount: 1,
+        departmentsCount: 7,
+        totalTickets: 5,
+    });
+    const [departments, setDepartments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAdminData = async () => {
+            try {
+                const [resStats, resDepts] = await Promise.all([
+                    fetch('http://localhost:8080/api/admin/stats'),
+                    fetch('http://localhost:8080/api/admin/departments')
+                ]);
+
+                if (resStats.ok) {
+                    const st = await resStats.json();
+                    setStats(st);
+                }
+                if (resDepts.ok) {
+                    const dp = await resDepts.json();
+                    setDepartments(Array.isArray(dp) ? dp : []);
+                }
+            } catch (err) {
+                console.error('Lỗi tải dữ liệu admin:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAdminData();
+    }, []);
+
+    // Ma trận phân quyền quyền hạn chi tiết trong hệ thống
+    const permissionMatrix = [
+        { feature: 'Tiếp nhận & Trả lời Ticket khách hàng', admin: true, manager: true, lead: true, agent: true, tech: true, legal: true },
+        { feature: 'Sử dụng Live Chat đa kênh (Zalo, Telegram...)', admin: true, manager: true, lead: true, agent: true, tech: false, legal: false },
+        { feature: 'Dùng AI Draft gợi ý phản hồi tự động', admin: true, manager: true, lead: true, agent: true, tech: true, legal: true },
+        { feature: 'Phân công lại nhân sự phụ trách Ticket', admin: true, manager: true, lead: true, agent: false, tech: false, legal: false },
+        { feature: 'Duyệt yêu cầu Hoàn tiền ≤ 5.000.000đ', admin: true, manager: true, lead: true, agent: false, tech: false, legal: false },
+        { feature: 'Duyệt yêu cầu Hoàn tiền hạn mức cao (> 5tr)', admin: true, manager: true, lead: false, agent: false, tech: false, legal: false },
+        { feature: 'Kiểm định & Cập nhật biên bản Bảo hành', admin: true, manager: false, lead: false, agent: false, tech: true, legal: false },
+        { feature: 'Xử lý Khiếu nại leo thang P1 & Pháp chế', admin: true, manager: true, lead: true, agent: false, tech: false, legal: true },
+        { feature: 'Xem Báo cáo Tổng hợp SLA & CSAT', admin: true, manager: true, lead: true, agent: false, tech: false, legal: false },
+        { feature: 'Thêm mới & Sửa thông tin Nhân viên', admin: true, manager: false, lead: false, agent: false, tech: false, legal: false },
+        { feature: 'Phân quyền & Khóa/Kích hoạt tài khoản', admin: true, manager: false, lead: false, agent: false, tech: false, legal: false },
     ];
 
-    // Phòng ban từ data.sql
-    const departments = [
-        { code: 'SUPPORT', name: 'Chăm sóc khách hàng', lead: 'teamlead@support.local' },
-        { code: 'TECH', name: 'Kỹ thuật & Bảo hành', lead: 'tech@support.local' },
-        { code: 'WAREHOUSE', name: 'Kho vận & Đổi hàng', lead: 'warehouse@support.local' },
-        { code: 'DELIVERY', name: 'Giao hàng', lead: 'delivery@support.local' },
-        { code: 'ACCOUNTING', name: 'Kế toán & Hoàn tiền', lead: 'accounting@support.local' },
-        { code: 'SALES', name: 'Kinh doanh', lead: 'sales@support.local' },
-        { code: 'LEGAL', name: 'Pháp chế & Khiếu nại cao cấp', lead: 'legal@support.local' },
+    // Dữ liệu SLA khởi tạo
+    const slaRules = [
+        { priority: 'P1', category: 'DEFAULT', firstResponse: '15 phút', resolution: '4 giờ', note: 'Sự cố tê liệt dịch vụ, khách khiếu nại khẩn' },
+        { priority: 'P1', category: 'COMPLAINT', firstResponse: '15 phút', resolution: '2 giờ', note: 'Khiếu nại sản phẩm vỡ hỏng, thất lạc' },
+        { priority: 'P2', category: 'DEFAULT', firstResponse: '1 giờ', resolution: '24 giờ', note: 'Sự cố ảnh hưởng luồng chính' },
+        { priority: 'P2', category: 'REFUND', firstResponse: '1 giờ', resolution: '12 giờ', note: 'Yêu cầu hoàn tiền trong 7 ngày' },
+        { priority: 'P3', category: 'DEFAULT', firstResponse: '24 giờ', resolution: '72 giờ', note: 'Tư vấn thông số và cách dùng thiết bị' },
+        { priority: 'P4', category: 'DEFAULT', firstResponse: '48 giờ', resolution: '120 giờ', note: 'Góp ý nâng cấp giao diện, trải nghiệm' },
     ];
 
     return (
@@ -44,25 +95,26 @@ export default function AdminDashboardPage() {
             {/* TOP HEADER */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                        Quản Trị Hệ Thống & Cấu Hình Vận Hành
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
+                        <ShieldCheck className="text-purple-400" size={28} />
+                        <span>Quản Trị Hệ Thống & Cấu Hình Vận Hành</span>
                     </h1>
                     <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                        Giám sát các phòng ban, định tuyến quy chuẩn SLA và tài khoản nhân sự
+                        Trung tâm kiểm soát tổ chức nhân sự, ma trận phân quyền, định tuyến SLA và kết nối n8n AI
                     </p>
                 </div>
 
                 <div className="flex items-center gap-2.5">
                     <Link
                         href="/admin/staff"
-                        className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/20 transition cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/25 transition cursor-pointer"
                     >
-                        <Plus size={15} />
-                        <span>Thêm Tài Khoản Nhân Viên</span>
+                        <KeyRound size={15} />
+                        <span>Quản Lý & Phân Quyền Nhân Sự</span>
                     </Link>
                     <Link
                         href="/staff/dashboard"
-                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-2 border border-slate-700 transition"
+                        className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-xs flex items-center gap-2 border border-slate-800 transition"
                     >
                         <span>Cổng CSKH</span>
                         <ArrowUpRight size={14} />
@@ -70,78 +122,153 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* METRICS CARDS */}
+            {/* 4 STAT METRICS CARDS TỪ BACKEND MYSQL */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 relative overflow-hidden group">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-400">Phòng Ban Vận Hành</span>
-                        <Building2 size={18} className="text-purple-400" />
+                        <span className="text-xs font-semibold text-slate-400">Tổng Nhân Sự Hệ Thống</span>
+                        <Users size={18} className="text-purple-400" />
                     </div>
-                    <p className="text-2xl font-black text-white mt-3">{departments.length}</p>
-                    <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-                        <CheckCircle2 size={12} />
-                        <span>Đã đồng bộ MySQL Data</span>
+                    <p className="text-3xl font-black text-white mt-3 font-mono">
+                        {stats.totalStaff} <span className="text-xs font-normal text-slate-400">thành viên</span>
+                    </p>
+                    <div className="mt-2 text-[11px] text-emerald-400 flex items-center gap-1 font-semibold">
+                        <CheckCircle2 size={13} />
+                        <span>{stats.activeStaff} đang kích hoạt hoạt động</span>
+                    </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-400">Cơ Cấu Vai Trò Phân Quyền</span>
+                        <KeyRound size={18} className="text-indigo-400" />
+                    </div>
+                    <p className="text-2xl font-black text-white mt-3 font-mono">
+                        {stats.agentsCount} Agent <span className="text-xs text-slate-500">|</span> {stats.managersCount} Lead/Mgr
+                    </p>
+                    <p className="text-[11px] text-indigo-400 mt-2 font-medium">
+                        {stats.techniciansCount} Kỹ thuật viên &bull; {stats.adminsCount} Quản trị viên
                     </p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-400">Quy Chuẩn SLA</span>
-                        <Clock size={18} className="text-sky-400" />
+                        <span className="text-xs font-semibold text-slate-400">Phòng Ban Vận Hành</span>
+                        <Building2 size={18} className="text-sky-400" />
                     </div>
-                    <p className="text-2xl font-black text-white mt-3">6 Cấp Độ</p>
-                    <p className="text-[11px] text-sky-400 mt-1">P1 phản hồi nhanh ≤ 15 phút</p>
+                    <p className="text-3xl font-black text-white mt-3 font-mono">
+                        {departments.length || 7} <span className="text-xs font-normal text-slate-400">phòng ban</span>
+                    </p>
+                    <p className="text-[11px] text-sky-400 mt-2">CSKH, Kỹ thuật, Kho vận, Kế toán...</p>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-400">Trợ Lý Tự Động Hóa</span>
-                        <Bot size={18} className="text-indigo-400" />
+                        <span className="text-xs font-semibold text-slate-400">Tổng Ticket Đã Tiếp Nhận</span>
+                        <Ticket size={18} className="text-amber-400" />
                     </div>
-                    <p className="text-2xl font-black text-white mt-3">n8n + Gemini</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Webhook RAG & Auto-tagging</p>
+                    <p className="text-3xl font-black text-amber-400 mt-3 font-mono">
+                        {stats.totalTickets} <span className="text-xs font-normal text-slate-400">yêu cầu</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-2">Dữ liệu kết nối thời gian thực</p>
+                </div>
+            </div>
+
+            {/* BẢNG MA TRẬN PHÂN QUYỀN HỆ THỐNG (ROLE & CAPABILITY MATRIX) */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                    <div>
+                        <h2 className="text-base font-bold text-white flex items-center gap-2">
+                            <KeyRound size={18} className="text-purple-400" />
+                            <span>Ma Trận Phân Quyền Hạn Chi Tiết (Role & Permission Matrix)</span>
+                        </h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Quyền truy cập và thao tác nghiệp vụ tương ứng với 6 vai trò nhân sự trong CSDL
+                        </p>
+                    </div>
+
+                    <Link
+                        href="/admin/staff"
+                        className="text-xs font-bold text-purple-400 hover:text-purple-300 transition flex items-center gap-1 self-start sm:self-auto"
+                    >
+                        <span>Thay đổi vai trò nhân sự</span>
+                        <ArrowUpRight size={14} />
+                    </Link>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-400">Bảo Mật API</span>
-                        <ShieldCheck size={18} className="text-emerald-400" />
-                    </div>
-                    <p className="text-2xl font-black text-white mt-3">JWT Bearer</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Spring Security 6.x</p>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-800 text-[11px] text-slate-400 font-bold uppercase tracking-wider bg-slate-950/60">
+                                <th className="p-3 pl-4">Chức năng & Nghiệp vụ hệ thống</th>
+                                <th className="p-3 text-center">ADMIN</th>
+                                <th className="p-3 text-center">MANAGER</th>
+                                <th className="p-3 text-center">TEAM_LEAD</th>
+                                <th className="p-3 text-center">AGENT</th>
+                                <th className="p-3 text-center">TECHNICIAN</th>
+                                <th className="p-3 text-center">LEGAL</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60 font-medium">
+                            {permissionMatrix.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-slate-800/30 transition">
+                                    <td className="p-3 pl-4 text-slate-200 font-semibold">{item.feature}</td>
+                                    
+                                    <td className="p-3 text-center">
+                                        {item.admin ? <Check size={16} className="text-purple-400 mx-auto font-bold" /> : <X size={14} className="text-slate-600 mx-auto" />}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        {item.manager ? <Check size={16} className="text-indigo-400 mx-auto" /> : <X size={14} className="text-slate-600 mx-auto" />}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        {item.lead ? <Check size={16} className="text-blue-400 mx-auto" /> : <X size={14} className="text-slate-600 mx-auto" />}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        {item.agent ? <Check size={16} className="text-emerald-400 mx-auto" /> : <X size={14} className="text-slate-600 mx-auto" />}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        {item.tech ? <Check size={16} className="text-amber-400 mx-auto" /> : <X size={14} className="text-slate-600 mx-auto" />}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        {item.legal ? <Check size={16} className="text-rose-400 mx-auto" /> : <X size={14} className="text-slate-600 mx-auto" />}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             {/* SLA RULES TABLE */}
-            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                     <div>
                         <h2 className="text-base font-bold text-white flex items-center gap-2">
-                            <Clock size={16} className="text-purple-400" />
-                            <span>Quy Chuẩn Cam Kết Dịch Vụ (SLA Rules)</span>
+                            <Clock size={18} className="text-sky-400" />
+                            <span>Quy Chuẩn Cam Kết Dịch Vụ (SLA Rules Matrix)</span>
                         </h2>
-                        <p className="text-xs text-slate-400 mt-0.5">Dữ liệu nạp tự động từ bảng `sla_rules` khi khởi động Spring Boot</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Dữ liệu khởi tạo từ bảng `sla_rules` tự động quét định tuyến</p>
                     </div>
                     <span className="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
-                        data.sql
+                        MySQL: sla_rules
                     </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-                                <th className="pb-3 px-3">Mức độ</th>
-                                <th className="pb-3 px-3">Phân loại</th>
-                                <th className="pb-3 px-3">Thời gian phản hồi (First Response)</th>
-                                <th className="pb-3 px-3">Cam kết giải quyết (Resolution)</th>
-                                <th className="pb-3 px-3">Ghi chú nghiệp vụ</th>
+                            <tr className="border-b border-slate-800 text-[11px] text-slate-400 font-bold uppercase tracking-wider bg-slate-950/60">
+                                <th className="p-3 pl-4">Mức độ SLA</th>
+                                <th className="p-3">Phân loại</th>
+                                <th className="p-3">Phản hồi lần đầu (First Response)</th>
+                                <th className="p-3">Giải quyết triệt để (Resolution)</th>
+                                <th className="p-3">Mô tả nghiệp vụ</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60 font-medium">
                             {slaRules.map((rule, idx) => (
                                 <tr key={idx} className="hover:bg-slate-800/30 transition">
-                                    <td className="py-3 px-3">
+                                    <td className="p-3 pl-4">
                                         <span className={`px-2 py-0.5 rounded font-black text-[11px] ${
                                             rule.priority === 'P1' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                                             rule.priority === 'P2' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
@@ -150,10 +277,10 @@ export default function AdminDashboardPage() {
                                             {rule.priority}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-3 font-mono text-slate-300">{rule.category}</td>
-                                    <td className="py-3 px-3 text-emerald-400 font-semibold">{rule.firstResponse}</td>
-                                    <td className="py-3 px-3 text-white font-semibold">{rule.resolution}</td>
-                                    <td className="py-3 px-3 text-slate-400">{rule.note}</td>
+                                    <td className="p-3 font-mono text-slate-300">{rule.category}</td>
+                                    <td className="p-3 text-emerald-400 font-semibold">{rule.firstResponse}</td>
+                                    <td className="p-3 text-white font-semibold">{rule.resolution}</td>
+                                    <td className="p-3 text-slate-400">{rule.note}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -162,26 +289,28 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* DEPARTMENTS OVERVIEW */}
-            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                     <div>
                         <h2 className="text-base font-bold text-white flex items-center gap-2">
-                            <Building2 size={16} className="text-purple-400" />
+                            <Building2 size={18} className="text-purple-400" />
                             <span>Cơ Cấu Phòng Ban Xử Lý Ticket</span>
                         </h2>
-                        <p className="text-xs text-slate-400 mt-0.5">Các bộ phận tiếp nhận điều phối từ luồng Intake n8n</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Các phòng ban phụ trách định tuyến tự động từ luồng n8n AI Intake</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {departments.map((dept) => (
-                        <div key={dept.code} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between">
+                        <div key={dept.code || dept.id} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between">
                             <div>
                                 <span className="font-mono text-[10px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
                                     {dept.code}
                                 </span>
                                 <h4 className="text-xs font-bold text-white mt-1.5">{dept.name}</h4>
-                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">{dept.lead}</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                    {dept.memberCount !== undefined ? `${dept.memberCount} thành viên trực thuộc` : 'Bộ phận chuyên trách'}
+                                </p>
                             </div>
                         </div>
                     ))}
