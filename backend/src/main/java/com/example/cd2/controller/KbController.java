@@ -42,7 +42,12 @@ public class KbController {
         return kb.list(status);
     }
 
-    // ---------------- Nhan vien / Admin ----------------
+    // ---------------- Nhan vien / Admin / Khach hang Portal ----------------
+
+    @GetMapping("/portal/kb-documents")
+    public List<KbDocumentResponse> listForPortal(@RequestParam(required = false) KbStatus status) {
+        return kb.list(status != null ? status : KbStatus.ACTIVE);
+    }
 
     @GetMapping("/staff/kb-documents")
     public List<KbDocumentResponse> listForStaff(@RequestParam(required = false) KbStatus status) {

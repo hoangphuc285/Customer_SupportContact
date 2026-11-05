@@ -23,4 +23,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByAssigneeIdOrderByCreatedAtDesc(Long assigneeId);
 
     List<Ticket> findByStatusInOrderByCreatedAtDesc(Collection<TicketStatus> statuses);
+
+    List<Ticket> findAllByOrderByCreatedAtDesc();
+
+    List<Ticket> findByNeedHumanReviewTrueOrderByCreatedAtDesc();
 }

@@ -13,7 +13,12 @@ import {
     LogOut, 
     ShieldCheck, 
     Headphones,
-    ExternalLink
+    ExternalLink,
+    RotateCcw,
+    Shield,
+    AlertTriangle,
+    CheckSquare,
+    Award
 } from 'lucide-react';
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -63,11 +68,15 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
     const menuItems = [
         { name: 'Dashboard', path: '/staff/dashboard', icon: LayoutDashboard },
-        { name: 'Quản lý Ticket', path: '/staff/tickets', icon: Ticket },
+        { name: 'Inbox Ticket (L01, L02)', path: '/staff/tickets', icon: Ticket },
+        { name: 'Hàng chờ duyệt (L05, L09)', path: '/staff/approvals', icon: CheckSquare, badge: 'Duyệt' },
+        { name: 'Xử lý Khiếu nại (L08)', path: '/staff/complaints', icon: AlertTriangle },
+        { name: 'Phê duyệt Hoàn tiền (L09)', path: '/staff/refunds', icon: RotateCcw },
+        { name: 'Tiếp nhận Bảo hành (L10)', path: '/staff/warranty', icon: Shield },
+        { name: 'Kho Tri thức RAG (L04)', path: '/staff/knowledge', icon: BookOpen },
+        { name: 'Đánh giá QA AI (L11)', path: '/staff/qa', icon: Award },
+        { name: 'Báo cáo & Thống kê (L12)', path: '/staff/reports', icon: BarChart3 },
         { name: 'Live Chat CSKH', path: '/staff/chat', icon: MessageSquare, badge: 'Live' },
-        { name: 'Khách hàng', path: '/staff/customers', icon: Users },
-        { name: 'Báo cáo & SLA', path: '/staff/reports', icon: BarChart3 },
-        { name: 'Kho Tri thức RAG', path: '/staff/knowledge', icon: BookOpen },
     ];
 
     return (

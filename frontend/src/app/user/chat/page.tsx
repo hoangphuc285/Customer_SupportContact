@@ -117,6 +117,28 @@ export default function UserPortalChatPage() {
         };
         setMessages((prev) => [...prev, optimisticMessage]);
 
+        // 1. Kích hoạt Webhook n8n L01 Omnichannel Intake theo đúng format l01_test_curls.sh
+        try {
+            await fetch('http://localhost:5678/webhook/intake-omnichannel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: 'WEB',
+                    sender: {
+                        id: String(userAccount?.id || '7919420845'),
+                        name: userAccount?.name || 'Nguyen Van Test'
+                    },
+                    email: userAccount?.email || 'nguyenphucphi213@gmail.com',
+                    phone: userAccount?.phone || '0901234567',
+                    message: {
+                        text: textToSend
+                    }
+                }),
+            });
+        } catch (n8nErr) {
+            console.warn('n8n L01 trigger:', n8nErr);
+        }
+
         try {
             const res = await fetch('http://localhost:8080/api/chat/send', {
                 method: 'POST',
@@ -164,6 +186,20 @@ export default function UserPortalChatPage() {
         if (!conversationId) return;
         setLoading(true);
 
+        // Kích hoạt webhook n8n L06 Escalation
+        try {
+            await fetch('http://localhost:5678/webhook/escalation-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ticket_id: conversationId,
+                    message_content: 'Khách hàng chủ động yêu cầu gặp Chuyên viên CSKH (L06)',
+                }),
+            });
+        } catch (n8nErr) {
+            console.warn('n8n L06 trigger:', n8nErr);
+        }
+
         try {
             const res = await fetch('http://localhost:8080/api/chat/escalate', {
                 method: 'POST',
@@ -205,11 +241,17 @@ export default function UserPortalChatPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const [selectedLanguage, setSelectedLanguage] = useState('vi');
+    const [attachmentUrl, setAttachmentUrl] = useState('');
+    const [showAttachInput, setShowAttachInput] = useState(false);
+
     const quickPrompts = [
-        'Tra cứu vận đơn ORD-992140',
-        'Chính sách đổi trả 7 ngày',
-        'Bảo hành tai nghe Bluetooth ANC',
-        'Tôi muốn gặp chuyên viên CSKH người thật',
+        'Cho mình hỏi chính sách đổi trả của shop như thế nào, được đổi trong bao nhiêu ngày?',
+        'Tai nghe mình mua theo đơn DH-1001 bị lỗi không lên nguồn, mình muốn hoàn tiền.',
+        'Loa Bluetooth đơn DH-1002 của mình bị rè và mất tiếng, yêu cầu hoàn tiền giúp mình.',
+        'Laptop VKU Book serial SN-LAP-0003 của mình bị sọc màn hình, cho mình bảo hành với.',
+        'Nhân viên giao đơn DH-1002 thái độ rất tệ, giao trễ 3 ngày và làm móp hộp. Tôi muốn khiếu nại chính thức.',
+        'Đơn #DH1024 tai nghe XYZ còn bảo hành không?',
     ];
 
     if (!userAccount) return null;
@@ -290,6 +332,22 @@ export default function UserPortalChatPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* CHỌN NGÔN NGỮ (LUỒNG L03_MULTILINGUAL) */}
+                        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-xl text-xs font-semibold text-slate-700">
+                            <span className="text-[10px] text-slate-400">L03:</span>
+                            <select
+                                value={selectedLanguage}
+                                onChange={(e) => setSelectedLanguage(e.target.value)}
+                                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                            >
+                                <option value="vi">🇻🇳 Tiếng Việt</option>
+                                <option value="en">🇬🇧 English</option>
+                                <option value="ja">🇯🇵 日本語</option>
+                                <option value="ko">🇰🇷 한국어</option>
+                                <option value="zh">🇨🇳 中文</option>
+                            </select>
+                        </div>
+
                         {!needHumanSupport && (
                             <button
                                 type="button"
@@ -298,7 +356,7 @@ export default function UserPortalChatPage() {
                                 className="px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                             >
                                 <Headphones size={13} />
-                                <span>Gặp nhân viên tư vấn</span>
+                                <span>Gặp nhân viên (L06)</span>
                             </button>
                         )}
                         <button
@@ -322,9 +380,9 @@ export default function UserPortalChatPage() {
                                 <SupportMascot size="lg" />
                             </div>
                             <div>
-                                <h4 className="text-base font-extrabold text-slate-900">Chào bạn! Mình là Nova 🤖</h4>
-                                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                                    Đừng lo lắng nhé! Dù là sự cố vận chuyển, đổi trả 7 ngày hay bảo hành thiết bị, Nova luôn sẵn sàng giải đáp và đồng hành cùng bạn.
+                                <h4 className="text-base font-extrabold text-slate-900">Chào bạn! Mình là Nova Support Bot 🤖</h4>
+                                <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                                    Hệ thống <strong>không hỏi bạn chọn sản phẩm nào</strong>. Bạn chỉ cần cung cấp <strong>mã đơn (#DH1024)</strong>, <strong>số serial</strong> hoặc <strong>email</strong> và mô tả sự cố để AI tự động trích xuất thông tin (Information Extractor) và hỗ trợ ngay!
                                 </p>
                             </div>
 
@@ -345,6 +403,7 @@ export default function UserPortalChatPage() {
                         messages.map((m, idx) => {
                             const isUser = m.senderType === 'CUSTOMER';
                             const isSystem = m.senderType === 'SYSTEM';
+                            const isAI = m.senderType === 'AI' || m.senderType === 'BOT';
                             return (
                                 <div
                                     key={m.id || idx}
@@ -363,6 +422,15 @@ export default function UserPortalChatPage() {
                                                 : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
                                     }`}>
                                         <p className="whitespace-pre-line">{m.contentOriginal || m.content}</p>
+                                        
+                                        {/* TRÍCH DẪN NGUỒN TRI THỨC KB (LUỒNG L05 RAG) */}
+                                        {isAI && (
+                                            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-1.5 text-[10px] text-slate-400">
+                                                <Sparkles size={11} className="text-indigo-500" />
+                                                <span>Trích dẫn từ: CSDL Tri thức KB (chinh-sach-doi-tra.txt)</span>
+                                            </div>
+                                        )}
+
                                         <span className={`block text-[10px] mt-1 ${isUser ? 'text-slate-400 text-right' : 'text-slate-400'}`}>
                                             {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
                                         </span>
@@ -385,13 +453,44 @@ export default function UserPortalChatPage() {
                     <GeminiLiveVoice conversationId={conversationId} customerId={userAccount?.id || 1} />
                 </div>
 
+                {/* ATTACHMENT URL INPUT */}
+                {showAttachInput && (
+                    <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex items-center gap-2 text-xs">
+                        <span className="text-slate-500 font-semibold shrink-0">Đính kèm ảnh lỗi:</span>
+                        <input
+                            type="text"
+                            value={attachmentUrl}
+                            onChange={(e) => setAttachmentUrl(e.target.value)}
+                            placeholder="Dán URL ảnh bằng chứng sản phẩm..."
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-800"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowAttachInput(false)}
+                            className="text-slate-400 hover:text-slate-600 px-2"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+                )}
+
                 {/* INPUT BAR */}
                 <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setShowAttachInput(!showAttachInput)}
+                        className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                            showAttachInput || attachmentUrl ? 'bg-indigo-50 border-indigo-300 text-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600'
+                        }`}
+                        title="Đính kèm ảnh bằng chứng"
+                    >
+                        <Copy size={15} />
+                    </button>
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Nhập câu hỏi hoặc thông tin cần hỗ trợ..."
+                        placeholder="Hệ thống hỏi: Bạn cho tôi mã đơn / số serial / email và mô tả sự cố..."
                         className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-emerald-500 transition font-medium"
                     />
                     <button
