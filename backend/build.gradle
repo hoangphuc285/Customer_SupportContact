@@ -39,6 +39,7 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
     // Thư viện Validation cho jakarta.validation.*
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    
 }
 
 tasks.named('test') {

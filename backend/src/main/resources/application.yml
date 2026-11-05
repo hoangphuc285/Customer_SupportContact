@@ -31,6 +31,7 @@ server:
 logging:
   level:
     org.hibernate.SQL: debug
+    com.zaxxer.hikari: DEBUG
 
 # --- CẤU HÌNH TÍCH HỢP BỔ SUNG TỪ FILE CŨ ---
 gemini:
