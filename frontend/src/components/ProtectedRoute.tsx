@@ -19,8 +19,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
             const user = JSON.parse(savedAccount);
             const roleStr = String(user.role || '').toUpperCase();
 
-            // 2. Xác thực quyền STAFF (hỗ trợ cả STAFF, ROLE_STAFF, AGENT)
-            const isStaff = roleStr.includes('STAFF') || roleStr.includes('AGENT') || roleStr === '1';
+            // 2. Xác thực quyền STAFF (hỗ trợ cả AGENT, ADMIN, MANAGER, TEAM_LEAD, TECHNICIAN, LEGAL, STAFF)
+            const staffRoles = ['STAFF', 'AGENT', 'ADMIN', 'MANAGER', 'TEAM_LEAD', 'TECHNICIAN', 'LEGAL', '1'];
+            const isStaff = staffRoles.some(r => roleStr.includes(r));
 
             if (!isStaff) {
                 router.push('/staff/login');
