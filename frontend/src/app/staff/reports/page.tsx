@@ -18,6 +18,7 @@ import {
 export default function StaffReportsPage() {
     const [report, setReport] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [generating, setGenerating] = useState(false);
 
     const fetchReports = async () => {
         setLoading(true);
@@ -31,6 +32,25 @@ export default function StaffReportsPage() {
             console.error('Lỗi tải báo cáo L12:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleTriggerReport = async () => {
+        setGenerating(true);
+        try {
+            const res = await fetch('http://localhost:8080/api/staff/reports/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actor: 'STAFF_PORTAL' })
+            });
+            if (res.ok) {
+                alert('Đã kích hoạt n8n Luồng 12 (L12_Reporting) tổng hợp báo cáo và phân tích lỗ hổng tri thức!');
+                setTimeout(fetchReports, 4000);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setGenerating(false);
         }
     };
 
@@ -65,6 +85,14 @@ export default function StaffReportsPage() {
                         </p>
                     </div>
 
+                    <button
+                        onClick={handleTriggerReport}
+                        disabled={generating}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+                    >
+                        <Sparkles size={15} className={generating ? 'animate-spin' : ''} />
+                        {generating ? 'Đang tổng hợp...' : 'Kích hoạt Báo cáo L12'}
+                    </button>
                     <button
                         onClick={fetchReports}
                         className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm"

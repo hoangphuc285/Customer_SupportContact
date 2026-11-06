@@ -67,6 +67,18 @@ public class N8nClientService {
         sendAsync("/webhook/sla-monitor", payload != null ? payload : Map.of(), "L07_SLA_Monitor");
     }
 
+    public void triggerSupportQa(Map<String, Object> payload) {
+        sendAsync("/webhook/support-qa", payload != null ? payload : Map.of(), "L11_Support_QA");
+    }
+
+    public void triggerReporting(Map<String, Object> payload) {
+        sendAsync("/webhook/reporting", payload != null ? payload : Map.of(), "L12_Reporting");
+    }
+
+    public void triggerImprovementTask(Map<String, Object> payload) {
+        sendAsync("/webhook/improvement-task", payload != null ? payload : Map.of(), "L12_ImprovementTask");
+    }
+
     public void resumeWaitingWebhook(String webhookIdOrUrl, Map<String, Object> payload) {
         if (webhookIdOrUrl != null && webhookIdOrUrl.startsWith("http")) {
             sendFullUrlAsync(webhookIdOrUrl, payload, "Resume_Wait_Webhook_Direct");

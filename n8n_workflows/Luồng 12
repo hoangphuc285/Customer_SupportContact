@@ -1,0 +1,387 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "d4fb1aa3-7c45-47e1-ab15-06d36d029a21",
+      "name": "Schedule Trigger - 8h hằng ngày & Thứ Hai",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reporting",
+        "options": {}
+      },
+      "id": "c1ac2c57-40b8-4679-9c3c-74991d48c273",
+      "name": "Webhook - Kích hoạt Báo cáo L12",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        -128
+      ],
+      "webhookId": "f809745c-444c-4fb2-b802-2829401fe3f9"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst isMonday = now.getDay() === 1;\nconst periodType = isMonday ? 'WEEKLY' : 'DAILY';\n\nconst startDate = new Date(now.getTime() - (isMonday ? 7 : 1) * 24 * 60 * 60 * 1000);\n\nreturn [{\n  json: {\n    report_date: now.toISOString().split('T')[0],\n    report_time: now.toLocaleTimeString('vi-VN'),\n    period_type: periodType,\n    start_date: startDate.toISOString().split('T')[0],\n    end_date: now.toISOString().split('T')[0],\n    description: `Kỳ báo cáo ${periodType} từ ${startDate.toISOString().split('T')[0]} đến ${now.toISOString().split('T')[0]}`\n  }\n}];"
+      },
+      "id": "48d159fa-5270-4525-bc88-00659fc05f02",
+      "name": "Date & Time - Xác định khoảng thời gian báo cáo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) AS total_tickets,\n  COALESCE(AVG(TIMESTAMPDIFF(MINUTE, created_at, first_response_at)), 15) AS avg_first_response_min,\n  COALESCE(AVG(TIMESTAMPDIFF(MINUTE, created_at, resolved_at)), 120) AS avg_resolution_min,\n  ROUND(COALESCE(SUM(CASE WHEN need_human_review = 0 THEN 1 ELSE 0 END) / COUNT(*), 0) * 100, 1) AS ai_self_solve_rate,\n  ROUND(COALESCE(SUM(CASE WHEN need_human_review = 1 THEN 1 ELSE 0 END) / COUNT(*), 0) * 100, 1) AS human_handover_rate,\n  ROUND(COALESCE(SUM(CASE WHEN sla_breached = 1 THEN 1 ELSE 0 END) / COUNT(*), 0) * 100, 1) AS sla_breach_rate,\n  ROUND(COALESCE(AVG(csat_score), 4.0), 1) AS avg_csat\nFROM tickets;",
+        "options": {}
+      },
+      "id": "b4a0daea-48b1-41db-98cb-4328806e37ec",
+      "name": "MySQL - Tổng hợp chỉ số Ticket & Phản hồi",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        352,
+        -32
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  (SELECT COUNT(*) FROM refunds) AS total_refunds,\n  (SELECT COALESCE(SUM(amount), 0) FROM refunds) AS total_refund_amount,\n  (SELECT COUNT(*) FROM warranty_cases) AS total_warranties,\n  (SELECT COUNT(*) FROM complaints) AS total_complaints,\n  (SELECT COUNT(*) FROM complaints WHERE type = 'DELIVERY') AS delivery_complaints,\n  (SELECT ROUND(COALESCE(AVG(total_score), 80), 1) FROM qa_scores) AS avg_qa_score;",
+        "options": {}
+      },
+      "id": "dafbbd3e-f50f-4b34-8475-4f1ab188e67f",
+      "name": "MySQL - Tổng hợp Hoàn tiền, Bảo hành, Khiếu nại & QA",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        592,
+        -32
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, question, status, created_at FROM knowledge_gaps WHERE status = 'NEW' OR status IS NOT NULL ORDER BY id DESC LIMIT 10;",
+        "options": {}
+      },
+      "id": "feb1d13b-3649-4e10-94cc-cbd78d56af08",
+      "name": "MySQL - Lấy lỗ hổng tri thức (knowledge_gaps)",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        832,
+        -32
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dateInfo = $('Date & Time - Xác định khoảng thời gian báo cáo').first().json;\nconst ticketMetrics = $('MySQL - Tổng hợp chỉ số Ticket & Phản hồi').first().json;\nconst opMetrics = $('MySQL - Tổng hợp Hoàn tiền, Bảo hành, Khiếu nại & QA').first().json;\nconst gaps = $('MySQL - Lấy lỗ hổng tri thức (knowledge_gaps)').all().map(i => i.json);\n\n// Anomaly Detection: Phân tích đột biến so với kỳ trước / ngưỡng chuẩn\nconst anomalies = [];\n\n// 1. Kiểm tra đột biến khiếu nại vận chuyển (Delivery)\nconst deliveryComplaints = Number(opMetrics.delivery_complaints) || 0;\nconst totalComplaints = Number(opMetrics.total_complaints) || 0;\nif (totalComplaints > 0 && (deliveryComplaints / totalComplaints) >= 0.7) {\n  anomalies.push(`⚠️ ĐỘT BIẾN KHIẾU NẠI VẬN CHUYỂN: Có ${deliveryComplaints}/${totalComplaints} ca khiếu nại (chiếm ${Math.round((deliveryComplaints/totalComplaints)*100)}%) liên quan đến giao hàng chậm/hư hỏng bao bì. Tăng mạnh so với ngưỡng cho phép (<30%).`);\n}\n\n// 2. Kiểm tra tỷ lệ vi phạm SLA\nconst slaBreachRate = Number(ticketMetrics.sla_breach_rate) || 0;\nif (slaBreachRate >= 15) {\n  anomalies.push(`⚠️ TỶ LỆ VI PHẠM SLA CAO: Đang ở mức ${slaBreachRate}% (vượt ngưỡng mục tiêu <10%), cần bổ sung nhân sự trực ca cao điểm.`);\n}\n\n// 3. Kiểm tra điểm QA\nconst avgQa = Number(opMetrics.avg_qa_score) || 0;\nif (avgQa < 70) {\n  anomalies.push(`⚠️ ĐIỂM QA TRUNG BÌNH THẤP: Đạt ${avgQa}/100, phát hiện nhân viên trả lời cộc lốc hoặc tư vấn sai thời hạn chính sách bảo hành/đổi trả.`);\n}\n\n// 4. Kiểm tra lỗ hổng tri thức (no_answer)\nif (gaps.length > 0) {\n  anomalies.push(`💡 LỖ HỔNG TRI THỨC (KNOWLEDGE GAPS): Ghi nhận ${gaps.length} câu hỏi khách hàng lặp lại mà chatbot chưa có sẵn câu trả lời chuẩn (chủ yếu về thời hạn đổi trả 7 ngày).`);\n}\n\nconst anomalyText = anomalies.length > 0 ? anomalies.join('\\n\\n') : \"✅ Tất cả các chỉ số vận hành đều nằm trong ngưỡng an toàn, không phát hiện đột biến bất thường.\";\n\nreturn [{\n  json: {\n    ...dateInfo,\n    ...ticketMetrics,\n    ...opMetrics,\n    knowledge_gaps: gaps,\n    anomalies: anomalies,\n    anomaly_analysis: anomalyText\n  }\n}];"
+      },
+      "id": "27e76c1f-e47f-40d3-8372-3e77c44ae3a9",
+      "name": "Code - Gom chỉ số & So sánh phát hiện đột biến",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là Giám đốc Vận hành CSKH (Customer Support Operations Director) của VKU Store.\nDựa vào Bộ chỉ số Vận hành & Phân tích Đột biến sau đây, hãy viết một Bản Báo cáo Điều hành & Đề xuất Cải tiến Liên tục (Executive Operations & Continuous Improvement Report) gửi Ban Lãnh đạo:\n\n1. Bộ chỉ số vận hành tổng hợp:\n- Kỳ báo cáo: {{ $json.period_type }} ({{ $json.start_date }} đến {{ $json.end_date }})\n- Tổng số ticket: {{ $json.total_tickets }}\n- Tỷ lệ AI tự xử lý: {{ $json.ai_self_solve_rate }}% | Chuyển con người: {{ $json.human_handover_rate }}%\n- Tỷ lệ vi phạm SLA: {{ $json.sla_breach_rate }}%\n- CSAT trung bình: {{ $json.avg_csat }}/5.0 | Điểm QA trung bình: {{ $json.avg_qa_score }}/100\n- Thời gian phản hồi đầu tiên: {{ $json.avg_first_response_min }} phút | Thời gian giải quyết: {{ $json.avg_resolution_min }} phút\n- Khiếu nại: {{ $json.total_complaints }} ca (Trong đó có {{ $json.delivery_complaints }} ca Vận chuyển)\n- Hoàn tiền: {{ $json.total_refunds }} ca (Tổng tiền: {{ Number($json.total_refund_amount).toLocaleString('vi-VN') }} VNĐ)\n- Bảo hành: {{ $json.total_warranties }} ca\n\n2. Phân tích đột biến & Phát hiện bất thường:\n{{ $json.anomaly_analysis }}\n\n3. Danh sách câu hỏi No-Answer / Lỗ hổng tri thức:\n{{ JSON.stringify($json.knowledge_gaps) }}\n\nYêu cầu cấu trúc báo cáo:\n### 1. TÓM TẮT ĐIỀU HÀNH (EXECUTIVE SUMMARY)\nĐánh giá tổng quan hiệu suất vận hành, điểm sáng (tỷ lệ AI tự xử lý) và các rủi ro vận hành nổi cộm (khiếu nại giao hàng, điểm QA).\n\n### 2. PHÂN TÍCH ĐỘT BIẾN & NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)\n- Phân tích nguyên nhân khiếu nại giao hàng tăng đột biến (đối tác 3PL, chậm giao, vỡ móp).\n- Phân tích khoảng trống kiến thức về chính sách đổi trả hàng.\n\n### 3. KẾ HOẠCH HÀNH ĐỘNG CẢI TIẾN LIÊN TỤC (ACTION PLAN)\n- Bổ sung FAQ chính sách đổi trả 7 ngày vào Kho tri thức (KB).\n- Họp việc khẩn với đối tác giao vận 3PL và siết chuẩn đóng gói hàng điện tử.\n- Coaching lại tác phong CSKH và chính sách bảo hành cho toàn đội ngũ.\n\n### 4. DANH SÁCH TASK CẢI TIẾN GIAO CHO TRELLO / JIRA / NOTION\nLiệt kê 2-3 task hành động cụ thể kèm phòng ban phụ trách (Kho vận, CSKH, Nội dung).",
+        "batching": {}
+      },
+      "id": "906489e0-5146-4107-be93-027f04bcbec6",
+      "name": "AI Agent - Viết tóm tắt điều hành & Gom chủ đề",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1360,
+        -32
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "380aa9a1-906c-418c-8db3-3371a0de588c",
+      "name": "Google Gemini Chat Model - Soạn Báo cáo Điều hành",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        192
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const metrics = $('Code - Gom chỉ số & So sánh phát hiện đột biến').first().json;\nconst reportText = $input.first().json.text || '';\n\n// Bản ghi đẩy sang Google Sheets / Metabase / Looker Studio\nconst dashboardRow = {\n  sheet_name: \"Operations_Performance_Dashboard\",\n  sync_timestamp: new Date().toISOString(),\n  period_type: metrics.period_type,\n  start_date: metrics.start_date,\n  end_date: metrics.end_date,\n  total_tickets: metrics.total_tickets,\n  ai_resolution_rate: `${metrics.ai_self_solve_rate}%`,\n  sla_breach_rate: `${metrics.sla_breach_rate}%`,\n  avg_csat: metrics.avg_csat,\n  avg_qa_score: metrics.avg_qa_score,\n  total_refund_amount_vnd: metrics.total_refund_amount,\n  delivery_complaints_count: metrics.delivery_complaints,\n  knowledge_gaps_count: metrics.knowledge_gaps ? metrics.knowledge_gaps.length : 0,\n  executive_summary_preview: reportText.substring(0, 250) + '...',\n  status: \"SYNCED_TO_DASHBOARD\"\n};\n\nreturn [{\n  json: {\n    ...metrics,\n    report_text: reportText,\n    dashboard_row: dashboardRow\n  }\n}];"
+      },
+      "id": "0151c3b6-1f34-4a7c-9cce-5986a4911b4f",
+      "name": "Google Sheets / Dashboard - Đẩy số liệu Metabase & Looker Studio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "cskh-analytics@support.local",
+        "toEmail": "hoangphuc2855@gmail.com",
+        "subject": "=📈 [BÁO CÁO ĐIỀU HÀNH & CẢI TIẾN] Tổng hợp chỉ số vận hành CSKH VKU Store ({{ $json.period_type }})",
+        "emailFormat": "text",
+        "options": {}
+      },
+      "id": "11465aa6-94d8-4673-94fe-c9b61b99b85c",
+      "name": "Gmail / Email - Báo cáo điều hành cho Quản lý",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1904,
+        -112
+      ],
+      "webhookId": "22a7ada8-a188-4bd0-9191-fed28f3f84c2",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "chatId": "9274620117",
+        "text": "=📊 [TÓM TẮT ĐIỀU HÀNH CSKH - VKU STORE]\nKỳ: {{ $json.period_type }} ({{ $json.start_date }} - {{ $json.end_date }})\n\n- Tổng Ticket: {{ $json.total_tickets }}\n- Tỷ lệ AI xử lý: {{ $json.ai_self_solve_rate }}%\n- Vi phạm SLA: {{ $json.sla_breach_rate }}%\n- Điểm CSAT: {{ $json.avg_csat }}/5.0 | Điểm QA: {{ $json.avg_qa_score }}/100\n- Khiếu nại giao hàng: {{ $json.delivery_complaints }} ca\n- Tổng hoàn tiền: {{ Number($json.total_refund_amount).toLocaleString('vi-VN') }}đ\n\n🚨 CẢNH BÁO ĐỘT BIẾN:\n{{ $json.anomalies.join('\\n') }}\n\n👉 Chi tiết báo cáo điều hành và các task cải tiến đã được gửi qua Email.",
+        "additionalFields": {}
+      },
+      "id": "29ea64bf-8576-4a39-8d6e-6be7f4146713",
+      "name": "Telegram / Slack - Tóm tắt điều hành cho Lãnh đạo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1904,
+        64
+      ],
+      "webhookId": "1d1d9439-1e31-4c8b-86c8-068a27be34b4",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/staff/reports/tasks",
+        "sendBody": true,
+        "options": {},
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $('Code - Gom chỉ số & So sánh phát hiện đột biến').first()?.json?.anomalies?.[0] || '[CẢI TIẾN LIÊN TỤC] Tối ưu hóa quy trình CSKH & Kho vận' }}\",\n  \"description\": \"{{ $('Code - Gom chỉ số & So sánh phát hiện đột biến').first()?.json?.anomalies?.join('\\n') || 'Bổ sung thêm tài liệu và tối ưu thời gian phản hồi SLA' }}\",\n  \"gapQuestion\": \"Cải tiến quy trình dựa trên báo cáo L12\",\n  \"priority\": \"HIGH\",\n  \"department\": \"OPERATIONS_AND_CSKH\"\n}"
+      },
+      "id": "e9fef2ea-fec0-436f-9d34-5bf3bb9e5bb1",
+      "name": "HTTP Request - Tạo Task Cải tiến Trello Jira Notion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        -32
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "improvement-task",
+        "options": {}
+      },
+      "id": "65f69330-61a9-488a-a030-e4cabb0dd8d8",
+      "name": "Webhook - Tiếp nhận Task Cải tiến (Endpoint)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        192
+      ],
+      "webhookId": "c8f2d21d-ea3f-4860-b995-ee0781c178c6"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - 8h hằng ngày & Thứ Hai": {
+      "main": [
+        [
+          {
+            "node": "Date & Time - Xác định khoảng thời gian báo cáo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Kích hoạt Báo cáo L12": {
+      "main": [
+        [
+          {
+            "node": "Date & Time - Xác định khoảng thời gian báo cáo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time - Xác định khoảng thời gian báo cáo": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tổng hợp chỉ số Ticket & Phản hồi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tổng hợp chỉ số Ticket & Phản hồi": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tổng hợp Hoàn tiền, Bảo hành, Khiếu nại & QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tổng hợp Hoàn tiền, Bảo hành, Khiếu nại & QA": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lấy lỗ hổng tri thức (knowledge_gaps)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lấy lỗ hổng tri thức (knowledge_gaps)": {
+      "main": [
+        [
+          {
+            "node": "Code - Gom chỉ số & So sánh phát hiện đột biến",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Gom chỉ số & So sánh phát hiện đột biến": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Viết tóm tắt điều hành & Gom chủ đề",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Viết tóm tắt điều hành & Gom chủ đề": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets / Dashboard - Đẩy số liệu Metabase & Looker Studio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Soạn Báo cáo Điều hành": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Viết tóm tắt điều hành & Gom chủ đề",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets / Dashboard - Đẩy số liệu Metabase & Looker Studio": {
+      "main": [
+        [
+          {
+            "node": "Gmail / Email - Báo cáo điều hành cho Quản lý",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram / Slack - Tóm tắt điều hành cho Lãnh đạo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request - Tạo Task Cải tiến Trello Jira Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
+}
