@@ -42,6 +42,7 @@ public class PortalService {
     private final QaScoreRepository qaScores;
     private final KnowledgeGapRepository knowledgeGaps;
     private final AuditLogRepository auditLogs;
+    private final StaffRepository staffRepo;
 
     public PortalService(
             CustomerOrderRepository orders,
@@ -58,7 +59,8 @@ public class PortalService {
             KbDocumentRepository kbDocuments,
             QaScoreRepository qaScores,
             KnowledgeGapRepository knowledgeGaps,
-            AuditLogRepository auditLogs) {
+            AuditLogRepository auditLogs,
+            StaffRepository staffRepo) {
         this.orders = orders;
         this.orderItems = orderItems;
         this.tickets = tickets;
@@ -74,6 +76,7 @@ public class PortalService {
         this.qaScores = qaScores;
         this.knowledgeGaps = knowledgeGaps;
         this.auditLogs = auditLogs;
+        this.staffRepo = staffRepo;
     }
 
     // ---- Khach hang: du lieu thuc tu SQL ----
@@ -327,13 +330,94 @@ public class PortalService {
 
     @Transactional
     public ComplaintDto createComplaint(Map<String, Object> req, Long customerId) {
-        String desc = (String) req.getOrDefault("description", "Khiếu nại dịch vụ");
-        String deptCode = (String) req.getOrDefault("departmentCode", "DELIVERY");
+        String desc = (String) req.getOrDefault("description", 
+                        req.getOrDefault("content", 
+                        req.getOrDefault("message", 
+                        req.getOrDefault("details", "Khiếu nại dịch vụ"))));
+        String deptCode = (String) req.getOrDefault("departmentCode", null);
         String sevStr = (String) req.getOrDefault("severity", "MAJOR");
+        String typeStr = (String) req.getOrDefault("type", req.getOrDefault("complaint_type", null));
+
+        // Phân loại ComplaintType
+        ComplaintType complaintType = ComplaintType.OTHER;
+        if (typeStr != null && !typeStr.isBlank()) {
+            try {
+                complaintType = ComplaintType.valueOf(typeStr.toUpperCase());
+            } catch (Exception ignored) {}
+        } else {
+            String lower = desc.toLowerCase();
+            if (lower.contains("nhân viên") || lower.contains("thái độ") || lower.contains("tư vấn") || lower.contains("phục vụ") || lower.contains("chăm sóc")) {
+                complaintType = ComplaintType.STAFF;
+            } else if (lower.contains("giao hàng") || lower.contains("shipper") || lower.contains("vận chuyển") || lower.contains("giao trễ") || lower.contains("chậm")) {
+                complaintType = ComplaintType.DELIVERY;
+            } else if (lower.contains("sản phẩm") || lower.contains("hàng") || lower.contains("hỏng") || lower.contains("lỗi") || lower.contains("vỡ")) {
+                complaintType = ComplaintType.PRODUCT;
+            } else if (lower.contains("tiền") || lower.contains("thanh toán") || lower.contains("trừ tiền") || lower.contains("chuyển khoản") || lower.contains("hoàn tiền")) {
+                complaintType = ComplaintType.PAYMENT;
+            }
+        }
+
+        // Tự động phân loại phòng ban nếu khách hàng không chỉ định phòng ban
+        if (deptCode == null || deptCode.isBlank() || "AUTO".equalsIgnoreCase(deptCode)) {
+            switch (complaintType) {
+                case DELIVERY -> deptCode = "DELIVERY";
+                case PRODUCT -> deptCode = "TECH";
+                case PAYMENT -> deptCode = "ACCOUNTING";
+                case STAFF -> deptCode = "SUPPORT";
+                default -> {
+                    String lower = desc.toLowerCase();
+                    if (lower.contains("nhân viên") || lower.contains("thái độ") || lower.contains("tư vấn") || lower.contains("phục vụ") || lower.contains("chăm sóc")) {
+                        deptCode = "SUPPORT";
+                    } else if (lower.contains("giao hàng") || lower.contains("shipper") || lower.contains("vận chuyển") || lower.contains("giao trễ") || lower.contains("chậm")) {
+                        deptCode = "DELIVERY";
+                    } else if (lower.contains("sản phẩm") || lower.contains("tai nghe") || lower.contains("bàn phím") || lower.contains("chuột") || lower.contains("hỏng") || lower.contains("lỗi") || lower.contains("vỡ")) {
+                        deptCode = "TECH";
+                    } else if (lower.contains("tiền") || lower.contains("thanh toán") || lower.contains("trừ tiền") || lower.contains("chuyển khoản") || lower.contains("hoàn tiền")) {
+                        deptCode = "ACCOUNTING";
+                    } else {
+                        deptCode = "SUPPORT";
+                    }
+                }
+            }
+        }
 
         Customer c = customerId != null ? customers.findById(customerId).orElse(null) : null;
         if (c == null) {
             c = customers.findAll().get(0);
+        }
+
+        // Xác định mức độ nghiêm trọng & Priority
+        Severity severity;
+        try {
+            severity = Severity.valueOf(sevStr.toUpperCase());
+        } catch (Exception e) {
+            severity = Severity.MAJOR;
+        }
+
+        Priority priority = (severity == Severity.CRITICAL) ? Priority.P1 :
+                            (severity == Severity.MINOR) ? Priority.P3 : Priority.P2;
+
+        Department targetDept = departments.findByCode(deptCode).orElse(null);
+        if (targetDept == null) {
+            targetDept = departments.findByCode("SUPPORT").orElse(null);
+        }
+
+        // ==============================================================
+        // L08 THUẬT TOÁN TỰ ĐỘNG GÁN ĐÍCH DANH NHÂN VIÊN (STAFF ID)
+        // Hệ thống tự động phân công nhân viên có currentLoad thấp nhất
+        // ==============================================================
+        Staff assignedStaff = null;
+        if (targetDept != null) {
+            assignedStaff = staffRepo.findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(targetDept.getId()).orElse(null);
+        }
+        if (assignedStaff == null) {
+            Department supportDept = departments.findByCode("SUPPORT").orElse(null);
+            if (supportDept != null) {
+                assignedStaff = staffRepo.findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(supportDept.getId()).orElse(null);
+            }
+        }
+        if (assignedStaff == null) {
+            assignedStaff = staffRepo.findFirstByActiveTrueOrderByCurrentLoadAsc().orElse(null);
         }
 
         Ticket t = new Ticket();
@@ -341,28 +425,75 @@ public class PortalService {
         t.setSubject("Khiếu nại: " + desc);
         t.setCustomer(c);
         t.setStatus(TicketStatus.OPEN);
-        t.setPriority(Priority.P2);
+        t.setPriority(priority);
         t.setChannel(Channel.LIVECHAT);
+        t.setIntent(Intent.COMPLAINT);
+        t.setDepartment(targetDept);
+        if (assignedStaff != null) {
+            t.setAssignee(assignedStaff);
+        }
         Ticket savedTicket = tickets.save(t);
 
         Complaint cp = new Complaint();
         cp.setComplaintCode("CP-" + System.currentTimeMillis() % 1000000);
         cp.setTicket(savedTicket);
         cp.setDescription(desc);
-        cp.setSeverity(Severity.valueOf(sevStr));
+        cp.setSeverity(severity);
         cp.setStatus(ComplaintStatus.OPEN);
-        cp.setDueAt(Instant.now().plus(2, ChronoUnit.HOURS));
-        departments.findByCode(deptCode).ifPresent(cp::setDepartment);
+        cp.setType(complaintType);
+
+        // Hạn SLA theo mức độ
+        long hours = (severity == Severity.CRITICAL) ? 2 : (severity == Severity.MINOR) ? 24 : 12;
+        cp.setDueAt(Instant.now().plus(hours, ChronoUnit.HOURS));
+        t.setDueAt(cp.getDueAt());
+        tickets.save(t);
+
+        if (targetDept != null) {
+            cp.setDepartment(targetDept);
+        }
+        if (assignedStaff != null) {
+            cp.setStaff(assignedStaff);
+            assignedStaff.setCurrentLoad(assignedStaff.getCurrentLoad() + 1);
+            staffRepo.save(assignedStaff);
+        }
         Complaint saved = complaints.save(cp);
 
-        // Kích hoạt webhook n8n Luồng L08_Complaint
+        // Ghi Audit Log phân công tự động L08
+        if (assignedStaff != null) {
+            AuditLog al = new AuditLog();
+            al.setWorkflow("L08_Complaint");
+            al.setEntityType("complaint");
+            al.setEntityId(saved.getId());
+            al.setAction("AUTO_ASSIGN_STAFF");
+            al.setActor("AI_ROUTING_L08");
+            al.setDetail(Map.of(
+                    "staffId", assignedStaff.getId(),
+                    "staffName", assignedStaff.getFullName(),
+                    "staffEmail", assignedStaff.getEmail(),
+                    "department", deptCode,
+                    "severity", severity.name()
+            ));
+            auditLogs.save(al);
+        }
+
+        // Kích hoạt webhook n8n Luồng L08_Complaint (truyền đầy đủ Staff ID và thông tin cá nhân nhân viên)
         Map<String, Object> n8nData = new HashMap<>();
         n8nData.put("complaint_code", saved.getComplaintCode());
         n8nData.put("ticket_id", savedTicket.getId());
         n8nData.put("message", desc);
+        n8nData.put("content_original", desc);
         n8nData.put("department", deptCode);
-        n8nData.put("severity", sevStr);
+        n8nData.put("department_id", targetDept != null ? targetDept.getId() : 1);
+        n8nData.put("department_name", targetDept != null ? targetDept.getName() : "Chăm sóc khách hàng");
+        n8nData.put("severity", severity.name());
+        n8nData.put("priority", priority.name());
         n8nData.put("customer_id", c.getId());
+        if (assignedStaff != null) {
+            n8nData.put("assigned_staff_id", assignedStaff.getId());
+            n8nData.put("assigned_staff_name", assignedStaff.getFullName());
+            n8nData.put("assigned_staff_email", assignedStaff.getEmail());
+            n8nData.put("staff_id", assignedStaff.getId());
+        }
         n8nService.triggerComplaint(n8nData);
 
         return new ComplaintDto(
@@ -373,7 +504,9 @@ public class PortalService {
                 saved.getSeverity().name(),
                 saved.getStatus().name(),
                 saved.getDescription(),
-                saved.getDueAt()
+                saved.getDueAt(),
+                assignedStaff != null ? assignedStaff.getId() : null,
+                assignedStaff != null ? assignedStaff.getFullName() : "Chưa phân công"
         );
     }
 
@@ -633,11 +766,44 @@ public class PortalService {
     // GIẢI PHÁP 3: Xử lý giải quyết khiếu nại (L08) & đánh thức n8n
     @Transactional
     public Map<String, Object> resolveComplaint(String code, Map<String, Object> body) {
+        return resolveComplaint(code, body, null, null);
+    }
+
+    @Transactional
+    public Map<String, Object> resolveComplaint(String code, Map<String, Object> body, Long requestingStaffId, String roleStr) {
         Optional<Complaint> compOpt = complaints.findByComplaintCode(code.trim());
         if (compOpt.isEmpty()) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khiếu nại: " + code);
         }
         Complaint c = compOpt.get();
+
+        // Kiểm tra phân quyền nhân viên khi giải quyết khiếu nại
+        if (requestingStaffId != null) {
+            Staff currentStaff = staffRepo.findById(requestingStaffId).orElse(null);
+            if (currentStaff != null) {
+                StaffRole sRole = currentStaff.getRole();
+                boolean isAdminOrManager = (sRole == StaffRole.ADMIN || sRole == StaffRole.MANAGER || 
+                                            "ADMIN".equalsIgnoreCase(roleStr) || "MANAGER".equalsIgnoreCase(roleStr));
+                boolean isLead = (sRole == StaffRole.TEAM_LEAD || "TEAM_LEAD".equalsIgnoreCase(roleStr));
+                
+                Staff assigned = c.getStaff() != null ? c.getStaff() : (c.getTicket() != null ? c.getTicket().getAssignee() : null);
+                Long assignedId = assigned != null ? assigned.getId() : null;
+                Department dept = c.getDepartment() != null ? c.getDepartment() : (c.getTicket() != null ? c.getTicket().getDepartment() : null);
+                Long deptId = dept != null ? dept.getId() : null;
+                Long staffDeptId = currentStaff.getDepartment() != null ? currentStaff.getDepartment().getId() : null;
+
+                if (!isAdminOrManager) {
+                    boolean isMine = currentStaff.getId().equals(assignedId);
+                    boolean isMyDept = staffDeptId != null && staffDeptId.equals(deptId);
+                    if (!isMine && !(isLead && isMyDept) && !isMyDept) {
+                        throw new ApiException(HttpStatus.FORBIDDEN, 
+                            "Bạn không có quyền xử lý khiếu nại này! (Khiếu nại thuộc phòng ban " + 
+                            (dept != null ? dept.getName() : "khác") + ")");
+                    }
+                }
+            }
+        }
+
         String resolution = body.get("resolution") != null ? body.get("resolution").toString() : "Đã tiếp nhận và xử lý thỏa đáng";
         String rootCause = body.get("rootCause") != null ? body.get("rootCause").toString() : "Nguyên nhân vận hành / vận chuyển";
         String compensation = body.get("compensation") != null ? body.get("compensation").toString() : "Bồi hoàn voucher 50.000đ";
@@ -647,6 +813,16 @@ public class PortalService {
         c.setRootCause(rootCause);
         c.setResolvedAt(Instant.now());
         complaints.save(c);
+
+        // Giảm currentLoad của chuyên viên được phân công xử lý khi hoàn tất
+        Staff assignedStaff = c.getStaff();
+        if (assignedStaff == null && c.getTicket() != null) {
+            assignedStaff = c.getTicket().getAssignee();
+        }
+        if (assignedStaff != null) {
+            assignedStaff.setCurrentLoad(Math.max(0, assignedStaff.getCurrentLoad() - 1));
+            staffRepo.save(assignedStaff);
+        }
 
         if (c.getTicket() != null) {
             Ticket t = c.getTicket();
@@ -878,9 +1054,91 @@ public class PortalService {
         return Map.of("status", "APPROVED", "ticketId", ticketId);
     }
 
-    // Quản lý khiếu nại (L08)
+    // Quản lý khiếu nại (L08) - Phân quyền truy cập theo Vai trò, Nhân viên & Phòng ban
     public List<Map<String, Object>> getAllStaffComplaints() {
-        return complaints.findAllByOrderByCreatedAtDesc().stream().map(c -> {
+        return getStaffComplaints(null, null, "all", null);
+    }
+
+    public List<Map<String, Object>> getStaffComplaints(Long requestingStaffId, String roleStr, String scope, Long filterDeptId) {
+        Staff currentStaff = requestingStaffId != null ? staffRepo.findById(requestingStaffId).orElse(null) : null;
+
+        boolean isAdminOrManager = false;
+        boolean isTeamLead = false;
+        Long staffDeptId = null;
+
+        if (currentStaff != null) {
+            StaffRole sRole = currentStaff.getRole();
+            isAdminOrManager = (sRole == StaffRole.ADMIN || sRole == StaffRole.MANAGER || 
+                                "ADMIN".equalsIgnoreCase(roleStr) || "MANAGER".equalsIgnoreCase(roleStr));
+            isTeamLead = (sRole == StaffRole.TEAM_LEAD || "TEAM_LEAD".equalsIgnoreCase(roleStr));
+            if (currentStaff.getDepartment() != null) {
+                staffDeptId = currentStaff.getDepartment().getId();
+            }
+        } else if (roleStr != null) {
+            isAdminOrManager = "ADMIN".equalsIgnoreCase(roleStr) || "MANAGER".equalsIgnoreCase(roleStr);
+            isTeamLead = "TEAM_LEAD".equalsIgnoreCase(roleStr);
+        }
+
+        final Long myStaffId = currentStaff != null ? currentStaff.getId() : requestingStaffId;
+        final Long myDeptId = staffDeptId;
+        final boolean admin = isAdminOrManager;
+        final boolean lead = isTeamLead;
+
+        List<Complaint> all = complaints.findAllByOrderByCreatedAtDesc();
+
+        return all.stream().filter(c -> {
+            Staff assigned = c.getStaff() != null ? c.getStaff() : (c.getTicket() != null ? c.getTicket().getAssignee() : null);
+            Long assignedId = assigned != null ? assigned.getId() : null;
+            Department dept = c.getDepartment() != null ? c.getDepartment() : (c.getTicket() != null ? c.getTicket().getDepartment() : null);
+            Long deptId = dept != null ? dept.getId() : null;
+
+            // 1. Quản trị viên / Quản lý (ADMIN, MANAGER): Toàn quyền xem
+            if (admin) {
+                if ("my".equalsIgnoreCase(scope)) {
+                    return myStaffId != null && myStaffId.equals(assignedId);
+                }
+                if ("dept".equalsIgnoreCase(scope) || filterDeptId != null) {
+                    Long targetDept = filterDeptId != null ? filterDeptId : myDeptId;
+                    return targetDept != null && targetDept.equals(deptId);
+                }
+                return true; // "all" hoặc mặc định: xem tất cả
+            }
+
+            // 2. Trưởng nhóm (TEAM_LEAD): Xem toàn bộ phòng ban phụ trách
+            if (lead) {
+                if ("my".equalsIgnoreCase(scope)) {
+                    return myStaffId != null && myStaffId.equals(assignedId);
+                }
+                // Mặc định hoặc scope == "dept": xem các khiếu nại thuộc phòng ban của mình
+                if (myDeptId != null && myDeptId.equals(deptId)) {
+                    return true;
+                }
+                // Hoặc khiếu nại đích danh gán cho Team Lead
+                return myStaffId != null && myStaffId.equals(assignedId);
+            }
+
+            // 3. Nhân viên chuyên trách (AGENT, TECHNICIAN, LEGAL):
+            // Fallback nếu không truyền thông tin đăng nhập (demo)
+            if (myStaffId == null) {
+                return true;
+            }
+
+            // Nếu chọn tab "Phòng ban của tôi"
+            if ("dept".equalsIgnoreCase(scope)) {
+                return myDeptId != null && myDeptId.equals(deptId);
+            }
+
+            // MẶC ĐỊNH (scope == "my" hoặc không truyền): CHỈ xem khiếu nại được gán đích danh cho cá nhân này!
+            if (myStaffId.equals(assignedId)) {
+                return true;
+            }
+            // Hoặc trường hợp khiếu nại mới vào phòng ban nhưng chưa gán cho ai
+            if (assignedId == null && myDeptId != null && myDeptId.equals(deptId)) {
+                return true;
+            }
+
+            return false;
+        }).map(c -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", c.getId());
             m.put("complaintCode", c.getComplaintCode());
@@ -895,8 +1153,70 @@ public class PortalService {
             m.put("rootCause", c.getRootCause());
             m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
             m.put("resolvedAt", c.getResolvedAt() != null ? c.getResolvedAt().toString() : null);
+
+            Staff s = c.getStaff() != null ? c.getStaff() : (c.getTicket() != null ? c.getTicket().getAssignee() : null);
+            Long assignedId = s != null ? s.getId() : null;
+            if (s != null) {
+                m.put("staffId", s.getId());
+                m.put("staffName", s.getFullName());
+                m.put("staffEmail", s.getEmail());
+            } else {
+                m.put("staffId", null);
+                m.put("staffName", "Chưa phân công");
+                m.put("staffEmail", "");
+            }
+
+            Department d = c.getDepartment() != null ? c.getDepartment() : (c.getTicket() != null ? c.getTicket().getDepartment() : null);
+            Long deptId = d != null ? d.getId() : null;
+            m.put("departmentId", deptId);
+            m.put("departmentCode", d != null ? d.getCode() : "SUPPORT");
+            m.put("departmentName", d != null ? d.getName() : "Chăm sóc khách hàng");
+
+            // Phân quyền trên từng item cho giao diện frontend
+            boolean isMine = myStaffId != null && myStaffId.equals(assignedId);
+            boolean isMyDept = myDeptId != null && myDeptId.equals(deptId);
+            boolean canResolve = admin || isMine || (lead && isMyDept);
+
+            m.put("isAssignedToMe", isMine);
+            m.put("isMyDepartment", isMyDept);
+            m.put("canResolve", canResolve);
+
             return m;
         }).toList();
+    }
+
+    @Transactional
+    public Map<String, Object> autoAssignStaffToComplaint(String complaintCode, Long staffId) {
+        Complaint c = complaints.findByComplaintCode(complaintCode.trim())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khiếu nại: " + complaintCode));
+        Staff s = staffRepo.findById(staffId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên ID=" + staffId));
+
+        c.setStaff(s);
+        if (s.getDepartment() != null) {
+            c.setDepartment(s.getDepartment());
+        }
+        if (c.getTicket() != null) {
+            c.getTicket().setAssignee(s);
+            if (s.getDepartment() != null) {
+                c.getTicket().setDepartment(s.getDepartment());
+            }
+            tickets.save(c.getTicket());
+        }
+        s.setCurrentLoad(s.getCurrentLoad() + 1);
+        staffRepo.save(s);
+        complaints.save(c);
+
+        AuditLog al = new AuditLog();
+        al.setWorkflow("L08_Complaint");
+        al.setEntityType("complaint");
+        al.setEntityId(c.getId());
+        al.setAction("ASSIGN_STAFF");
+        al.setActor("SYSTEM");
+        al.setDetail(Map.of("staffId", s.getId(), "staffName", s.getFullName(), "complaintCode", complaintCode));
+        auditLogs.save(al);
+
+        return Map.of("success", true, "complaintCode", complaintCode, "staffId", s.getId(), "staffName", s.getFullName());
     }
 
     // Quản lý hoàn tiền (L09)

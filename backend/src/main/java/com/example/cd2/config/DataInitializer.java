@@ -44,12 +44,15 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (!enabled) return;
-        seedStaff("admin@support.local", "Quan tri he thong", AccountRole.ADMIN, StaffRole.ADMIN, "SUPPORT");
-        seedStaff("manager@support.local", "Quan ly CSKH", AccountRole.MANAGER, StaffRole.MANAGER, "SUPPORT");
-        seedStaff("teamlead@support.local", "Truong nhom CSKH", AccountRole.TEAM_LEAD, StaffRole.TEAM_LEAD, "SUPPORT");
-        seedStaff("agent@support.local", "Nhan vien CSKH", AccountRole.AGENT, StaffRole.AGENT, "SUPPORT");
-        seedStaff("tech@support.local", "Ky thuat vien", AccountRole.TECHNICIAN, StaffRole.TECHNICIAN, "TECH");
-        seedCustomer("customer@example.com", "Khach hang mau");
+        seedStaff("admin@support.local", "Quản trị hệ thống", AccountRole.ADMIN, StaffRole.ADMIN, "SUPPORT");
+        seedStaff("manager@support.local", "Quản lý CSKH", AccountRole.MANAGER, StaffRole.MANAGER, "SUPPORT");
+        seedStaff("teamlead@support.local", "Trưởng nhóm CSKH", AccountRole.TEAM_LEAD, StaffRole.TEAM_LEAD, "SUPPORT");
+        seedStaff("agent@support.local", "Nhân viên CSKH", AccountRole.AGENT, StaffRole.AGENT, "SUPPORT");
+        seedStaff("tech@support.local", "Kỹ thuật viên", AccountRole.TECHNICIAN, StaffRole.TECHNICIAN, "TECH");
+        seedStaff("delivery@support.local", "Điều phối Giao hàng", AccountRole.AGENT, StaffRole.AGENT, "DELIVERY");
+        seedStaff("accounting@support.local", "Kế toán viên", AccountRole.AGENT, StaffRole.AGENT, "ACCOUNTING");
+        seedStaff("legal@support.local", "Chuyên viên Pháp chế", AccountRole.LEGAL, StaffRole.LEGAL, "LEGAL");
+        seedCustomer("customer@example.com", "Khách hàng mẫu");
         log.warn("Da tao tai khoan mau voi mat khau mac dinh - hay DOI MAT KHAU truoc khi trien khai that.");
     }
 

@@ -38,6 +38,10 @@ public class Complaint extends BaseEntity {
     @JoinColumn(name = "department_id")
     private Department department;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_id")
+    private Staff staff;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ComplaintType type = ComplaintType.OTHER;
