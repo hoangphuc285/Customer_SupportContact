@@ -63,6 +63,10 @@ public class N8nClientService {
         sendAsync("/webhook/kb-ingest-trigger", payload, "L04_KBIngestion");
     }
 
+    public void triggerSlaMonitor(Map<String, Object> payload) {
+        sendAsync("/webhook/sla-monitor", payload != null ? payload : Map.of(), "L07_SLA_Monitor");
+    }
+
     public void resumeWaitingWebhook(String webhookIdOrUrl, Map<String, Object> payload) {
         if (webhookIdOrUrl != null && webhookIdOrUrl.startsWith("http")) {
             sendFullUrlAsync(webhookIdOrUrl, payload, "Resume_Wait_Webhook_Direct");

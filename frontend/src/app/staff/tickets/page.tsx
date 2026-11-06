@@ -15,12 +15,15 @@ import {
     CheckCircle2,
     Flame,
     Bot,
-    Languages
+    Languages,
+    Zap
 } from 'lucide-react';
 
 export default function StaffTicketListPage() {
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [triggeringSla, setTriggeringSla] = useState(false);
+    const [slaNotice, setSlaNotice] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     
     // Filters as specified in prompt table
@@ -47,6 +50,30 @@ export default function StaffTicketListPage() {
             console.error('Lỗi khi tải danh sách ticket từ DB:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleTriggerSla = async () => {
+        setTriggeringSla(true);
+        setSlaNotice(null);
+        try {
+            const res = await fetch('http://localhost:8080/api/sla/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actor: 'TICKET_INBOX', reason: 'Quét SLA từ danh sách Ticket' })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setSlaNotice('✅ Đã kích hoạt quét giám sát SLA qua luồng n8n L07! Đang cập nhật trạng thái...');
+                setTimeout(() => fetchTickets(), 3000);
+            } else {
+                setSlaNotice('⚠️ Lỗi: ' + (data.message || 'Không thể kích hoạt SLA'));
+            }
+        } catch (err: any) {
+            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + err.message);
+        } finally {
+            setTriggeringSla(false);
+            setTimeout(() => setSlaNotice(null), 5000);
         }
     };
 
@@ -144,14 +171,33 @@ export default function StaffTicketListPage() {
                         </p>
                     </div>
 
-                    <button
-                        onClick={fetchTickets}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm"
-                    >
-                        <RotateCcw size={15} className={loading ? 'animate-spin' : ''} />
-                        Làm mới
-                    </button>
+                    <div className="flex items-center gap-2.5">
+                        <button
+                            onClick={handleTriggerSla}
+                            disabled={triggeringSla}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 rounded-xl text-sm font-black transition-all shadow-md active:scale-95 disabled:opacity-60 cursor-pointer"
+                            title="Kích hoạt n8n L07 quét SLA và cập nhật trạng thái tự động"
+                        >
+                            <Zap size={16} className={triggeringSla ? 'animate-spin' : ''} />
+                            <span>{triggeringSla ? 'Đang quét SLA...' : '⚡ Quét SLA (L07)'}</span>
+                        </button>
+                        <button
+                            onClick={fetchTickets}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm cursor-pointer"
+                        >
+                            <RotateCcw size={15} className={loading ? 'animate-spin' : ''} />
+                            Làm mới
+                        </button>
+                    </div>
                 </div>
+
+                {/* SLA NOTIFICATION BANNER */}
+                {slaNotice && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                        <Zap size={15} className="text-amber-400 shrink-0" />
+                        <span>{slaNotice}</span>
+                    </div>
+                )}
 
                 {/* FILTERS TOOLBAR */}
                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-4 shadow-xl">
