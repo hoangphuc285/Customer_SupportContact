@@ -22,7 +22,8 @@ import {
     Wrench,
     Scale,
     Activity,
-    Ticket
+    Ticket,
+    Zap
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -38,6 +39,31 @@ export default function AdminDashboardPage() {
     });
     const [departments, setDepartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [triggeringSla, setTriggeringSla] = useState(false);
+    const [slaNotice, setSlaNotice] = useState<string | null>(null);
+
+    const handleTriggerSla = async () => {
+        setTriggeringSla(true);
+        setSlaNotice(null);
+        try {
+            const res = await fetch('http://localhost:8080/api/sla/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actor: 'ADMIN_CONSOLE', reason: 'Kích hoạt từ giao diện Quản trị' })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setSlaNotice('✅ Đã kích hoạt quét giám sát SLA qua luồng n8n L07 thành công! Hệ thống đang tự động kiểm tra và phân bổ ticket.');
+            } else {
+                setSlaNotice('⚠️ Lỗi: ' + (data.message || 'Không thể kích hoạt SLA'));
+            }
+        } catch (err: any) {
+            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + err.message);
+        } finally {
+            setTriggeringSla(false);
+            setTimeout(() => setSlaNotice(null), 6000);
+        }
+    };
 
     useEffect(() => {
         const fetchAdminData = async () => {
@@ -105,6 +131,15 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={handleTriggerSla}
+                        disabled={triggeringSla}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer active:scale-95 disabled:opacity-60"
+                        title="Kích hoạt luồng n8n L07 quét vi phạm SLA và phân bổ ticket"
+                    >
+                        <Zap size={15} className={triggeringSla ? 'animate-spin' : ''} />
+                        <span>{triggeringSla ? 'Đang kích hoạt n8n...' : '⚡ Quét Giám Sát SLA (L07)'}</span>
+                    </button>
                     <Link
                         href="/admin/staff"
                         className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/25 transition cursor-pointer"
@@ -121,6 +156,14 @@ export default function AdminDashboardPage() {
                     </Link>
                 </div>
             </div>
+
+            {/* SLA NOTIFICATION BANNER */}
+            {slaNotice && (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                    <Zap size={16} className="text-amber-400 shrink-0" />
+                    <span>{slaNotice}</span>
+                </div>
+            )}
 
             {/* 4 STAT METRICS CARDS TỪ BACKEND MYSQL */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
