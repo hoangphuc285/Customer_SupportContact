@@ -26,30 +26,17 @@ public class N8nIntakeController {
     private final IntakeService intake;
     private final TicketRepository ticketRepository;
     private final com.example.cd2.service.SlaService slaService;
-    private final com.example.cd2.service.PortalService portalService;
 
-    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository,
-                               com.example.cd2.service.SlaService slaService,
-                               com.example.cd2.service.PortalService portalService) {
+    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository, com.example.cd2.service.SlaService slaService) {
         this.intake = intake;
         this.ticketRepository = ticketRepository;
         this.slaService = slaService;
-        this.portalService = portalService;
     }
 
     /** Kiem tra ket noi / API key tu n8n. */
     @GetMapping("/ping")
     public Map<String, String> ping() {
         return Map.of("status", "ok");
-    }
-
-    /** n8n L08: Tu dong gan nhan vien cho complaint & ticket */
-    @PostMapping("/complaints/assign")
-    public ResponseEntity<Map<String, Object>> assignComplaintFromN8n(@RequestBody Map<String, Object> body) {
-        log.info("N8nIntakeController received complaint assignment: {}", body);
-        String code = body.get("complaint_code") != null ? body.get("complaint_code").toString() : body.get("complaintCode").toString();
-        Long staffId = Long.parseLong(body.get("staff_id") != null ? body.get("staff_id").toString() : body.get("staffId").toString());
-        return ResponseEntity.ok(portalService.autoAssignStaffToComplaint(code, staffId));
     }
 
     /** Ghi nhan su kien SLA tu n8n L07 */
