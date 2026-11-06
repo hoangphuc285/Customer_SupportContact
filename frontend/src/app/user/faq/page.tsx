@@ -101,7 +101,7 @@ export default function FaqPage() {
             {
                 id: 3,
                 sourceKey: 'shipping-tracking-guide',
-                title: 'Hướng dẫn Tra cứu Tiễn độ Giao hàng & Vận chuyển (Luồng L01-L02)',
+                title: 'Hướng dẫn Tra cứu Tiến độ Giao hàng & Vận chuyển (Luồng L01-L02)',
                 category: 'SHIPPING',
                 version: '1',
                 language: 'vi',
