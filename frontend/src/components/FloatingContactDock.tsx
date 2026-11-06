@@ -198,7 +198,7 @@ export default function FloatingContactDock() {
                 <div className="mb-3 mr-1 bg-white border border-sky-200 text-slate-800 text-xs px-3.5 py-2 rounded-2xl shadow-lg relative flex items-center gap-2 max-w-xs animate-bounce">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <p className="font-semibold text-slate-700 leading-snug">
-                        Cần tra cứu bảo hành (<strong>#DH1024</strong> / <strong>SN-LAP-0003</strong>) hoặc đổi trả? Bấm chat với mình nhé! 🤖
+                        Cần hỗ trợ hoặc tra cứu tiến trình vé? Bấm chat với mình nhé! 🤖
                     </p>
                     <button 
                         type="button" 
@@ -466,20 +466,37 @@ export default function FloatingContactDock() {
                     {activeTab === 'CHANNELS' && (
                         <div className="flex-1 p-3.5 space-y-2.5 bg-slate-50 overflow-y-auto text-xs">
                             <Link
-                                href="/user/orders"
+                                href="/user/tickets"
                                 onClick={() => setIsOpen(false)}
                                 className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xs transition flex items-center justify-between group"
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Truck size={17} />
+                                        <Clock size={17} />
                                     </div>
                                     <div>
-                                        <h5 className="font-bold text-xs text-slate-900 group-hover:text-blue-600">Tra cứu đơn & Vận chuyển</h5>
-                                        <p className="text-[10px] text-slate-500">Nhập #DH-1001 hoặc #DH1024</p>
+                                        <h5 className="font-bold text-xs text-slate-900 group-hover:text-blue-600">Lịch sử & Vé hỗ trợ</h5>
+                                        <p className="text-[10px] text-slate-500">Xem tiến trình các ticket của bạn</p>
                                     </div>
                                 </div>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">L01-L02</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Ticket</span>
+                            </Link>
+
+                            <Link
+                                href="/user/new"
+                                onClick={() => setIsOpen(false)}
+                                className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-xs transition flex items-center justify-between group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Sparkles size={17} />
+                                    </div>
+                                    <div>
+                                        <h5 className="font-bold text-xs text-slate-900 group-hover:text-indigo-600">Gửi phiếu yêu cầu mới</h5>
+                                        <p className="text-[10px] text-slate-500">Biểu mẫu gửi hỗ trợ nhanh chóng</p>
+                                    </div>
+                                </div>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">Mới</span>
                             </Link>
 
                             <Link
@@ -493,27 +510,10 @@ export default function FloatingContactDock() {
                                     </div>
                                     <div>
                                         <h5 className="font-bold text-xs text-slate-900 group-hover:text-emerald-600">Trung tâm trợ giúp (FAQ)</h5>
-                                        <p className="text-[10px] text-slate-500">Tra cứu bài viết tri thức từ kb_documents</p>
+                                        <p className="text-[10px] text-slate-500">Tra cứu bài viết tri thức</p>
                                     </div>
                                 </div>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">L04-L05</span>
-                            </Link>
-
-                            <Link
-                                href="/user/refund"
-                                onClick={() => setIsOpen(false)}
-                                className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-purple-400 hover:shadow-xs transition flex items-center justify-between group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Clock size={17} />
-                                    </div>
-                                    <div>
-                                        <h5 className="font-bold text-xs text-slate-900 group-hover:text-purple-600">Yêu cầu hoàn tiền 7 ngày</h5>
-                                        <p className="text-[10px] text-slate-500">Thẩm định tự động theo 3 cấp duyệt</p>
-                                    </div>
-                                </div>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">L09</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">FAQ</span>
                             </Link>
 
                             <a

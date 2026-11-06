@@ -4,10 +4,7 @@
       "parameters": {
         "rule": {
           "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 10
-            }
+            {}
           ]
         }
       },
@@ -548,7 +545,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2140,
+        2144,
         240
       ],
       "continueOnFail": true

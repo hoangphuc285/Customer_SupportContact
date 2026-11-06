@@ -2,269 +2,19 @@
   "nodes": [
     {
       "parameters": {
-        "workflowInputs": {
-          "values": [
-            {
-              "name": "ticket_id",
-              "type": "number"
-            },
-            {
-              "name": "ticket_code"
-            },
-            {
-              "name": "customer_id",
-              "type": "number"
-            },
-            {
-              "name": "message_id",
-              "type": "number"
-            },
-            {
-              "name": "channel"
-            },
-            {
-              "name": "message"
-            },
-            {
-              "name": "is_new_ticket",
-              "type": "boolean"
-            },
-            {
-              "name": "attachment_url"
-            }
-          ]
-        }
-      },
-      "id": "c055762a-8fe7-4141-a639-df2372f30060",
-      "typeVersion": 1.1,
-      "name": "When Executed by Another Workflow",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "position": [
-        272,
-        352
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT id, sender_type, content_original, content_translated, created_at \nFROM messages \nWHERE ticket_id = {{ $json.ticket_id }} \nORDER BY created_at DESC \nLIMIT 5;",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
-      "position": [
-        528,
-        80
-      ],
-      "id": "cb207832-75b5-4970-bb4c-e6ab20d6a22a",
-      "name": "Get Recent Messages",
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=Hãy phân tích tin nhắn của khách hàng và lịch sử trò chuyện dưới đây để xác định ý định, cảm xúc và trích xuất các thông tin quan trọng.\n\n--- TIN NHẮN HIỆN TẠI ---\n{{ $('Call L03_Multilingual').first()?.json.message }}\n\n--- LỊCH SỬ 5 TIN NHẮN GẦN NHẤT ---\n{{ JSON.stringify($('Get Recent Messages').all().map(i => i.json.content_original)) }}\n\n--- YÊU CẦU XỬ LÝ ---\n1. Intent (Ý định): Chọn 1 trong các giá trị: COMPLAINT, FAQ, ORDER_STATUS, OTHER, PRODUCT_INFO, REFUND, WARRANTY.\n2. Sentiment (Cảm xúc): Chọn 1 trong các giá trị: POSITIVE, NEUTRAL, NEGATIVE, VERY_NEGATIVE.\n3. Information Extraction (Trích xuất): Tìm order_code (mã đơn), product_name (tên sản phẩm), serial_number (số serial), amount (số tiền). Nếu không có thì để null.\n4. Confidence (Độ tin cậy): Số thực từ 0.0 đến 1.0 đánh giá mức độ chắc chắn của phân loại trên.",
-        "hasOutputParser": true,
-        "messages": {
-          "messageValues": [
-            {
-              "message": "Bạn là trợ lý AI phân tích và phân loại phản hồi khách hàng trong hệ thống Contact Center. Hãy luôn phân tích khách quan dựa trên ngữ cảnh hội thoại được cung cấp."
-            }
-          ]
-        },
-        "batching": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.9,
-      "position": [
-        1056,
-        80
-      ],
-      "id": "9e89eae9-e7f7-424b-9a4b-4622bca343d4",
-      "name": "Classify & Extract Intent",
-      "retryOnFail": true,
-      "waitBetweenTries": 5000
-    },
-    {
-      "parameters": {
-        "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"intent\": {\n      \"type\": \"string\",\n      \"enum\": [\"COMPLAINT\", \"FAQ\", \"ORDER_STATUS\", \"OTHER\", \"PRODUCT_INFO\", \"REFUND\", \"WARRANTY\"],\n      \"description\": \"Ý định chính của khách hàng\"\n    },\n    \"sentiment\": {\n      \"type\": \"string\",\n      \"enum\": [\"POSITIVE\", \"NEUTRAL\", \"NEGATIVE\", \"VERY_NEGATIVE\"],\n      \"description\": \"Cảm xúc của khách hàng\"\n    },\n    \"order_code\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Mã đơn hàng nếu có\"\n    },\n    \"product_name\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Tên sản phẩm nếu có\"\n    },\n    \"serial_number\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Số serial nếu có\"\n    },\n    \"amount\": {\n      \"type\": [\"number\", \"null\"],\n      \"description\": \"Số tiền nếu có\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"Độ tin cậy từ 0.0 đến 1.0\"\n    }\n  },\n  \"required\": [\"intent\", \"sentiment\", \"confidence\"]\n}"
-      },
-      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
-      "typeVersion": 1.3,
-      "position": [
-        1200,
-        240
-      ],
-      "id": "768574a2-8eaf-4c76-b031-4aded9bdcfd5",
-      "name": "Structured Output Parser1"
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        1424,
-        336
-      ],
-      "id": "bf5e6078-1375-4ab3-a328-400045411ce5",
-      "name": "Merge AI Results"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "eadb8629-10eb-4f41-bc21-ee6b91b14bc4",
-              "name": "urgency",
-              "value": "={{ $json.output.sentiment === 'VERY_NEGATIVE' || $json.output.intent === 'COMPLAINT' ? 'HIGH' : ($json.output.sentiment === 'NEGATIVE' || $json.output.intent === 'REFUND' || $json.output.intent === 'WARRANTY' ? 'MEDIUM' : 'LOW') }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1648,
-        336
-      ],
-      "id": "6c720730-b292-4c5b-af33-f89a7be73e90",
-      "name": "Calculate Urgency"
-    },
-    {
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "1ae41ee5-6733-4c4c-ab0b-8f052e977ca0",
-                    "leftValue": "={{ $('Merge AI Results').first()?.json.output.intent }}",
-                    "rightValue": "COMPLAINT",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "da95ddfd-59a9-457c-a550-937cae132f66",
-                    "leftValue": "={{ $('Merge AI Results').first()?.json.output.intent }}",
-                    "rightValue": "REFUND",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "b37490e0-9ae9-4ac3-9bfc-383aa96426ad",
-                    "leftValue": "={{ $('Merge AI Results').first()?.json.output.intent }}",
-                    "rightValue": "WARRANTY",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            }
-          ]
-        },
-        "options": {
-          "fallbackOutput": "extra"
-        }
-      },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.4,
-      "position": [
-        2352,
-        32
-      ],
-      "id": "bed2c631-1d15-4778-bdcd-532a1be3ecaa",
-      "name": "Switch"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET \n  intent = '{{ $('Merge AI Results').first()?.json.output.intent }}',\n  sentiment = '{{ $('Merge AI Results').first()?.json.output.sentiment }}',\n  urgency = '{{ $json.urgency }}',\n  confidence = {{ $('Merge AI Results').first()?.json.output.confidence }},\n  need_human_review = {{ $json.confidence < 0.6 ? 1 : 0 }},\n  updated_at = NOW()\nWHERE id = {{ $('Merge AI Results').first()?.json.ticket_id }};",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
-      "position": [
-        2000,
-        336
-      ],
-      "id": "94528b6c-6a68-4908-ac30-3aeb345b8fed",
-      "name": "Update Ticket Intent",
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "703EGjagC9amfr8H",
+          "value": "y1V20HH06FtR39x3",
           "mode": "list",
-          "cachedResultUrl": "/workflow/703EGjagC9amfr8H",
-          "cachedResultName": "Call L05_FAQ"
+          "cachedResultUrl": "/workflow/y1V20HH06FtR39x3",
+          "cachedResultName": "l10"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
-            "message": "={{ $('Merge AI Results').first()?.json.message }}"
+            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}",
+            "message": "={{ $('Merge AI Results').item.json.message }}",
+            "customer_id": "={{ $('When Executed by Another Workflow').item.json.customer_id }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -287,6 +37,16 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -298,101 +58,25 @@
       "typeVersion": 1.3,
       "position": [
         2704,
-        416
+        224
       ],
-      "id": "35746e35-0e09-45ae-8036-4e0d8eaab82a",
-      "name": "Call L05_FAQ"
+      "id": "4d9e5d49-1ce2-4bfa-9cdf-adb47cf407f2",
+      "name": "Call L10"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "JhubOjn6p7V4rMnf",
+          "value": "fxTyVW1zGAc3P9BG",
           "mode": "list",
-          "cachedResultUrl": "/workflow/JhubOjn6p7V4rMnf",
-          "cachedResultName": "L06_Escalation"
+          "cachedResultUrl": "/workflow/fxTyVW1zGAc3P9BG",
+          "cachedResultName": "l9"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "need_human_review": "={{ $json.confidence < 0.6 ? true : false }}",
-            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
-            "urgency": "={{ $('Calculate Urgency').first()?.json.urgency }}",
-            "sentiment": "={{ $('Merge AI Results').first()?.json.output.sentiment }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "ticket_id",
-              "displayName": "ticket_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
-            },
-            {
-              "id": "urgency",
-              "displayName": "urgency",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "sentiment",
-              "displayName": "sentiment",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "need_human_review",
-              "displayName": "need_human_review",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "boolean",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        2368,
-        624
-      ],
-      "id": "16ec4d5b-faef-4248-aaf1-bd2f7137a3e7",
-      "name": "Call L06_Escalation"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "0dQiUc9K6iOq0ghT",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/0dQiUc9K6iOq0ghT",
-          "cachedResultName": "L03_Multilingual"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "ticket_id": "={{ $('When Executed by Another Workflow').first()?.json.ticket_id }}",
-            "message": "={{ $('When Executed by Another Workflow').first().json.message }}",
-            "message_id": "={{ $('When Executed by Another Workflow').first().json.message_id }}",
-            "direction": "in"
+            "customer_id": "={{ $('Merge AI Results').item.json.customer_id }}",
+            "attachment_url": "={{ $('When Executed by Another Workflow').item.json.attachment_url }}"
           },
           "matchingColumns": [
             ""
@@ -419,8 +103,8 @@
               "removed": false
             },
             {
-              "id": "message_id",
-              "displayName": "message_id",
+              "id": "customer_id",
+              "displayName": "customer_id",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -429,8 +113,8 @@
               "removed": false
             },
             {
-              "id": "direction",
-              "displayName": "direction",
+              "id": "attachment_url",
+              "displayName": "attachment_url",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -439,41 +123,19 @@
               "removed": false
             }
           ],
-          "attemptToConvertTypes": true,
+          "attemptToConvertTypes": false,
           "convertFieldsToString": true
         },
-        "options": {
-          "waitForSubWorkflow": true
-        }
+        "options": {}
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        736,
-        80
+        2704,
+        48
       ],
-      "id": "cc96533a-c29e-4c30-ba55-5f4fab4c261f",
-      "name": "Call L03_Multilingual"
-    },
-    {
-      "parameters": {
-        "modelName": "models/gemini-3.1-flash-lite",
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1.1,
-      "position": [
-        1056,
-        240
-      ],
-      "id": "a45ac4d3-574f-48f8-bec7-570fcd1f68a9",
-      "name": "Google Gemini Chat Model2",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "SJLHvzSS8Ttxpv8k",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
+      "id": "694c6f7c-a40b-4c19-af53-9fc4523ecb6f",
+      "name": "Call L9"
     },
     {
       "parameters": {
@@ -487,12 +149,12 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "customer_id": "={{ $('When Executed by Another Workflow').first()?.json.customer_id }}",
-            "message_id": "={{ $('When Executed by Another Workflow').first()?.json.message_id }}",
-            "content_original": "={{ $('When Executed by Another Workflow').first()?.json.message }}",
-            "sentiment": "={{ $('Merge AI Results').first()?.json.output.sentiment }}",
-            "urgency": "={{ $('Calculate Urgency').first()?.json.urgency }}",
-            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}"
+            "customer_id": "={{ $('When Executed by Another Workflow').item.json.customer_id }}",
+            "message_id": "={{ $('When Executed by Another Workflow').item.json.message_id }}",
+            "content_original": "={{ $('When Executed by Another Workflow').item.json.message }}",
+            "sentiment": "={{ $('Merge AI Results').item.json.output.sentiment }}",
+            "urgency": "={{ $('Calculate Urgency').item.json.urgency }}",
+            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}"
           },
           "matchingColumns": [
             ""
@@ -575,20 +237,40 @@
     },
     {
       "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1056,
+        240
+      ],
+      "id": "a45ac4d3-574f-48f8-bec7-570fcd1f68a9",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "fxTyVW1zGAc3P9BG",
+          "value": "0dQiUc9K6iOq0ghT",
           "mode": "list",
-          "cachedResultUrl": "/workflow/fxTyVW1zGAc3P9BG",
-          "cachedResultName": "l9"
+          "cachedResultUrl": "/workflow/0dQiUc9K6iOq0ghT",
+          "cachedResultName": "L03_Multilingual"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
-            "message": "={{ $('Merge AI Results').first()?.json.message }}",
-            "customer_id": "={{ $('Merge AI Results').first()?.json.customer_id }}",
-            "attachment_url": "={{ $('When Executed by Another Workflow').first()?.json.attachment_url }}"
+            "ticket_id": "={{ $('When Executed by Another Workflow').item.json.ticket_id }}",
+            "message": "={{ $('When Executed by Another Workflow').first().json.message }}",
+            "message_id": "={{ $('When Executed by Another Workflow').first().json.message_id }}",
+            "direction": "in"
           },
           "matchingColumns": [
             ""
@@ -615,8 +297,8 @@
               "removed": false
             },
             {
-              "id": "customer_id",
-              "displayName": "customer_id",
+              "id": "message_id",
+              "displayName": "message_id",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -625,13 +307,89 @@
               "removed": false
             },
             {
-              "id": "attachment_url",
-              "displayName": "attachment_url",
+              "id": "direction",
+              "displayName": "direction",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
               "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        736,
+        80
+      ],
+      "id": "cc96533a-c29e-4c30-ba55-5f4fab4c261f",
+      "name": "Call L03_Multilingual"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "JhubOjn6p7V4rMnf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/JhubOjn6p7V4rMnf",
+          "cachedResultName": "L06_Escalation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "need_human_review": "={{ $json.confidence < 0.6 ? true : false }}",
+            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}",
+            "urgency": "={{ $('Calculate Urgency').item.json.urgency }}",
+            "sentiment": "={{ $('Merge AI Results').item.json.output.sentiment }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "need_human_review",
+              "displayName": "need_human_review",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
               "removed": false
             }
           ],
@@ -643,27 +401,26 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        2704,
-        48
+        2368,
+        624
       ],
-      "id": "694c6f7c-a40b-4c19-af53-9fc4523ecb6f",
-      "name": "Call L9"
+      "id": "16ec4d5b-faef-4248-aaf1-bd2f7137a3e7",
+      "name": "Call L06_Escalation"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "y1V20HH06FtR39x3",
+          "value": "703EGjagC9amfr8H",
           "mode": "list",
-          "cachedResultUrl": "/workflow/y1V20HH06FtR39x3",
-          "cachedResultName": "l10"
+          "cachedResultUrl": "/workflow/703EGjagC9amfr8H",
+          "cachedResultName": "Call L05_FAQ"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
-            "message": "={{ $('Merge AI Results').first()?.json.message }}",
-            "customer_id": "={{ $('When Executed by Another Workflow').first()?.json.customer_id }}"
+            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}",
+            "message": "={{ $('Merge AI Results').item.json.message }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -686,16 +443,6 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
-            },
-            {
-              "id": "customer_id",
-              "displayName": "customer_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -707,78 +454,296 @@
       "typeVersion": 1.3,
       "position": [
         2704,
-        224
+        416
       ],
-      "id": "4d9e5d49-1ce2-4bfa-9cdf-adb47cf407f2",
-      "name": "Call L10"
+      "id": "35746e35-0e09-45ae-8036-4e0d8eaab82a",
+      "name": "Call L05_FAQ"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets \nSET \n  intent = '{{ $('Merge AI Results').item.json.output.intent }}',\n  sentiment = '{{ $('Merge AI Results').item.json.output.sentiment }}',\n  urgency = '{{ $json.urgency }}',\n  confidence = {{ $('Merge AI Results').item.json.output.confidence }},\n  need_human_review = {{ $json.confidence < 0.6 ? 1 : 0 }},\n  updated_at = NOW()\nWHERE id = {{ $('Merge AI Results').item.json.ticket_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        2000,
+        336
+      ],
+      "id": "94528b6c-6a68-4908-ac30-3aeb345b8fed",
+      "name": "Update Ticket Intent",
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1ae41ee5-6733-4c4c-ab0b-8f052e977ca0",
+                    "leftValue": "={{ $('Merge AI Results').item.json.output.intent }}",
+                    "rightValue": "COMPLAINT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "da95ddfd-59a9-457c-a550-937cae132f66",
+                    "leftValue": "={{ $('Merge AI Results').item.json.output.intent }}",
+                    "rightValue": "REFUND",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b37490e0-9ae9-4ac3-9bfc-383aa96426ad",
+                    "leftValue": "={{ $('Merge AI Results').item.json.output.intent }}",
+                    "rightValue": "WARRANTY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2352,
+        32
+      ],
+      "id": "bed2c631-1d15-4778-bdcd-532a1be3ecaa",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eadb8629-10eb-4f41-bc21-ee6b91b14bc4",
+              "name": "urgency",
+              "value": "={{ $json.output.sentiment === 'VERY_NEGATIVE' || $json.output.intent === 'COMPLAINT' ? 'HIGH' : ($json.output.sentiment === 'NEGATIVE' || $json.output.intent === 'REFUND' || $json.output.intent === 'WARRANTY' ? 'MEDIUM' : 'LOW') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1648,
+        336
+      ],
+      "id": "6c720730-b292-4c5b-af33-f89a7be73e90",
+      "name": "Calculate Urgency"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1424,
+        336
+      ],
+      "id": "bf5e6078-1375-4ab3-a328-400045411ce5",
+      "name": "Merge AI Results"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"intent\": {\n      \"type\": \"string\",\n      \"enum\": [\"COMPLAINT\", \"FAQ\", \"ORDER_STATUS\", \"OTHER\", \"PRODUCT_INFO\", \"REFUND\", \"WARRANTY\"],\n      \"description\": \"Ý định chính của khách hàng\"\n    },\n    \"sentiment\": {\n      \"type\": \"string\",\n      \"enum\": [\"POSITIVE\", \"NEUTRAL\", \"NEGATIVE\", \"VERY_NEGATIVE\"],\n      \"description\": \"Cảm xúc của khách hàng\"\n    },\n    \"order_code\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Mã đơn hàng nếu có\"\n    },\n    \"product_name\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Tên sản phẩm nếu có\"\n    },\n    \"serial_number\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Số serial nếu có\"\n    },\n    \"amount\": {\n      \"type\": [\"number\", \"null\"],\n      \"description\": \"Số tiền nếu có\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"Độ tin cậy từ 0.0 đến 1.0\"\n    }\n  },\n  \"required\": [\"intent\", \"sentiment\", \"confidence\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        240
+      ],
+      "id": "768574a2-8eaf-4c76-b031-4aded9bdcfd5",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Hãy phân tích tin nhắn của khách hàng và lịch sử trò chuyện dưới đây để xác định ý định, cảm xúc và trích xuất các thông tin quan trọng.\n\n--- TIN NHẮN HIỆN TẠI ---\n{{ $('Call L03_Multilingual').item.json.message }}\n\n--- LỊCH SỬ 5 TIN NHẮN GẦN NHẤT ---\n{{ JSON.stringify($('Get Recent Messages').all().map(i => i.json.content_original)) }}\n--- YÊU CẦU XỬ LÝ ---\n1. Intent (Ý định): Chọn 1 trong các giá trị sau:\n   - FAQ: Hỏi đáp thông tin chung, thắc mắc về chính sách, điều khoản, thời gian đổi trả/hoàn tiền (VD: \"đổi trả trong bao lâu\", \"phí ship bao nhiêu\", \"shop ở đâu\").\n   - REFUND: Khách hàng muốn ĐỦ ĐIỀU KIỆN / YÊU CẦU THỰC HIỆN hoàn tiền cho một đơn hàng cụ thể (VD: \"tôi muốn hoàn tiền đơn DH1001\", \"sản phẩm bị lỗi cho tôi trả lại tiền\").\n   - COMPLAINT: Khiếu nại về dịch vụ/thái độ.\n   - ORDER_STATUS: Tra cứu trạng thái đơn hàng.\n   - PRODUCT_INFO: Hỏi về tính năng, giá cả sản phẩm.\n   - WARRANTY: Yêu cầu bảo hành.\n   - OTHER: Ý định khác.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Bạn là trợ lý AI phân tích và phân loại phản hồi khách hàng trong hệ thống Contact Center. Hãy luôn phân tích khách quan dựa trên ngữ cảnh hội thoại được cung cấp."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1056,
+        80
+      ],
+      "id": "9e89eae9-e7f7-424b-9a4b-4622bca343d4",
+      "name": "Classify & Extract Intent",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, sender_type, content_original, content_translated, created_at \nFROM messages \nWHERE ticket_id = {{ $json.ticket_id }} \nORDER BY created_at DESC \nLIMIT 5;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        528,
+        80
+      ],
+      "id": "cb207832-75b5-4970-bb4c-e6ab20d6a22a",
+      "name": "Get Recent Messages",
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ticket_id",
+              "type": "number"
+            },
+            {
+              "name": "ticket_code"
+            },
+            {
+              "name": "customer_id",
+              "type": "number"
+            },
+            {
+              "name": "message_id",
+              "type": "number"
+            },
+            {
+              "name": "channel"
+            },
+            {
+              "name": "message"
+            },
+            {
+              "name": "is_new_ticket",
+              "type": "boolean"
+            },
+            {
+              "name": "attachment_url"
+            }
+          ]
+        }
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        272,
+        352
+      ]
     }
   ],
   "connections": {
-    "When Executed by Another Workflow": {
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify & Extract Intent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call L03_Multilingual": {
       "main": [
         [
           {
-            "node": "Get Recent Messages",
+            "node": "Classify & Extract Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ticket Intent": {
+      "main": [
+        [
+          {
+            "node": "Call L06_Escalation",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Merge AI Results",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Get Recent Messages": {
-      "main": [
-        [
-          {
-            "node": "Call L03_Multilingual",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Classify & Extract Intent": {
-      "main": [
-        [
-          {
-            "node": "Merge AI Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Structured Output Parser1": {
-      "ai_outputParser": [
-        [
-          {
-            "node": "Classify & Extract Intent",
-            "type": "ai_outputParser",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge AI Results": {
-      "main": [
-        [
-          {
-            "node": "Calculate Urgency",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Calculate Urgency": {
-      "main": [
-        [
-          {
-            "node": "Update Ticket Intent",
+            "node": "Switch",
             "type": "main",
             "index": 0
           }
@@ -817,59 +782,79 @@
         ]
       ]
     },
-    "Update Ticket Intent": {
+    "Calculate Urgency": {
       "main": [
         [
           {
-            "node": "Switch",
+            "node": "Update Ticket Intent",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI Results": {
+      "main": [
+        [
+          {
+            "node": "Calculate Urgency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Classify & Extract Intent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify & Extract Intent": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Messages": {
+      "main": [
+        [
+          {
+            "node": "Call L03_Multilingual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Results",
+            "type": "main",
+            "index": 1
           },
           {
-            "node": "Call L06_Escalation",
+            "node": "Get Recent Messages",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Call L03_Multilingual": {
-      "main": [
-        [
-          {
-            "node": "Classify & Extract Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Google Gemini Chat Model2": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Classify & Extract Intent",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]
       ]
     }
   },
-  "pinData": {
-    "When Executed by Another Workflow": [
-      {
-        "ticket_id": 1,
-        "ticket_code": "TK-C17D623B",
-        "customer_id": 2,
-        "message_id": 1,
-        "channel": "ZALO",
-        "message": "Tôi muốn hỗ trợ kiểm tra đơn hàng bị giao chậm",
-        "is_new_ticket": true,
-        "attachment_url": null
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
