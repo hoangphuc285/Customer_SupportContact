@@ -555,23 +555,9 @@ public class PortalService {
             assignedStaff = staffRepo.findFirstByActiveTrueOrderByCurrentLoadAsc().orElse(null);
         }
 
-        Ticket t = new Ticket();
-        t.setTicketCode("TK-CMP-" + System.currentTimeMillis() % 100000);
-        t.setSubject("Khiếu nại: " + desc);
-        t.setCustomer(c);
-        t.setStatus(TicketStatus.OPEN);
-        t.setPriority(priority);
-        t.setChannel(Channel.LIVECHAT);
-        t.setIntent(Intent.COMPLAINT);
-        t.setDepartment(targetDept);
-        if (assignedStaff != null) {
-            t.setAssignee(assignedStaff);
-        }
-        Ticket savedTicket = tickets.save(t);
-
         Complaint cp = new Complaint();
-        cp.setComplaintCode("CP-" + System.currentTimeMillis() % 1000000);
-        cp.setTicket(savedTicket);
+        String cpCode = "CP-" + System.currentTimeMillis() % 1000000;
+        cp.setComplaintCode(cpCode);
         cp.setDescription(desc);
         cp.setSeverity(severity);
         cp.setStatus(ComplaintStatus.OPEN);
@@ -580,8 +566,22 @@ public class PortalService {
         // Hạn SLA theo mức độ
         long hours = (severity == Severity.CRITICAL) ? 2 : (severity == Severity.MINOR) ? 24 : 12;
         cp.setDueAt(Instant.now().plus(hours, ChronoUnit.HOURS));
+
+        Ticket t = new Ticket();
+        t.setTicketCode("TK-CMP-" + System.currentTimeMillis() % 100000);
+        t.setSubject("Khiếu nại [" + cpCode + "]: " + desc);
+        t.setCustomer(c);
+        t.setStatus(TicketStatus.OPEN);
+        t.setPriority(priority);
+        t.setChannel(Channel.LIVECHAT);
+        t.setIntent(Intent.COMPLAINT);
+        t.setDepartment(targetDept);
         t.setDueAt(cp.getDueAt());
-        tickets.save(t);
+        if (assignedStaff != null) {
+            t.setAssignee(assignedStaff);
+        }
+        Ticket savedTicket = tickets.save(t);
+        cp.setTicket(savedTicket);
 
         if (targetDept != null) {
             cp.setDepartment(targetDept);
@@ -641,7 +641,8 @@ public class PortalService {
                 saved.getDescription(),
                 saved.getDueAt(),
                 assignedStaff != null ? assignedStaff.getId() : null,
-                assignedStaff != null ? assignedStaff.getFullName() : "Chưa phân công"
+                assignedStaff != null ? assignedStaff.getFullName() : "Chưa phân công",
+                savedTicket.getTicketCode()
         );
     }
 
