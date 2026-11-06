@@ -22,15 +22,24 @@ public class N8nIntakeController {
 
     private static final Logger log = LoggerFactory.getLogger(N8nIntakeController.class);
     private final IntakeService intake;
+    private final com.example.cd2.service.SlaService slaService;
 
-    public N8nIntakeController(IntakeService intake) {
+    public N8nIntakeController(IntakeService intake, com.example.cd2.service.SlaService slaService) {
         this.intake = intake;
+        this.slaService = slaService;
     }
 
     /** Kiem tra ket noi / API key tu n8n. */
     @GetMapping("/ping")
     public Map<String, String> ping() {
         return Map.of("status", "ok");
+    }
+
+    /** Ghi nhan su kien SLA tu n8n L07 */
+    @PostMapping("/sla/events")
+    public ResponseEntity<Map<String, Object>> recordSlaEvent(@RequestBody Map<String, Object> body) {
+        log.info("N8nIntakeController received SLA event: {}", body);
+        return ResponseEntity.ok(slaService.handleSlaEventFromN8n(body));
     }
 
     /**

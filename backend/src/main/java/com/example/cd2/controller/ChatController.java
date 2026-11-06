@@ -77,21 +77,21 @@ public class ChatController {
         ));
     }
 
-    @GetMapping("/history/{convId}")
-    public List<Map<String, Object>> getHistory(@PathVariable String convId) {
-        Optional<Ticket> ticketOpt = ticketRepo.findByTicketCode(convId);
-        if (ticketOpt.isEmpty()) return List.of();
+    // @GetMapping("/history/{convId}")
+    // public List<Map<String, Object>> getHistory(@PathVariable String convId) {
+    //     Optional<Ticket> ticketOpt = ticketRepo.findByTicketCode(convId);
+    //     if (ticketOpt.isEmpty()) return List.of();
 
-        List<Message> msgs = messageRepo.findByTicketIdOrderByCreatedAtAsc(ticketOpt.get().getId());
-        return msgs.stream().map(m -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", m.getId());
-            map.put("senderType", m.getSenderType().name());
-            map.put("contentOriginal", m.getContentOriginal());
-            map.put("createdAt", m.getCreatedAt().toString());
-            return map;
-        }).toList();
-    }
+    //     List<Message> msgs = messageRepo.findByTicketIdOrderByCreatedAtAsc(ticketOpt.get().getId());
+    //     return msgs.stream().map(m -> {
+    //         Map<String, Object> map = new HashMap<>();
+    //         map.put("id", m.getId());
+    //         map.put("senderType", m.getSenderType().name());
+    //         map.put("contentOriginal", m.getContentOriginal());
+    //         map.put("createdAt", m.getCreatedAt().toString());
+    //         return map;
+    //     }).toList();
+    // }
 
     @PostMapping("/send")
     @Transactional

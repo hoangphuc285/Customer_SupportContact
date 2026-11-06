@@ -1,5 +1,5 @@
 {
-  "name": "L07_SLA_Monitor",
+  "name": "Luồng 7: L07_SLA_Monitor – Giám sát SLA và leo thang",
   "nodes": [
     {
       "parameters": {
@@ -12,131 +12,90 @@
           ]
         }
       },
+      "id": "node-schedule-trigger",
+      "name": "Schedule Trigger - Quét mỗi 10 phút",
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.4,
+      "typeVersion": 1.2,
       "position": [
-        0,
-        0
-      ],
-      "id": "d4d0a2c2-e523-4a0a-98ad-784c1981f77d",
-      "name": "Schedule Trigger"
+        -1600,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sla-monitor",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook - Kích hoạt giám sát SLA",
+      "webhookId": "sla-monitor-webhook-id",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "node-exec-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        464
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n    id, \n    ticket_code,\n    customer_id, \n    priority, \n    category, \n    assigned_agent_id, \n    created_at, \n    COALESCE(last_alert_level, 'NORMAL') AS last_alert_level\nFROM tickets\nWHERE status NOT IN ('resolved', 'closed');",
+        "query": "SELECT \n  t.id AS ticket_id,\n  t.ticket_code,\n  t.status,\n  t.priority,\n  COALESCE(t.category, t.intent, 'DEFAULT') AS category,\n  t.due_at,\n  t.created_at,\n  t.updated_at,\n  t.first_response_at,\n  t.assignee_id,\n  t.customer_id,\n  t.department_id,\n  COALESCE(t.last_alert_level, 0) AS last_alert_level,\n  t.sla_breached,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  COALESCE(c.telegram_id, '7919420845') AS customer_telegram_id,\n  s.full_name AS assignee_name,\n  s.email AS assignee_email,\n  COALESCE(s.telegram_chat_id, '7919420845') AS assignee_telegram_id,\n  s.current_load AS assignee_current_load,\n  COALESCE(sr.resolution_minutes, sr_def.resolution_minutes, 1440) AS sla_resolution_minutes,\n  COALESCE(sr.first_response_minutes, sr_def.first_response_minutes, 60) AS sla_first_response_minutes,\n  COALESCE(sr.category, sr_def.category, 'DEFAULT') AS matched_sla_category\nFROM tickets t\nLEFT JOIN customers c ON t.customer_id = c.id\nLEFT JOIN staff s ON t.assignee_id = s.id\nLEFT JOIN sla_rules sr ON (sr.category = COALESCE(t.category, t.intent) AND sr.priority = t.priority)\nLEFT JOIN sla_rules sr_def ON (sr_def.category = 'DEFAULT' AND sr_def.priority = t.priority)\nWHERE t.status NOT IN ('CLOSED', 'RESOLVED')\nORDER BY t.created_at ASC;",
         "options": {}
       },
+      "id": "node-mysql-get-tickets-sla",
+      "name": "MySQL - Lấy ticket chưa đóng & luật SLA",
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
-        224,
-        0
+        -1328,
+        304
       ],
-      "id": "a8ae5b91-3271-4750-9e33-18e9a3956ece",
-      "name": "MySQL_Get_Tickets",
       "credentials": {
         "mySql": {
-          "id": "kPKNghS7g74koryQ",
+          "id": "Er1nZ02s6Z3n3w75",
           "name": "MySQL account"
         }
       }
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT \n    priority, \n    category, \n    resolution_time_hours, \n    response_time_hours \nFROM sla_rules;",
         "options": {}
       },
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "id": "node-loop-items",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
       "position": [
-        224,
-        -160
-      ],
-      "id": "278ae3b6-4e6a-4ea7-a6d2-608e66fcc755",
-      "name": "MySQL_Get_Rules",
-      "credentials": {
-        "mySql": {
-          "id": "kPKNghS7g74koryQ",
-          "name": "MySQL account"
-        }
-      }
+        -1056,
+        304
+      ]
     },
     {
       "parameters": {
-        "mode": "combine",
-        "advanced": true,
-        "mergeByFields": {
-          "values": [
-            {
-              "field1": "priority",
-              "field2": "priority"
-            },
-            {
-              "field1": "category",
-              "field2": "category"
-            }
-          ]
-        },
-        "joinMode": "keepEverything",
-        "options": {}
+        "jsCode": "const ticket = $input.first().json;\nconst now = new Date();\nconst created = new Date(ticket.created_at);\n\nconst totalElapsedMinutes = Math.max(1, Math.floor((now - created) / 60000));\n\nlet businessMinutes = 0;\nlet cur = new Date(created.getTime());\nwhile (cur < now) {\n  const day = cur.getDay();\n  const hour = cur.getHours();\n  if (day >= 1 && day <= 5 && hour >= 8 && hour < 18) {\n    businessMinutes += 1;\n  }\n  cur = new Date(cur.getTime() + 60000);\n}\nif (businessMinutes === 0) businessMinutes = totalElapsedMinutes;\n\nconst slaMinutes = ticket.sla_resolution_minutes || 1440;\nconst percentUsed = Math.round((totalElapsedMinutes / slaMinutes) * 100);\n\nlet alertLevel = 0;\nlet alertLevelName = 'AN TOÀN (<50%)';\n\nif (percentUsed > 150) {\n  alertLevel = 4;\n  alertLevelName = 'NGHIÊM TRỌNG (>150%)';\n} else if (percentUsed >= 100) {\n  alertLevel = 3;\n  alertLevelName = 'QUÁ HẠN (100-150%)';\n} else if (percentUsed >= 80) {\n  alertLevel = 2;\n  alertLevelName = 'CẢNH BÁO CAO (80-100%)';\n} else if (percentUsed >= 50) {\n  alertLevel = 1;\n  alertLevelName = 'THEO DÕI (50-80%)';\n}\n\nconst lastLevel = ticket.last_alert_level || 0;\nconst shouldAlert = alertLevel >= 2 && alertLevel > lastLevel;\n\nconst newPromisedDate = new Date(now.getTime() + 4 * 3600000);\nconst newPromisedStr = newPromisedDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ngày ' + newPromisedDate.toLocaleDateString('vi-VN');\n\nreturn [{\n  json: {\n    ...ticket,\n    elapsed_minutes: totalElapsedMinutes,\n    business_minutes: businessMinutes,\n    percent_used: percentUsed,\n    current_alert_level: alertLevel,\n    alert_level_name: alertLevelName,\n    should_alert: shouldAlert,\n    new_promised_at: newPromisedStr\n  }\n}];"
       },
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        544,
-        16
-      ],
-      "id": "2497a7fa-46c6-4fa3-aeac-7788c07a899f",
-      "name": "Merge"
-    },
-    {
-      "parameters": {
-        "jsCode": "const items = $input.all();\nconst now = new Date();\n\nreturn items.map(item => {\n  const data = item.json;\n  const createdAt = new Date(data.created_at);\n  \n  // Tính số giờ đã trôi qua\n  const diffHours = Math.max(0, (now - createdAt) / (1000 * 60 * 60));\n  const targetHours = Number(data.resolution_time_hours) || 24;\n  const slaPercentage = Math.round((diffHours / targetHours) * 100);\n\n  let alertLevel = 'NORMAL';\n  if (slaPercentage >= 150) {\n    alertLevel = 'CRITICAL_150';\n  } else if (slaPercentage >= 100) {\n    alertLevel = 'BREACHED_100';\n  } else if (slaPercentage >= 80) {\n    alertLevel = 'WARNING_80';\n  }\n\n  // Cần thông báo khi mức alert thay đổi và không phải mức NORMAL\n  const needNotify = (alertLevel !== data.last_alert_level) && (alertLevel !== 'NORMAL');\n\n  return {\n    json: {\n      ...data,\n      hours_spent: Number(diffHours.toFixed(2)),\n      sla_percentage: slaPercentage,\n      alert_level: alertLevel,\n      need_notify: needNotify\n    }\n  };\n});"
-      },
+      "id": "node-code-calc-sla",
+      "name": "Code - Tính % SLA và giờ làm việc",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        768,
-        16
-      ],
-      "id": "97ccd965-5980-4180-bdbe-e1fa92c6eb03",
-      "name": "Code_Calculate_SLA"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "9bbc09cc-03bc-4642-8684-41e6837e3a5d",
-              "leftValue": "={{ $json.need_notify }}",
-              "rightValue": false,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.3,
-      "position": [
-        992,
-        16
-      ],
-      "id": "06f6bf69-c01f-44e6-b484-777ce4121d63",
-      "name": "Filter_Need_Notify"
+        -816,
+        304
+      ]
     },
     {
       "parameters": {
@@ -152,13 +111,13 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.alert_level }}",
-                    "rightValue": "WARNING_80",
+                    "leftValue": "={{ $json.current_alert_level }}",
+                    "rightValue": 2,
                     "operator": {
-                      "type": "string",
+                      "type": "number",
                       "operation": "equals"
                     },
-                    "id": "4ebd302d-3ce7-4159-a344-d46198d1a2b4"
+                    "id": "cond-level-2"
                   }
                 ],
                 "combinator": "and"
@@ -174,14 +133,13 @@
                 },
                 "conditions": [
                   {
-                    "id": "993de8af-8edb-4744-946a-fde1b1be4261",
-                    "leftValue": "={{ $json.alert_level }}",
-                    "rightValue": "BREACHED_100",
+                    "leftValue": "={{ $json.current_alert_level }}",
+                    "rightValue": 3,
                     "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "cond-level-3"
                   }
                 ],
                 "combinator": "and"
@@ -197,14 +155,13 @@
                 },
                 "conditions": [
                   {
-                    "id": "74506725-a0db-494e-a529-4f64b4dda847",
-                    "leftValue": "={{ $json.alert_level }}",
-                    "rightValue": "CRITICAL_150",
+                    "leftValue": "={{ $json.current_alert_level }}",
+                    "rightValue": 4,
                     "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "cond-level-4"
                   }
                 ],
                 "combinator": "and"
@@ -212,155 +169,661 @@
             }
           ]
         },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "node-switch-alert-level",
+      "name": "Switch - Phân loại mức cảnh báo SLA",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -576,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.assignee_telegram_id || 7919420845 }}",
+        "text": "=⚠️ [CẢNH BÁO SLA 80%]\n- Ticket: {{ $json.ticket_code }}\n- Ưu tiên: {{ $json.priority }}\n- Thời gian SLA đã dùng: {{ $json.percent_used }}%\n- Người phụ trách: {{ $json.assignee_name || 'Chưa gán' }}\n\nTicket sắp chạm trần SLA. Vui lòng khẩn trương kiểm tra và phản hồi khách hàng!",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-remind-agent",
+      "name": "Telegram - Nhắc nhân viên phụ trách (Mức 80%)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        112
+      ],
+      "webhookId": "af29e67a-9eca-4777-a217-c5fd492ae9b1",
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "teamlead@support.local",
+        "subject": "=[SLA BREACH 100%] Cảnh báo quá hạn Ticket {{ $json.ticket_code }}",
         "options": {}
       },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.4,
+      "id": "node-slack-alert-teamlead",
+      "name": "Slack / Email - Báo Trưởng nhóm (Mức 100%)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
       "position": [
-        1216,
-        0
+        -320,
+        240
       ],
-      "id": "564fa32d-9439-4699-8945-8d02f7518d83",
-      "name": "Switch_Alert_Level"
+      "webhookId": "716e0791-5db1-4ecc-a0dc-b726fb0fff0c",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "manager@support.local",
+        "subject": "=[SLA CRITICAL >150%] Vi phạm nghiêm trọng Ticket {{ $json.ticket_code }}",
+        "options": {}
+      },
+      "id": "node-email-alert-manager",
+      "name": "Gmail / Email - Báo Quản lý (Mức >150%)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        384
+      ],
+      "webhookId": "52837795-b576-4343-a819-68b0fc05fe62",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !($('Code - Tính % SLA và giờ làm việc').item.json.assignee_id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-no-assignee"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-no-assignee",
+      "name": "IF - Ticket chưa có người nhận?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -64,
+        304
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET last_alert_level = 'NORMAL', sla_breached = 0 \nWHERE ticket_code = 'TK-TEST-01';",
+        "query": "SELECT id AS new_assignee_id, full_name AS new_assignee_name, email AS new_assignee_email FROM staff WHERE role = 'AGENT' AND active = 1 ORDER BY current_load ASC LIMIT 1;",
         "options": {}
       },
+      "id": "node-mysql-get-lowest-load-staff",
+      "name": "MySQL - Lấy nhân viên tải thấp nhất",
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
-        1488,
-        16
+        192,
+        192
       ],
-      "id": "7656bd62-f802-44df-a04e-d18b3f7accdc",
-      "name": "MySQL_Update_Tickets",
-      "executeOnce": true,
       "credentials": {
         "mySql": {
-          "id": "kPKNghS7g74koryQ",
+          "id": "Er1nZ02s6Z3n3w75",
           "name": "MySQL account"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET assignee_id = {{ $json.new_assignee_id }}, updated_at = NOW() WHERE id = {{ $('Code - Tính % SLA và giờ làm việc').item.json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-assign-ticket",
+      "name": "MySQL - Tự gán ticket cho nhân viên",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        400,
+        192
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE staff SET current_load = current_load + 1, updated_at = NOW() WHERE id = {{ $('MySQL - Lấy nhân viên tải thấp nhất').item.json.new_assignee_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-increment-staff-load",
+      "name": "MySQL - Tăng tải cho nhân viên",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        624,
+        192
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Number($('Code - Tính % SLA và giờ làm việc').item.json.percent_used) >= 100 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-sla-breached"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-sla-breached",
+      "name": "IF - Có vi phạm SLA (>=100%)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "node-gemini-model-apology",
+      "name": "Google Gemini Chat Model - Soạn lời xin lỗi",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        480
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là đại diện chăm sóc khách hàng. Hãy soạn tin nhắn gửi khách hàng với nội dung lịch sự, chân thành xin lỗi vì sự chậm trễ trong việc phản hồi/giải quyết yêu cầu của họ:\n- Mã ticket: {{ $('Code - Tính % SLA và giờ làm việc').item.json.ticket_code }}\n- Khách hàng: {{ $('Code - Tính % SLA và giờ làm việc').item.json.customer_name || 'Quý khách' }}\n- Thời hạn hoàn thành cam kết mới: {{ $('Code - Tính % SLA và giờ làm việc').item.json.new_promised_at }}\n\nYêu cầu: Đồng cảm, thể hiện tinh thần trách nhiệm, ngắn gọn, súc tích (dưới 80 từ).",
+        "batching": {}
+      },
+      "id": "node-llm-draft-apology",
+      "name": "Basic LLM Chain - Soạn tin xin lỗi khách",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1104,
+        208
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Code - Tính % SLA và giờ làm việc').item.json.customer_telegram_id || 7919420845 }}",
+        "text": "={{ $json.text || 'Chào Quý khách, chúng tôi rất tiếc vì sự chậm trễ trong việc xử lý yêu cầu của Quý khách. Đội ngũ chuyên môn đang ưu tiên xử lý khẩn cấp và sẽ hoàn tất trước ' + $('Code - Tính % SLA và giờ làm việc').item.json.new_promised_at + '. Trân trọng cảm ơn sự thông cảm của Quý khách!' }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-send-apology",
+      "name": "Telegram - Gửi khách lời xin lỗi & giờ hẹn mới",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        208
+      ],
+      "webhookId": "0ec40888-d28d-454b-940a-97e86fb1d4a3",
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET sla_breached = {{ $('Code - Tính % SLA và giờ làm việc').item.json.percent_used >= 100 ? 1 : 0 }}, last_alert_level = {{ $('Code - Tính % SLA và giờ làm việc').item.json.current_alert_level }}, updated_at = NOW() WHERE id = {{ $('Code - Tính % SLA và giờ làm việc').item.json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-update-ticket-sla",
+      "name": "MySQL - Đánh dấu sla_breached và last_alert_level",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1584,
+        304
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allTickets = $('MySQL - Lấy ticket chưa đóng & luật SLA').all().map(i => i.json);\n\nlet total = allTickets.length;\nlet safeCount = 0;\nlet warning80 = 0;\nlet breached100 = 0;\nlet critical150 = 0;\nlet details = [];\n\nconst now = new Date();\n\nallTickets.forEach(t => {\n  const elapsed = Math.max(1, Math.floor((now - new Date(t.created_at)) / 60000));\n  const sla = t.sla_resolution_minutes || 1440;\n  const pct = Math.round((elapsed / sla) * 100);\n  \n  if (pct > 150) critical150++;\n  else if (pct >= 100) breached100++;\n  else if (pct >= 80) warning80++;\n  else safeCount++;\n\n  details.push({\n    ticket_code: t.ticket_code,\n    priority: t.priority,\n    percent_used: pct + '%',\n    assignee: t.assignee_name || 'Chưa gán',\n    status: t.status\n  });\n});\n\nreturn [{\n  json: {\n    total_tickets: total,\n    safe_count: safeCount,\n    warning_80_count: warning80,\n    breached_100_count: breached100,\n    critical_150_count: critical150,\n    sla_compliance_rate: total > 0 ? Math.round(((total - (breached100 + critical150)) / total) * 100) : 100,\n    details: details\n  }\n}];"
+      },
+      "id": "node-code-summarize-data",
+      "name": "Code - Tổng hợp số liệu giám sát SLA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "node-gemini-model-summary",
+      "name": "Google Gemini Chat Model - Tổng hợp báo cáo SLA",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -576,
+        784
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là trợ lý điều hành CSKH cao cấp. Hãy dựa vào số liệu giám sát SLA sau đây để soạn một Báo cáo Tổng hợp Giám sát SLA gửi cho Supervisor/Quản lý:\n- Tổng số ticket đang xử lý: {{ $json.total_tickets }}\n- Số ticket an toàn (<80%): {{ $json.safe_count }}\n- Số ticket cảnh báo nguy cơ (80-100%): {{ $json.warning_80_count }}\n- Số ticket đã quá hạn (100-150%): {{ $json.breached_100_count }}\n- Số ticket vi phạm nghiêm trọng (>150%): {{ $json.critical_150_count }}\n- Tỷ lệ tuân thủ SLA: {{ $json.sla_compliance_rate }}%\n- Danh sách ticket tiêu biểu: {{ JSON.stringify($json.details) }}\n\nYêu cầu báo cáo:\n1. Tóm tắt nhanh tình trạng tuân thủ SLA hôm nay.\n2. Liệt kê các ticket đang vi phạm và hành động điều chuyển đã thực hiện.\n3. Khuyến nghị giải pháp cho ngày mai để giảm thiểu rủi ro quá hạn.",
+        "batching": {}
+      },
+      "id": "node-llm-summarize-report",
+      "name": "Basic LLM Chain - Soạn báo cáo SLA Supervisor",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -576,
+        608
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "manager@support.local",
+        "subject": "=[BÁO CÁO GIÁM SÁT SLA] Tổng kết tình hình xử lý Ticket",
+        "options": {}
+      },
+      "id": "node-email-send-supervisor-report",
+      "name": "Gmail / Email - Báo cáo tổng hợp SLA cho Supervisor",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -336,
+        608
+      ],
+      "webhookId": "4c38c32c-16d6-47a0-b2ea-9d2aede53a28",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      },
+      "continueOnFail": true
     }
   ],
-  "pinData": {},
   "connections": {
-    "Schedule Trigger": {
+    "Schedule Trigger - Quét mỗi 10 phút": {
       "main": [
         [
           {
-            "node": "MySQL_Get_Rules",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "MySQL_Get_Tickets",
+            "node": "MySQL - Lấy ticket chưa đóng & luật SLA",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL_Get_Tickets": {
+    "Webhook - Kích hoạt giám sát SLA": {
       "main": [
         [
           {
-            "node": "Merge",
+            "node": "MySQL - Lấy ticket chưa đóng & luật SLA",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Merge": {
+    "Execute Workflow Trigger": {
       "main": [
         [
           {
-            "node": "Code_Calculate_SLA",
+            "node": "MySQL - Lấy ticket chưa đóng & luật SLA",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL_Get_Rules": {
+    "MySQL - Lấy ticket chưa đóng & luật SLA": {
       "main": [
         [
           {
-            "node": "Merge",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Code_Calculate_SLA": {
-      "main": [
-        [
-          {
-            "node": "Filter_Need_Notify",
+            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Filter_Need_Notify": {
+    "Loop Over Items": {
       "main": [
         [
           {
-            "node": "Switch_Alert_Level",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch_Alert_Level": {
-      "main": [
-        [
-          {
-            "node": "MySQL_Update_Tickets",
+            "node": "Code - Tổng hợp số liệu giám sát SLA",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "MySQL_Update_Tickets",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "MySQL_Update_Tickets",
+            "node": "Code - Tính % SLA và giờ làm việc",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL_Update_Tickets": {
+    "Code - Tính % SLA và giờ làm việc": {
       "main": [
-        []
+        [
+          {
+            "node": "Switch - Phân loại mức cảnh báo SLA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Phân loại mức cảnh báo SLA": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Nhắc nhân viên phụ trách (Mức 80%)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack / Email - Báo Trưởng nhóm (Mức 100%)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail / Email - Báo Quản lý (Mức >150%)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Ticket chưa có người nhận?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Nhắc nhân viên phụ trách (Mức 80%)": {
+      "main": [
+        [
+          {
+            "node": "IF - Ticket chưa có người nhận?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack / Email - Báo Trưởng nhóm (Mức 100%)": {
+      "main": [
+        [
+          {
+            "node": "IF - Ticket chưa có người nhận?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail / Email - Báo Quản lý (Mức >150%)": {
+      "main": [
+        [
+          {
+            "node": "IF - Ticket chưa có người nhận?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Ticket chưa có người nhận?": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lấy nhân viên tải thấp nhất",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Có vi phạm SLA (>=100%)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lấy nhân viên tải thấp nhất": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tự gán ticket cho nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tự gán ticket cho nhân viên": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tăng tải cho nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tăng tải cho nhân viên": {
+      "main": [
+        [
+          {
+            "node": "IF - Có vi phạm SLA (>=100%)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có vi phạm SLA (>=100%)?": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn tin xin lỗi khách",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Đánh dấu sla_breached và last_alert_level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Soạn lời xin lỗi": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn tin xin lỗi khách",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Soạn tin xin lỗi khách": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Gửi khách lời xin lỗi & giờ hẹn mới",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Gửi khách lời xin lỗi & giờ hẹn mới": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Đánh dấu sla_breached và last_alert_level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Đánh dấu sla_breached và last_alert_level": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tổng hợp số liệu giám sát SLA": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn báo cáo SLA Supervisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Tổng hợp báo cáo SLA": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn báo cáo SLA Supervisor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Soạn báo cáo SLA Supervisor": {
+      "main": [
+        [
+          {
+            "node": "Gmail / Email - Báo cáo tổng hợp SLA cho Supervisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
-  },
-  "versionId": "28dcc51a-f9bb-4ccf-ab87-f6e9b5e3cb2a",
+  "pinData": {},
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "f237982bc767d8dd8e9f8ca39ea6e74df1432a632e63e85f10f98169bc27b44e"
-  },
-  "nodeGroups": [],
-  "id": "JQzQZRBNcJqwOwL4",
-  "tags": []
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  }
 }
