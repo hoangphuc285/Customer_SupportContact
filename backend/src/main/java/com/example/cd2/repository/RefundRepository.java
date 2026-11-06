@@ -12,6 +12,8 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
 
     List<Refund> findByOrderId(Long orderId);
 
+    Optional<Refund> findByRefundCode(String refundCode);
+
     // chong gian lan: so lan hoan trong N ngay
     long countByOrderCustomerIdAndCreatedAtAfter(Long customerId, Instant since);
 

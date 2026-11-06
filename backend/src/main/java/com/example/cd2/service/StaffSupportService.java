@@ -1,8 +1,11 @@
 package com.example.cd2.service;
 
+import com.example.cd2.dto.WarrantyCaseDto;
 import com.example.cd2.entity.*;
 import com.example.cd2.enums.*;
+import com.example.cd2.exception.ApiException;
 import com.example.cd2.repository.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,8 @@ public class StaffSupportService {
     private final AuditLogRepository auditLogs;
     private final CustomerOrderRepository orders;
     private final KbDocumentRepository kbDocuments;
+    private final WarrantyCaseRepository warrantyCases;
+    private final N8nClientService n8nService;
 
     public StaffSupportService(
             TicketRepository tickets,
@@ -31,7 +36,9 @@ public class StaffSupportService {
             MessageRepository messages,
             AuditLogRepository auditLogs,
             CustomerOrderRepository orders,
-            KbDocumentRepository kbDocuments) {
+            KbDocumentRepository kbDocuments,
+            WarrantyCaseRepository warrantyCases,
+            N8nClientService n8nService) {
         this.tickets = tickets;
         this.customers = customers;
         this.staffRepo = staffRepo;
@@ -39,6 +46,8 @@ public class StaffSupportService {
         this.auditLogs = auditLogs;
         this.orders = orders;
         this.kbDocuments = kbDocuments;
+        this.warrantyCases = warrantyCases;
+        this.n8nService = n8nService;
     }
 
     // ==========================================
@@ -347,6 +356,7 @@ public class StaffSupportService {
             item.put("senderType", m.getSenderType() != null ? m.getSenderType().name() : "CUSTOMER");
             item.put("message", m.getContentOriginal());
             item.put("content", m.getContentOriginal());
+            item.put("contentOriginal", m.getContentOriginal());
             item.put("createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : Instant.now().toString());
             return item;
         }).collect(Collectors.toList());
@@ -524,5 +534,67 @@ public class StaffSupportService {
             m.put("createdAt", kb.getCreatedAt() != null ? kb.getCreatedAt().toString() : Instant.now().toString());
             return m;
         }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<WarrantyCaseDto> getWarrantyCases() {
+        return warrantyCases.findAllByOrderByCreatedAtDesc().stream().map(wc -> {
+            Warranty w = wc.getWarranty();
+            Ticket t = wc.getTicket();
+            Customer c = (w != null && w.getCustomer() != null) ? w.getCustomer() : (t != null ? t.getCustomer() : null);
+            String sn = w != null ? w.getSerialNumber() : "N/A";
+            String prodName = (w != null && w.getOrderItem() != null) ? w.getOrderItem().getProductName() : "Thiết bị điện tử";
+            return new WarrantyCaseDto(
+                    wc.getId(),
+                    wc.getCaseCode(),
+                    sn,
+                    prodName,
+                    c != null ? c.getFullName() : "Khách hàng",
+                    c != null ? c.getEmail() : "N/A",
+                    c != null ? c.getPhone() : "N/A",
+                    t != null ? t.getId() : null,
+                    t != null ? t.getTicketCode() : null,
+                    wc.getIssueDescription(),
+                    wc.getFaultType() != null ? wc.getFaultType().name() : "UNKNOWN",
+                    wc.getResolutionType() != null ? wc.getResolutionType().name() : "SERVICE_CENTER",
+                    wc.getStatus() != null ? wc.getStatus().name() : "CREATED",
+                    wc.getServiceCenter(),
+                    wc.getRepairFee(),
+                    wc.getCreatedAt()
+            );
+        }).collect(Collectors.toList());
+    }
+
+    public Map<String, Object> completeWarrantyCase(Long id) {
+        WarrantyCase wc = warrantyCases.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy case: " + id));
+        wc.setStatus(WarrantyCaseStatus.COMPLETED);
+        warrantyCases.save(wc);
+
+        Ticket t = wc.getTicket();
+        if (t != null) {
+            t.setStatus(TicketStatus.RESOLVED);
+            tickets.save(t);
+
+            Message msg = new Message();
+            msg.setTicket(t);
+            msg.setSenderType(SenderType.STAFF);
+            msg.setContentOriginal("Kỹ thuật viên đã kiểm tra và hoàn tất sửa chữa thiết bị theo phiếu " + wc.getCaseCode() + ". Thiết bị sẵn sàng bàn giao.");
+            msg.setContentTranslated(msg.getContentOriginal());
+            msg.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);
+            messages.save(msg);
+        }
+
+        // Đánh thức Luồng 10 (Wait - Theo dõi: Nhận máy -> Đang sửa -> Xong)
+        Map<String, Object> resumeData = new HashMap<>();
+        resumeData.put("case_code", wc.getCaseCode());
+        resumeData.put("status", "COMPLETED");
+        resumeData.put("action", "WARRANTY_COMPLETED");
+        if (t != null) {
+            resumeData.put("ticket_id", t.getId());
+        }
+        n8nService.resumeWaitingWebhook("c98e4ff5-d5ac-488c-9391-b1e771184f3d", resumeData);
+
+        return Map.of("status", "SUCCESS", "message", "Đã xác nhận hoàn tất sửa chữa và gửi thông báo cho khách hàng.");
     }
 }

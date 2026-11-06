@@ -1,5 +1,6 @@
 package com.example.cd2.controller;
 
+import com.example.cd2.dto.WarrantyCaseDto;
 import com.example.cd2.service.StaffSupportService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +29,7 @@ public class StaffSupportController {
     // ==========================================
     // 2. TICKETS
     // ==========================================
-    @GetMapping({"/agent/tickets", "/staff/tickets"})
+    @GetMapping("/agent/tickets")
     public ResponseEntity<List<Map<String, Object>>> getTickets(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long agentId,
@@ -36,7 +37,7 @@ public class StaffSupportController {
         return ResponseEntity.ok(service.getTickets(status, agentId, search));
     }
 
-    @GetMapping({"/agent/tickets/{id}", "/staff/tickets/{id}"})
+    @GetMapping("/agent/tickets/{id}")
     public ResponseEntity<Map<String, Object>> getTicketDetail(@PathVariable Long id) {
         return ResponseEntity.ok(service.getTicketDetail(id));
     }
@@ -79,10 +80,6 @@ public class StaffSupportController {
         return ResponseEntity.ok(service.getConversations());
     }
 
-    @GetMapping("/chat/staff/history/{convId}")
-    public ResponseEntity<List<Map<String, Object>>> getConversationHistory(@PathVariable String convId) {
-        return ResponseEntity.ok(service.getConversationHistory(convId));
-    }
 
     @PostMapping("/chat/message")
     public ResponseEntity<Map<String, Object>> sendChatMessage(@RequestBody Map<String, String> body) {
@@ -127,5 +124,18 @@ public class StaffSupportController {
     @GetMapping("/staff/knowledge")
     public ResponseEntity<List<Map<String, Object>>> getKnowledgeBase() {
         return ResponseEntity.ok(service.getKnowledgeBase());
+    }
+
+    // ==========================================
+    // 7. WARRANTY CASES (LUỒNG L10)
+    // ==========================================
+    @GetMapping({"/staff/warranty-cases", "/portal/warranty-cases"})
+    public ResponseEntity<List<WarrantyCaseDto>> getWarrantyCases() {
+        return ResponseEntity.ok(service.getWarrantyCases());
+    }
+
+    @PostMapping({"/staff/warranty-cases/{id}/complete", "/portal/warranty-cases/{id}/complete"})
+    public ResponseEntity<Map<String, Object>> completeWarrantyCase(@PathVariable Long id) {
+        return ResponseEntity.ok(service.completeWarrantyCase(id));
     }
 }
