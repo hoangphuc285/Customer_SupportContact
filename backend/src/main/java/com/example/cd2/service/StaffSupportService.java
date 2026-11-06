@@ -544,6 +544,7 @@ public class StaffSupportService {
             Customer c = (w != null && w.getCustomer() != null) ? w.getCustomer() : (t != null ? t.getCustomer() : null);
             String sn = w != null ? w.getSerialNumber() : "N/A";
             String prodName = (w != null && w.getOrderItem() != null) ? w.getOrderItem().getProductName() : "Thiết bị điện tử";
+            Staff s = wc.getStaff() != null ? wc.getStaff() : (t != null ? t.getAssignee() : null);
             return new WarrantyCaseDto(
                     wc.getId(),
                     wc.getCaseCode(),
@@ -560,7 +561,10 @@ public class StaffSupportService {
                     wc.getStatus() != null ? wc.getStatus().name() : "CREATED",
                     wc.getServiceCenter(),
                     wc.getRepairFee(),
-                    wc.getCreatedAt()
+                    wc.getCreatedAt(),
+                    s != null ? s.getId() : null,
+                    s != null ? s.getFullName() : "Kỹ thuật viên phụ trách",
+                    s != null ? s.getEmail() : ""
             );
         }).collect(Collectors.toList());
     }
@@ -571,14 +575,25 @@ public class StaffSupportService {
         wc.setStatus(WarrantyCaseStatus.COMPLETED);
         warrantyCases.save(wc);
 
+        Staff s = wc.getStaff();
         Ticket t = wc.getTicket();
+        if (s == null && t != null) {
+            s = t.getAssignee();
+        }
+        if (s != null) {
+            s.setCurrentLoad(Math.max(0, s.getCurrentLoad() - 1));
+            staffRepo.save(s);
+        }
+
         if (t != null) {
             t.setStatus(TicketStatus.RESOLVED);
+            t.setResolvedAt(Instant.now());
             tickets.save(t);
 
             Message msg = new Message();
             msg.setTicket(t);
             msg.setSenderType(SenderType.STAFF);
+            msg.setStaff(s);
             msg.setContentOriginal("Kỹ thuật viên đã kiểm tra và hoàn tất sửa chữa thiết bị theo phiếu " + wc.getCaseCode() + ". Thiết bị sẵn sàng bàn giao.");
             msg.setContentTranslated(msg.getContentOriginal());
             msg.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);

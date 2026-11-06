@@ -12,4 +12,6 @@ import java.util.Optional;
 public interface WarrantyRepository extends JpaRepository<Warranty, Long> {
 
     Optional<Warranty> findBySerialNumber(String serialNumber);
+
+    List<Warranty> findByCustomerId(Long customerId);
 }

@@ -12,10 +12,17 @@ public record ComplaintDto(
         String description,
         Instant dueAt,
         Long staffId,
-        String staffName) {
+        String staffName,
+        String ticketCode) {
 
     public ComplaintDto(Long id, String complaintCode, String departmentName, String type,
                         String severity, String status, String description, Instant dueAt) {
-        this(id, complaintCode, departmentName, type, severity, status, description, dueAt, null, null);
+        this(id, complaintCode, departmentName, type, severity, status, description, dueAt, null, null, null);
+    }
+
+    public ComplaintDto(Long id, String complaintCode, String departmentName, String type,
+                        String severity, String status, String description, Instant dueAt,
+                        Long staffId, String staffName) {
+        this(id, complaintCode, departmentName, type, severity, status, description, dueAt, staffId, staffName, null);
     }
 }

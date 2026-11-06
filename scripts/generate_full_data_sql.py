@@ -31,11 +31,11 @@ clean_products = {
 }
 
 clean_kb_titles = {
-    1: 'Chính sách Chăm sóc Khách hàng VKU Store',
-    2: 'Chính sách Đổi trả & Hoàn tiền 7 ngày (Luồng L09)',
-    3: 'Quy định Bảo hành thiết bị và Tiếp nhận sửa chữa (Luồng L10)',
-    4: 'Hướng dẫn Tra cứu Tiến độ Giao hàng & Vận chuyển (Luồng L01-L02)',
-    5: 'Quy trình Tiếp nhận và Xử lý Khiếu nại Dịch vụ CSKH (Luồng L08)',
+    1: 'Chính sách Đổi trả & Hoàn tiền 7 ngày (Luồng L09)',
+    2: 'Quy định Bảo hành thiết bị và Tiếp nhận sửa chữa (Luồng L10)',
+    3: 'Hướng dẫn Tra cứu Tiến độ Giao hàng & Vận chuyển (Luồng L01-L02)',
+    4: 'Quy trình Tiếp nhận và Xử lý Khiếu nại Dịch vụ CSKH (Luồng L08)',
+    5: 'Chính sách Chăm sóc Khách hàng LotusCare',
     6: 'Tiêu chuẩn Phản hồi SLA P1-P4 và Escalate gặp Chuyên viên (Luồng L06-L07)',
     7: 'Hướng dẫn Tra cứu Đơn hàng qua Mã Đơn (#DH1024) và Serial thiết bị'
 }

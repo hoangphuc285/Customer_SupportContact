@@ -22,9 +22,10 @@ public class PortalController {
 
     // ---- Khach hang & Cong Help Center ho tro tra cuu tu SQL ----
     @GetMapping("/portal/orders")
-    public List<OrderDto> myOrders(@AuthenticationPrincipal AccountPrincipal p) {
-        Long customerId = (p != null) ? p.getCustomerId() : null;
-        return portal.myOrders(customerId);
+    public List<OrderDto> myOrders(@AuthenticationPrincipal AccountPrincipal p,
+                                   @RequestParam(required = false) Long customerId) {
+        Long actualCustomerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
+        return portal.myOrders(actualCustomerId);
     }
 
     @GetMapping("/portal/orders/{code}")
@@ -33,22 +34,32 @@ public class PortalController {
     }
 
     @GetMapping("/portal/warranties")
-    public List<WarrantyDto> myWarranties(@AuthenticationPrincipal AccountPrincipal p) {
-        Long customerId = (p != null) ? p.getCustomerId() : null;
-        return portal.myWarranties(customerId);
+    public List<WarrantyDto> myWarranties(@AuthenticationPrincipal AccountPrincipal p,
+                                          @RequestParam(required = false) Long customerId) {
+        Long actualCustomerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
+        return portal.myWarranties(actualCustomerId);
+    }
+
+    @GetMapping("/portal/warranties/claims")
+    public List<WarrantyCaseDto> myWarrantyClaims(@AuthenticationPrincipal AccountPrincipal p,
+                                                  @RequestParam(required = false) Long customerId) {
+        Long actualCustomerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
+        return portal.myWarrantyClaims(actualCustomerId);
     }
 
     @PostMapping("/portal/warranties/claims")
     public Map<String, Object> createWarrantyClaim(@AuthenticationPrincipal AccountPrincipal p,
                                                    @RequestBody Map<String, Object> req) {
-        Long customerId = (p != null) ? p.getCustomerId() : 2L;
+        Long customerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() :
+                (req.get("customerId") != null ? Long.valueOf(req.get("customerId").toString()) : 2L);
         return portal.createWarrantyClaim(req, customerId);
     }
 
     @GetMapping("/portal/refunds")
-    public List<RefundDto> myRefunds(@AuthenticationPrincipal AccountPrincipal p) {
-        Long customerId = (p != null) ? p.getCustomerId() : null;
-        return portal.myRefunds(customerId);
+    public List<RefundDto> myRefunds(@AuthenticationPrincipal AccountPrincipal p,
+                                     @RequestParam(required = false) Long customerId) {
+        Long actualCustomerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
+        return portal.myRefunds(actualCustomerId);
     }
 
     @GetMapping("/portal/refunds/{code}")
@@ -69,19 +80,23 @@ public class PortalController {
     @PostMapping("/portal/refunds")
     public RefundDto createRefund(@AuthenticationPrincipal AccountPrincipal p,
                                   @RequestBody Map<String, Object> req) {
-        Long customerId = (p != null) ? p.getCustomerId() : 2L;
+        Long customerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() :
+                (req.get("customerId") != null ? Long.valueOf(req.get("customerId").toString()) : 2L);
         return portal.createRefund(req, customerId);
     }
 
     @GetMapping("/portal/complaints")
-    public List<ComplaintDto> myComplaints() {
-        return portal.myComplaints();
+    public List<ComplaintDto> myComplaints(@AuthenticationPrincipal AccountPrincipal p,
+                                           @RequestParam(required = false) Long customerId) {
+        Long actualCustomerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
+        return portal.myComplaints(actualCustomerId);
     }
 
     @PostMapping("/portal/complaints")
     public ComplaintDto createComplaint(@AuthenticationPrincipal AccountPrincipal p,
                                         @RequestBody Map<String, Object> req) {
-        Long customerId = (p != null) ? p.getCustomerId() : 2L;
+        Long customerId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() :
+                (req.get("customerId") != null ? Long.valueOf(req.get("customerId").toString()) : 2L);
         return portal.createComplaint(req, customerId);
     }
 
@@ -107,6 +122,9 @@ public class PortalController {
             try {
                 customerId = Long.valueOf(req.get("customerId").toString());
             } catch (Exception ignored) {}
+        }
+        if (customerId == null) {
+            customerId = 2L;
         }
         return portal.createTicket(req, customerId);
     }
@@ -180,29 +198,13 @@ public class PortalController {
 
     // GIẢI PHÁP 3: Xử lý giải quyết khiếu nại và đánh thức L08
     @PostMapping("/staff/complaints/{code}/resolve")
-    public Map<String, Object> resolveComplaint(@PathVariable String code, 
-                                                @RequestBody Map<String, Object> body,
-                                                @AuthenticationPrincipal AccountPrincipal p,
-                                                @RequestParam(required = false) Long staffId) {
-        Long actualStaffId = (p != null && p.getStaffId() != null) ? p.getStaffId() : staffId;
-        String actualRole = (p != null && p.getRole() != null) ? p.getRole().name() : null;
-        return portal.resolveComplaint(code, body, actualStaffId, actualRole);
-    }
-
-    @PostMapping("/staff/complaints/{code}/assign")
-    public Map<String, Object> assignComplaintStaff(@PathVariable String code, @RequestBody Map<String, Object> body) {
-        Long staffId = Long.parseLong(body.get("staffId").toString());
-        return portal.autoAssignStaffToComplaint(code, staffId);
+    public Map<String, Object> resolveComplaint(@PathVariable String code, @RequestBody Map<String, Object> body) {
+        return portal.resolveComplaint(code, body);
     }
 
     @GetMapping("/staff/complaints")
-    public List<Map<String, Object>> staffComplaints(@AuthenticationPrincipal AccountPrincipal p,
-                                                     @RequestParam(required = false) Long staffId,
-                                                     @RequestParam(required = false) String scope,
-                                                     @RequestParam(required = false) Long departmentId) {
-        Long actualStaffId = (p != null && p.getStaffId() != null) ? p.getStaffId() : staffId;
-        String actualRole = (p != null && p.getRole() != null) ? p.getRole().name() : null;
-        return portal.getStaffComplaints(actualStaffId, actualRole, scope, departmentId);
+    public List<Map<String, Object>> staffComplaints() {
+        return portal.getAllStaffComplaints();
     }
 
     @GetMapping("/staff/refunds")
@@ -213,6 +215,14 @@ public class PortalController {
     @GetMapping("/staff/warranties")
     public List<Map<String, Object>> staffWarranties() {
         return portal.getAllStaffWarranties();
+    }
+
+    @PostMapping("/staff/warranties/{caseCode}/status")
+    public Map<String, Object> updateWarrantyStatus(@PathVariable String caseCode,
+                                                    @AuthenticationPrincipal AccountPrincipal p,
+                                                    @RequestBody Map<String, Object> body) {
+        Long staffId = (p != null) ? p.getStaffId() : null;
+        return portal.updateWarrantyStatus(caseCode, body, staffId);
     }
 
     @PostMapping("/staff/approvals/ai-draft/{ticketId}/action")

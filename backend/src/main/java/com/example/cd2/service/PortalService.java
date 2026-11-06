@@ -81,13 +81,10 @@ public class PortalService {
 
     // ---- Khach hang: du lieu thuc tu SQL ----
     public List<OrderDto> myOrders(Long customerId) {
-        List<CustomerOrder> list = (customerId != null)
-                ? orders.findByCustomerId(customerId)
-                : orders.findAll();
-        if (list.isEmpty()) {
-            list = orders.findAll();
+        if (customerId == null) {
+            return List.of();
         }
-        return list.stream().map(this::toOrderDto).toList();
+        return orders.findByCustomerId(customerId).stream().map(this::toOrderDto).toList();
     }
 
     public OrderDto getOrderByCode(String orderCode) {
@@ -107,16 +104,10 @@ public class PortalService {
     }
 
     public List<WarrantyDto> myWarranties(Long customerId) {
-        List<Warranty> list = warranties.findAll();
-        if (customerId != null) {
-            List<Warranty> filtered = list.stream()
-                    .filter(w -> w.getCustomer() != null && w.getCustomer().getId().equals(customerId))
-                    .toList();
-            if (!filtered.isEmpty()) {
-                list = filtered;
-            }
+        if (customerId == null) {
+            return List.of();
         }
-        return list.stream().map(w -> new WarrantyDto(
+        return warranties.findByCustomerId(customerId).stream().map(w -> new WarrantyDto(
                 w.getId(),
                 w.getSerialNumber(),
                 w.getOrderItem() != null ? w.getOrderItem().getProductName() : "Thiết bị điện tử",
@@ -128,23 +119,37 @@ public class PortalService {
     }
 
     public List<RefundDto> myRefunds(Long customerId) {
-        return refunds.findAll().stream().map(r -> new RefundDto(
-                r.getId(),
-                r.getRefundCode(),
-                r.getOrder() != null ? r.getOrder().getOrderCode() : "ORD-N/A",
-                r.getAmount(),
-                r.getReason(),
-                r.getStatus().name(),
-                r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "AUTO",
-                r.getEvidenceUrl(),
-                r.getTicket() != null ? r.getTicket().getTicketCode() : null,
-                r.getTicket() != null ? r.getTicket().getId() : null,
-                r.getCreatedAt()
-        )).toList();
+        if (customerId == null) {
+            return List.of();
+        }
+        List<Refund> list = refunds.findByCustomerId(customerId);
+        return list.stream().map(r -> {
+            Staff s = r.getStaff() != null ? r.getStaff() : (r.getTicket() != null ? r.getTicket().getAssignee() : null);
+            return new RefundDto(
+                    r.getId(),
+                    r.getRefundCode(),
+                    r.getOrder() != null ? r.getOrder().getOrderCode() : "ORD-N/A",
+                    r.getAmount(),
+                    r.getReason(),
+                    r.getStatus().name(),
+                    r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "AUTO",
+                    r.getEvidenceUrl(),
+                    r.getTicket() != null ? r.getTicket().getTicketCode() : null,
+                    r.getTicket() != null ? r.getTicket().getId() : null,
+                    r.getCreatedAt(),
+                    s != null ? s.getId() : null,
+                    s != null ? s.getFullName() : "Kế toán xử lý",
+                    s != null ? s.getEmail() : ""
+            );
+        }).toList();
     }
 
-    public List<ComplaintDto> myComplaints() {
-        return complaints.findAll().stream().map(c -> new ComplaintDto(
+    public List<ComplaintDto> myComplaints(Long customerId) {
+        if (customerId == null) {
+            return List.of();
+        }
+        List<Complaint> list = complaints.findByCustomerId(customerId);
+        return list.stream().map(c -> new ComplaintDto(
                 c.getId(),
                 c.getComplaintCode(),
                 c.getDepartment() != null ? c.getDepartment().getName() : "Bộ phận Tiếp nhận",
@@ -225,6 +230,26 @@ public class PortalService {
             });
         }
 
+        // Tự động phân công nhân viên Kế toán / Tài chính có tải hiện tại thấp nhất (Luồng L09)
+        Department refundDept = departments.findByCode("ACCOUNTING")
+                .or(() -> departments.findByCode("KE_TOAN"))
+                .or(() -> departments.findByCode("FINANCE"))
+                .or(() -> departments.findByCode("SUPPORT"))
+                .orElse(null);
+        Staff assignedStaff = null;
+        if (refundDept != null) {
+            assignedStaff = staffRepo.findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(refundDept.getId()).orElse(null);
+        }
+        if (assignedStaff == null) {
+            Department supportDept = departments.findByCode("SUPPORT").orElse(null);
+            if (supportDept != null) {
+                assignedStaff = staffRepo.findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(supportDept.getId()).orElse(null);
+            }
+        }
+        if (assignedStaff == null) {
+            assignedStaff = staffRepo.findFirstByActiveTrueOrderByCurrentLoadAsc().orElse(null);
+        }
+
         // Tạo Ticket thực tế để lưu trữ và liên kết với Refund, cho phép khách hàng tra cứu tiến độ trên Cổng Hỗ Trợ
         Ticket ticket = new Ticket();
         ticket.setTicketCode("TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
@@ -235,6 +260,12 @@ public class PortalService {
         ticket.setStatus(TicketStatus.OPEN);
         ticket.setPriority(Priority.P2);
         ticket.setNeedHumanReview(false);
+        if (refundDept != null) {
+            ticket.setDepartment(refundDept);
+        }
+        if (assignedStaff != null) {
+            ticket.setAssignee(assignedStaff);
+        }
         Ticket savedTicket = tickets.save(ticket);
 
         // Lưu tin nhắn yêu cầu của khách hàng
@@ -266,6 +297,11 @@ public class PortalService {
         r.setEvidenceUrl(evidenceUrl);
         r.setStatus(RefundStatus.PENDING_INFO); // Ban đầu ở trạng thái thẩm định tự động qua L09
         r.setApprovalLevel(level);
+        if (assignedStaff != null) {
+            r.setStaff(assignedStaff);
+            assignedStaff.setCurrentLoad(assignedStaff.getCurrentLoad() + 1);
+            staffRepo.save(assignedStaff);
+        }
         Refund saved = refunds.save(r);
 
         // Kích hoạt webhook n8n Luồng L09_Refund với đầy đủ ticket_id và ticket_code
@@ -280,6 +316,12 @@ public class PortalService {
         n8nData.put("amount", amount);
         n8nData.put("reason", reason);
         n8nData.put("evidence_url", evidenceUrl);
+        if (assignedStaff != null) {
+            n8nData.put("assigned_staff_id", assignedStaff.getId());
+            n8nData.put("assigned_staff_name", assignedStaff.getFullName());
+            n8nData.put("assigned_staff_email", assignedStaff.getEmail());
+            n8nData.put("staff_id", assignedStaff.getId());
+        }
         n8nService.triggerRefund(n8nData);
 
         return new RefundDto(
@@ -293,7 +335,10 @@ public class PortalService {
                 saved.getEvidenceUrl(),
                 savedTicket.getTicketCode(),
                 savedTicket.getId(),
-                saved.getCreatedAt()
+                saved.getCreatedAt(),
+                assignedStaff != null ? assignedStaff.getId() : null,
+                assignedStaff != null ? assignedStaff.getFullName() : "Kế toán xử lý",
+                assignedStaff != null ? assignedStaff.getEmail() : ""
         );
     }
 
@@ -308,31 +353,114 @@ public class PortalService {
             return all.isEmpty() ? null : all.get(0);
         });
 
+        Customer customer = (customerId != null) ? customers.findById(customerId).orElse(null) : null;
+        if (customer == null && war != null && war.getCustomer() != null) {
+            customer = war.getCustomer();
+        }
+        if (customer == null) {
+            customer = customers.findById(2L).orElseGet(() -> {
+                List<Customer> all = customers.findAll();
+                return all.isEmpty() ? null : all.get(0);
+            });
+        }
+
+        // Tự động phân công kỹ thuật viên phòng TECH có tải thấp nhất (Luồng L10)
+        Department techDept = departments.findByCode("TECH")
+                .or(() -> departments.findByCode("TECHNICAL"))
+                .or(() -> departments.findByCode("KY_THUAT"))
+                .or(() -> departments.findByCode("SUPPORT"))
+                .orElse(null);
+
+        Staff assignedTech = null;
+        if (techDept != null) {
+            assignedTech = staffRepo.findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(techDept.getId()).orElse(null);
+        }
+        if (assignedTech == null) {
+            Department supportDept = departments.findByCode("SUPPORT").orElse(null);
+            if (supportDept != null) {
+                assignedTech = staffRepo.findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(supportDept.getId()).orElse(null);
+            }
+        }
+        if (assignedTech == null) {
+            assignedTech = staffRepo.findFirstByActiveTrueOrderByCurrentLoadAsc().orElse(null);
+        }
+
+        String prodName = (war != null && war.getOrderItem() != null) ? war.getOrderItem().getProductName() : "Thiết bị chính hãng";
+
+        // Khởi tạo Ticket tương ứng để khách hàng theo dõi liên lạc và tiến độ sửa chữa
+        Ticket ticket = new Ticket();
+        ticket.setTicketCode("TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        ticket.setCustomer(customer);
+        ticket.setSubject("Yêu cầu bảo hành: " + prodName + " (" + serialNumber + ")");
+        ticket.setIntent(Intent.WARRANTY);
+        ticket.setChannel(Channel.WEB);
+        ticket.setStatus(TicketStatus.OPEN);
+        ticket.setPriority(Priority.P2);
+        ticket.setNeedHumanReview(false);
+        if (techDept != null) {
+            ticket.setDepartment(techDept);
+        }
+        if (assignedTech != null) {
+            ticket.setAssignee(assignedTech);
+        }
+        Ticket savedTicket = tickets.save(ticket);
+
+        // Lưu tin nhắn khởi tạo
+        Message msg = new Message();
+        msg.setTicket(savedTicket);
+        msg.setSenderType(SenderType.CUSTOMER);
+        msg.setChannel(Channel.WEB);
+        msg.setContentOriginal("Yêu cầu bảo hành số serial " + serialNumber + " (" + prodName + "). Hình thức bàn giao: " + serviceType + ". Chi tiết lỗi: " + issueDesc);
+        msg.setContentTranslated(msg.getContentOriginal());
+        msg.setLanguage("vi");
+        msg.setApprovedByHuman(false);
+        messages.save(msg);
+
         WarrantyCase wc = new WarrantyCase();
         wc.setCaseCode("WR-" + System.currentTimeMillis() % 1000000);
         wc.setWarranty(war);
+        wc.setTicket(savedTicket);
         wc.setIssueDescription(issueDesc);
         wc.setStatus(WarrantyCaseStatus.CREATED);
         wc.setServiceCenter("Trung tâm bảo hành LotusCare");
+        if (assignedTech != null) {
+            wc.setStaff(assignedTech);
+            assignedTech.setCurrentLoad(assignedTech.getCurrentLoad() + 1);
+            staffRepo.save(assignedTech);
+        }
         WarrantyCase saved = warrantyCases.save(wc);
 
         // Kích hoạt webhook n8n Luồng L10_Warranty
         Map<String, Object> n8nData = new HashMap<>();
         n8nData.put("case_code", saved.getCaseCode());
+        n8nData.put("ticket_id", savedTicket.getId());
+        n8nData.put("ticket_code", savedTicket.getTicketCode());
         n8nData.put("serial_number", serialNumber);
         n8nData.put("order_code", req.get("orderCode"));
         n8nData.put("issue_desc", issueDesc);
         n8nData.put("service_type", serviceType);
-        n8nData.put("customer_id", customerId != null ? customerId : 2L);
+        n8nData.put("customer_id", customer != null ? customer.getId() : 2L);
+        n8nData.put("customer_name", customer != null ? customer.getFullName() : "Khách hàng");
+        n8nData.put("customer_email", customer != null ? customer.getEmail() : "khachhang@example.com");
+        if (assignedTech != null) {
+            n8nData.put("assigned_staff_id", assignedTech.getId());
+            n8nData.put("assigned_staff_name", assignedTech.getFullName());
+            n8nData.put("assigned_staff_email", assignedTech.getEmail());
+            n8nData.put("staff_id", assignedTech.getId());
+        }
         n8nService.triggerWarranty(n8nData);
 
-        return Map.of(
-                "id", saved.getId(),
-                "caseCode", saved.getCaseCode(),
-                "serialNumber", serialNumber,
-                "status", saved.getStatus().name(),
-                "serviceCenter", saved.getServiceCenter()
-        );
+        Map<String, Object> res = new HashMap<>();
+        res.put("id", saved.getId());
+        res.put("caseCode", saved.getCaseCode());
+        res.put("serialNumber", serialNumber);
+        res.put("status", saved.getStatus().name());
+        res.put("serviceCenter", saved.getServiceCenter());
+        res.put("ticketCode", savedTicket.getTicketCode());
+        res.put("ticketId", savedTicket.getId());
+        res.put("staffId", assignedTech != null ? assignedTech.getId() : null);
+        res.put("staffName", assignedTech != null ? assignedTech.getFullName() : "Kỹ thuật viên LotusCare");
+        return res;
     }
 
     @Transactional
@@ -427,23 +555,9 @@ public class PortalService {
             assignedStaff = staffRepo.findFirstByActiveTrueOrderByCurrentLoadAsc().orElse(null);
         }
 
-        Ticket t = new Ticket();
-        t.setTicketCode("TK-CMP-" + System.currentTimeMillis() % 100000);
-        t.setSubject("Khiếu nại: " + desc);
-        t.setCustomer(c);
-        t.setStatus(TicketStatus.OPEN);
-        t.setPriority(priority);
-        t.setChannel(Channel.LIVECHAT);
-        t.setIntent(Intent.COMPLAINT);
-        t.setDepartment(targetDept);
-        if (assignedStaff != null) {
-            t.setAssignee(assignedStaff);
-        }
-        Ticket savedTicket = tickets.save(t);
-
         Complaint cp = new Complaint();
-        cp.setComplaintCode("CP-" + System.currentTimeMillis() % 1000000);
-        cp.setTicket(savedTicket);
+        String cpCode = "CP-" + System.currentTimeMillis() % 1000000;
+        cp.setComplaintCode(cpCode);
         cp.setDescription(desc);
         cp.setSeverity(severity);
         cp.setStatus(ComplaintStatus.OPEN);
@@ -452,8 +566,22 @@ public class PortalService {
         // Hạn SLA theo mức độ
         long hours = (severity == Severity.CRITICAL) ? 2 : (severity == Severity.MINOR) ? 24 : 12;
         cp.setDueAt(Instant.now().plus(hours, ChronoUnit.HOURS));
+
+        Ticket t = new Ticket();
+        t.setTicketCode("TK-CMP-" + System.currentTimeMillis() % 100000);
+        t.setSubject("Khiếu nại [" + cpCode + "]: " + desc);
+        t.setCustomer(c);
+        t.setStatus(TicketStatus.OPEN);
+        t.setPriority(priority);
+        t.setChannel(Channel.LIVECHAT);
+        t.setIntent(Intent.COMPLAINT);
+        t.setDepartment(targetDept);
         t.setDueAt(cp.getDueAt());
-        tickets.save(t);
+        if (assignedStaff != null) {
+            t.setAssignee(assignedStaff);
+        }
+        Ticket savedTicket = tickets.save(t);
+        cp.setTicket(savedTicket);
 
         if (targetDept != null) {
             cp.setDepartment(targetDept);
@@ -513,7 +641,8 @@ public class PortalService {
                 saved.getDescription(),
                 saved.getDueAt(),
                 assignedStaff != null ? assignedStaff.getId() : null,
-                assignedStaff != null ? assignedStaff.getFullName() : "Chưa phân công"
+                assignedStaff != null ? assignedStaff.getFullName() : "Chưa phân công",
+                savedTicket.getTicketCode()
         );
     }
 
@@ -773,43 +902,11 @@ public class PortalService {
     // GIẢI PHÁP 3: Xử lý giải quyết khiếu nại (L08) & đánh thức n8n
     @Transactional
     public Map<String, Object> resolveComplaint(String code, Map<String, Object> body) {
-        return resolveComplaint(code, body, null, null);
-    }
-
-    @Transactional
-    public Map<String, Object> resolveComplaint(String code, Map<String, Object> body, Long requestingStaffId, String roleStr) {
         Optional<Complaint> compOpt = complaints.findByComplaintCode(code.trim());
         if (compOpt.isEmpty()) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khiếu nại: " + code);
         }
         Complaint c = compOpt.get();
-
-        // Kiểm tra phân quyền nhân viên khi giải quyết khiếu nại
-        if (requestingStaffId != null) {
-            Staff currentStaff = staffRepo.findById(requestingStaffId).orElse(null);
-            if (currentStaff != null) {
-                StaffRole sRole = currentStaff.getRole();
-                boolean isAdminOrManager = (sRole == StaffRole.ADMIN || sRole == StaffRole.MANAGER || 
-                                            "ADMIN".equalsIgnoreCase(roleStr) || "MANAGER".equalsIgnoreCase(roleStr));
-                boolean isLead = (sRole == StaffRole.TEAM_LEAD || "TEAM_LEAD".equalsIgnoreCase(roleStr));
-                
-                Staff assigned = c.getStaff() != null ? c.getStaff() : (c.getTicket() != null ? c.getTicket().getAssignee() : null);
-                Long assignedId = assigned != null ? assigned.getId() : null;
-                Department dept = c.getDepartment() != null ? c.getDepartment() : (c.getTicket() != null ? c.getTicket().getDepartment() : null);
-                Long deptId = dept != null ? dept.getId() : null;
-                Long staffDeptId = currentStaff.getDepartment() != null ? currentStaff.getDepartment().getId() : null;
-
-                if (!isAdminOrManager) {
-                    boolean isMine = currentStaff.getId().equals(assignedId);
-                    boolean isMyDept = staffDeptId != null && staffDeptId.equals(deptId);
-                    if (!isMine && !(isLead && isMyDept) && !isMyDept) {
-                        throw new ApiException(HttpStatus.FORBIDDEN, 
-                            "Bạn không có quyền xử lý khiếu nại này! (Khiếu nại thuộc phòng ban " + 
-                            (dept != null ? dept.getName() : "khác") + ")");
-                    }
-                }
-            }
-        }
 
         String resolution = body.get("resolution") != null ? body.get("resolution").toString() : "Đã tiếp nhận và xử lý thỏa đáng";
         String rootCause = body.get("rootCause") != null ? body.get("rootCause").toString() : "Nguyên nhân vận hành / vận chuyển";
@@ -820,16 +917,6 @@ public class PortalService {
         c.setRootCause(rootCause);
         c.setResolvedAt(Instant.now());
         complaints.save(c);
-
-        // Giảm currentLoad của chuyên viên được phân công xử lý khi hoàn tất
-        Staff assignedStaff = c.getStaff();
-        if (assignedStaff == null && c.getTicket() != null) {
-            assignedStaff = c.getTicket().getAssignee();
-        }
-        if (assignedStaff != null) {
-            assignedStaff.setCurrentLoad(Math.max(0, assignedStaff.getCurrentLoad() - 1));
-            staffRepo.save(assignedStaff);
-        }
 
         if (c.getTicket() != null) {
             Ticket t = c.getTicket();
@@ -876,18 +963,41 @@ public class PortalService {
         return Map.of(
                 "status", "RESOLVED",
                 "complaintCode", c.getComplaintCode(),
-                "resolution", resolution,
-                "rootCause", rootCause,
-                "resolvedAt", c.getResolvedAt().toString()
+                "resolvedAt", c.getResolvedAt().toString(),
+                "resolution", resolution
         );
     }
 
-    // Phê duyệt hoàn tiền (L09) - Đánh thức n8n Wait Node
+    // Phê duyệt hoàn tiền (L09) - Đánh thức n8n Wait Node và đồng bộ Ticket
     @Transactional
     public Map<String, Object> approveRefund(Long id, Map<String, Object> body) {
         Refund r = refunds.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hoàn tiền #" + id));
         r.setStatus(RefundStatus.APPROVED);
         refunds.save(r);
+
+        Staff s = r.getStaff() != null ? r.getStaff() : (r.getTicket() != null ? r.getTicket().getAssignee() : null);
+        if (s != null) {
+            s.setCurrentLoad(Math.max(0, s.getCurrentLoad() - 1));
+            staffRepo.save(s);
+        }
+
+        if (r.getTicket() != null) {
+            Ticket t = r.getTicket();
+            t.setStatus(TicketStatus.RESOLVED);
+            t.setResolvedAt(Instant.now());
+            tickets.save(t);
+
+            Message msg = new Message();
+            msg.setTicket(t);
+            msg.setSenderType(SenderType.STAFF);
+            msg.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);
+            msg.setStaff(s);
+            msg.setContentOriginal("Yêu cầu hoàn tiền " + r.getRefundCode() + " đã được KẾ TOÁN DUYỆT THÀNH CÔNG. Số tiền " + (r.getAmount() != null ? r.getAmount().toPlainString() : "500,000") + " VNĐ đang được xử lý hoàn tiền về tài khoản ngân hàng của quý khách.");
+            msg.setContentTranslated(msg.getContentOriginal());
+            msg.setLanguage("vi");
+            msg.setApprovedByHuman(true);
+            messages.save(msg);
+        }
 
         try {
             Map<String, Object> resumePayload = new HashMap<>();
@@ -907,6 +1017,31 @@ public class PortalService {
         Refund r = refunds.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hoàn tiền #" + id));
         r.setStatus(RefundStatus.REJECTED);
         refunds.save(r);
+
+        Staff s = r.getStaff() != null ? r.getStaff() : (r.getTicket() != null ? r.getTicket().getAssignee() : null);
+        if (s != null) {
+            s.setCurrentLoad(Math.max(0, s.getCurrentLoad() - 1));
+            staffRepo.save(s);
+        }
+
+        if (r.getTicket() != null) {
+            Ticket t = r.getTicket();
+            t.setStatus(TicketStatus.RESOLVED);
+            t.setResolvedAt(Instant.now());
+            tickets.save(t);
+
+            String reason = body != null && body.get("reason") != null ? body.get("reason").toString() : "Hồ sơ không đáp ứng đủ tiêu chuẩn và chính sách hoàn tiền";
+            Message msg = new Message();
+            msg.setTicket(t);
+            msg.setSenderType(SenderType.STAFF);
+            msg.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);
+            msg.setStaff(s);
+            msg.setContentOriginal("Yêu cầu hoàn tiền " + r.getRefundCode() + " đã bị TỪ CHỐI. Lý do chi tiết: " + reason);
+            msg.setContentTranslated(msg.getContentOriginal());
+            msg.setLanguage("vi");
+            msg.setApprovedByHuman(true);
+            messages.save(msg);
+        }
 
         try {
             Map<String, Object> resumePayload = new HashMap<>();
@@ -1061,91 +1196,9 @@ public class PortalService {
         return Map.of("status", "APPROVED", "ticketId", ticketId);
     }
 
-    // Quản lý khiếu nại (L08) - Phân quyền truy cập theo Vai trò, Nhân viên & Phòng ban
+    // Quản lý khiếu nại (L08)
     public List<Map<String, Object>> getAllStaffComplaints() {
-        return getStaffComplaints(null, null, "all", null);
-    }
-
-    public List<Map<String, Object>> getStaffComplaints(Long requestingStaffId, String roleStr, String scope, Long filterDeptId) {
-        Staff currentStaff = requestingStaffId != null ? staffRepo.findById(requestingStaffId).orElse(null) : null;
-
-        boolean isAdminOrManager = false;
-        boolean isTeamLead = false;
-        Long staffDeptId = null;
-
-        if (currentStaff != null) {
-            StaffRole sRole = currentStaff.getRole();
-            isAdminOrManager = (sRole == StaffRole.ADMIN || sRole == StaffRole.MANAGER || 
-                                "ADMIN".equalsIgnoreCase(roleStr) || "MANAGER".equalsIgnoreCase(roleStr));
-            isTeamLead = (sRole == StaffRole.TEAM_LEAD || "TEAM_LEAD".equalsIgnoreCase(roleStr));
-            if (currentStaff.getDepartment() != null) {
-                staffDeptId = currentStaff.getDepartment().getId();
-            }
-        } else if (roleStr != null) {
-            isAdminOrManager = "ADMIN".equalsIgnoreCase(roleStr) || "MANAGER".equalsIgnoreCase(roleStr);
-            isTeamLead = "TEAM_LEAD".equalsIgnoreCase(roleStr);
-        }
-
-        final Long myStaffId = currentStaff != null ? currentStaff.getId() : requestingStaffId;
-        final Long myDeptId = staffDeptId;
-        final boolean admin = isAdminOrManager;
-        final boolean lead = isTeamLead;
-
-        List<Complaint> all = complaints.findAllByOrderByCreatedAtDesc();
-
-        return all.stream().filter(c -> {
-            Staff assigned = c.getStaff() != null ? c.getStaff() : (c.getTicket() != null ? c.getTicket().getAssignee() : null);
-            Long assignedId = assigned != null ? assigned.getId() : null;
-            Department dept = c.getDepartment() != null ? c.getDepartment() : (c.getTicket() != null ? c.getTicket().getDepartment() : null);
-            Long deptId = dept != null ? dept.getId() : null;
-
-            // 1. Quản trị viên / Quản lý (ADMIN, MANAGER): Toàn quyền xem
-            if (admin) {
-                if ("my".equalsIgnoreCase(scope)) {
-                    return myStaffId != null && myStaffId.equals(assignedId);
-                }
-                if ("dept".equalsIgnoreCase(scope) || filterDeptId != null) {
-                    Long targetDept = filterDeptId != null ? filterDeptId : myDeptId;
-                    return targetDept != null && targetDept.equals(deptId);
-                }
-                return true; // "all" hoặc mặc định: xem tất cả
-            }
-
-            // 2. Trưởng nhóm (TEAM_LEAD): Xem toàn bộ phòng ban phụ trách
-            if (lead) {
-                if ("my".equalsIgnoreCase(scope)) {
-                    return myStaffId != null && myStaffId.equals(assignedId);
-                }
-                // Mặc định hoặc scope == "dept": xem các khiếu nại thuộc phòng ban của mình
-                if (myDeptId != null && myDeptId.equals(deptId)) {
-                    return true;
-                }
-                // Hoặc khiếu nại đích danh gán cho Team Lead
-                return myStaffId != null && myStaffId.equals(assignedId);
-            }
-
-            // 3. Nhân viên chuyên trách (AGENT, TECHNICIAN, LEGAL):
-            // Fallback nếu không truyền thông tin đăng nhập (demo)
-            if (myStaffId == null) {
-                return true;
-            }
-
-            // Nếu chọn tab "Phòng ban của tôi"
-            if ("dept".equalsIgnoreCase(scope)) {
-                return myDeptId != null && myDeptId.equals(deptId);
-            }
-
-            // MẶC ĐỊNH (scope == "my" hoặc không truyền): CHỈ xem khiếu nại được gán đích danh cho cá nhân này!
-            if (myStaffId.equals(assignedId)) {
-                return true;
-            }
-            // Hoặc trường hợp khiếu nại mới vào phòng ban nhưng chưa gán cho ai
-            if (assignedId == null && myDeptId != null && myDeptId.equals(deptId)) {
-                return true;
-            }
-
-            return false;
-        }).map(c -> {
+        return complaints.findAllByOrderByCreatedAtDesc().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", c.getId());
             m.put("complaintCode", c.getComplaintCode());
@@ -1162,7 +1215,6 @@ public class PortalService {
             m.put("resolvedAt", c.getResolvedAt() != null ? c.getResolvedAt().toString() : null);
 
             Staff s = c.getStaff() != null ? c.getStaff() : (c.getTicket() != null ? c.getTicket().getAssignee() : null);
-            Long assignedId = s != null ? s.getId() : null;
             if (s != null) {
                 m.put("staffId", s.getId());
                 m.put("staffName", s.getFullName());
@@ -1174,73 +1226,33 @@ public class PortalService {
             }
 
             Department d = c.getDepartment() != null ? c.getDepartment() : (c.getTicket() != null ? c.getTicket().getDepartment() : null);
-            Long deptId = d != null ? d.getId() : null;
-            m.put("departmentId", deptId);
             m.put("departmentCode", d != null ? d.getCode() : "SUPPORT");
             m.put("departmentName", d != null ? d.getName() : "Chăm sóc khách hàng");
-
-            // Phân quyền trên từng item cho giao diện frontend
-            boolean isMine = myStaffId != null && myStaffId.equals(assignedId);
-            boolean isMyDept = myDeptId != null && myDeptId.equals(deptId);
-            boolean canResolve = admin || isMine || (lead && isMyDept);
-
-            m.put("isAssignedToMe", isMine);
-            m.put("isMyDepartment", isMyDept);
-            m.put("canResolve", canResolve);
-
             return m;
         }).toList();
     }
 
-    @Transactional
-    public Map<String, Object> autoAssignStaffToComplaint(String complaintCode, Long staffId) {
-        Complaint c = complaints.findByComplaintCode(complaintCode.trim())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khiếu nại: " + complaintCode));
-        Staff s = staffRepo.findById(staffId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên ID=" + staffId));
-
-        c.setStaff(s);
-        if (s.getDepartment() != null) {
-            c.setDepartment(s.getDepartment());
-        }
-        if (c.getTicket() != null) {
-            c.getTicket().setAssignee(s);
-            if (s.getDepartment() != null) {
-                c.getTicket().setDepartment(s.getDepartment());
-            }
-            tickets.save(c.getTicket());
-        }
-        s.setCurrentLoad(s.getCurrentLoad() + 1);
-        staffRepo.save(s);
-        complaints.save(c);
-
-        AuditLog al = new AuditLog();
-        al.setWorkflow("L08_Complaint");
-        al.setEntityType("complaint");
-        al.setEntityId(c.getId());
-        al.setAction("ASSIGN_STAFF");
-        al.setActor("SYSTEM");
-        al.setDetail(Map.of("staffId", s.getId(), "staffName", s.getFullName(), "complaintCode", complaintCode));
-        auditLogs.save(al);
-
-        return Map.of("success", true, "complaintCode", complaintCode, "staffId", s.getId(), "staffName", s.getFullName());
-    }
-
     // Quản lý hoàn tiền (L09)
     public List<RefundDto> getAllStaffRefunds() {
-        return refunds.findAllByOrderByCreatedAtDesc().stream().map(r -> new RefundDto(
-                r.getId(),
-                r.getRefundCode(),
-                r.getOrder() != null ? r.getOrder().getOrderCode() : "N/A",
-                r.getAmount(),
-                r.getReason(),
-                r.getStatus().name(),
-                r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "TEAM_LEAD",
-                r.getEvidenceUrl(),
-                r.getTicket() != null ? r.getTicket().getTicketCode() : null,
-                r.getTicket() != null ? r.getTicket().getId() : null,
-                r.getCreatedAt()
-        )).toList();
+        return refunds.findAllByOrderByCreatedAtDesc().stream().map(r -> {
+            Staff s = r.getStaff() != null ? r.getStaff() : (r.getTicket() != null ? r.getTicket().getAssignee() : null);
+            return new RefundDto(
+                    r.getId(),
+                    r.getRefundCode(),
+                    r.getOrder() != null ? r.getOrder().getOrderCode() : "N/A",
+                    r.getAmount(),
+                    r.getReason(),
+                    r.getStatus().name(),
+                    r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "TEAM_LEAD",
+                    r.getEvidenceUrl(),
+                    r.getTicket() != null ? r.getTicket().getTicketCode() : null,
+                    r.getTicket() != null ? r.getTicket().getId() : null,
+                    r.getCreatedAt(),
+                    s != null ? s.getId() : null,
+                    s != null ? s.getFullName() : "Kế toán xử lý",
+                    s != null ? s.getEmail() : ""
+            );
+        }).toList();
     }
 
     // Quản lý bảo hành (L10)
@@ -1250,14 +1262,146 @@ public class PortalService {
             m.put("id", w.getId());
             m.put("caseCode", w.getCaseCode());
             m.put("serialNumber", w.getWarranty() != null ? w.getWarranty().getSerialNumber() : "N/A");
-            m.put("productName", w.getWarranty() != null && w.getWarranty().getOrderItem() != null ? w.getWarranty().getOrderItem().getProductName() : "Thiết bị");
+            m.put("productName", w.getWarranty() != null && w.getWarranty().getOrderItem() != null ? w.getWarranty().getOrderItem().getProductName() : "Thiết bị chính hãng");
             m.put("issueDescription", w.getIssueDescription());
             m.put("status", w.getStatus() != null ? w.getStatus().name() : "CREATED");
             m.put("resolutionType", w.getResolutionType() != null ? w.getResolutionType().name() : "SERVICE_CENTER");
             m.put("faultType", w.getFaultType() != null ? w.getFaultType().name() : "UNKNOWN");
+            m.put("serviceCenter", w.getServiceCenter() != null ? w.getServiceCenter() : "Trung tâm LotusCare");
+            m.put("repairFee", w.getRepairFee());
             m.put("createdAt", w.getCreatedAt() != null ? w.getCreatedAt().toString() : null);
+
+            Staff s = w.getStaff() != null ? w.getStaff() : (w.getTicket() != null ? w.getTicket().getAssignee() : null);
+            m.put("staffId", s != null ? s.getId() : null);
+            m.put("staffName", s != null ? s.getFullName() : "Kỹ thuật viên phụ trách");
+            m.put("staffEmail", s != null ? s.getEmail() : "");
+
+            Customer c = w.getWarranty() != null ? w.getWarranty().getCustomer() : (w.getTicket() != null ? w.getTicket().getCustomer() : null);
+            m.put("customerName", c != null ? c.getFullName() : "Khách hàng");
+            m.put("customerEmail", c != null ? c.getEmail() : "");
+
+            if (w.getTicket() != null) {
+                m.put("ticketId", w.getTicket().getId());
+                m.put("ticketCode", w.getTicket().getTicketCode());
+            }
             return m;
         }).toList();
+    }
+
+    // Danh sách phiếu bảo hành của khách hàng (User Portal)
+    public List<WarrantyCaseDto> myWarrantyClaims(Long customerId) {
+        if (customerId == null) {
+            return List.of();
+        }
+        List<WarrantyCase> list = warrantyCases.findByCustomerId(customerId);
+        return list.stream().map(w -> {
+            Staff s = w.getStaff() != null ? w.getStaff() : (w.getTicket() != null ? w.getTicket().getAssignee() : null);
+            Customer c = w.getWarranty() != null ? w.getWarranty().getCustomer() : (w.getTicket() != null ? w.getTicket().getCustomer() : null);
+            String prodName = (w.getWarranty() != null && w.getWarranty().getOrderItem() != null)
+                    ? w.getWarranty().getOrderItem().getProductName()
+                    : "Thiết bị chính hãng";
+            return new WarrantyCaseDto(
+                    w.getId(),
+                    w.getCaseCode(),
+                    w.getWarranty() != null ? w.getWarranty().getSerialNumber() : "N/A",
+                    prodName,
+                    c != null ? c.getFullName() : "Khách hàng",
+                    c != null ? c.getEmail() : "",
+                    c != null ? c.getPhone() : "",
+                    w.getTicket() != null ? w.getTicket().getId() : null,
+                    w.getTicket() != null ? w.getTicket().getTicketCode() : null,
+                    w.getIssueDescription(),
+                    w.getFaultType() != null ? w.getFaultType().name() : "UNKNOWN",
+                    w.getResolutionType() != null ? w.getResolutionType().name() : "SERVICE_CENTER",
+                    w.getStatus() != null ? w.getStatus().name() : "CREATED",
+                    w.getServiceCenter() != null ? w.getServiceCenter() : "Trung tâm CSKH",
+                    w.getRepairFee(),
+                    w.getCreatedAt(),
+                    s != null ? s.getId() : null,
+                    s != null ? s.getFullName() : "Kỹ thuật viên LotusCare",
+                    s != null ? s.getEmail() : ""
+            );
+        }).toList();
+    }
+
+    // Nhân viên / Kỹ thuật cập nhật trạng thái phiếu bảo hành (L10)
+    @Transactional
+    public Map<String, Object> updateWarrantyStatus(String caseCode, Map<String, Object> body, Long requestingStaffId) {
+        WarrantyCase wc = warrantyCases.findByCaseCode(caseCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu bảo hành: " + caseCode));
+
+        String newStatusStr = (String) body.getOrDefault("status", "COMPLETED");
+        WarrantyCaseStatus newStatus = WarrantyCaseStatus.valueOf(newStatusStr.toUpperCase());
+        wc.setStatus(newStatus);
+
+        if (body.get("serviceCenter") != null) {
+            wc.setServiceCenter(body.get("serviceCenter").toString());
+        }
+        if (body.get("repairFee") != null) {
+            wc.setRepairFee(new BigDecimal(body.get("repairFee").toString()));
+        }
+
+        Staff s = wc.getStaff() != null ? wc.getStaff() : (requestingStaffId != null ? staffRepo.findById(requestingStaffId).orElse(null) : null);
+        if (wc.getStaff() == null && s != null) {
+            wc.setStaff(s);
+        }
+
+        if (newStatus == WarrantyCaseStatus.COMPLETED || newStatus == WarrantyCaseStatus.CLOSED) {
+            if (s != null) {
+                s.setCurrentLoad(Math.max(0, s.getCurrentLoad() - 1));
+                staffRepo.save(s);
+            }
+        }
+        warrantyCases.save(wc);
+
+        Ticket t = wc.getTicket();
+        if (t != null) {
+            if (newStatus == WarrantyCaseStatus.COMPLETED || newStatus == WarrantyCaseStatus.CLOSED) {
+                t.setStatus(TicketStatus.RESOLVED);
+                t.setResolvedAt(Instant.now());
+            } else {
+                t.setStatus(TicketStatus.OPEN);
+            }
+            tickets.save(t);
+
+            String statusVi = switch (newStatus) {
+                case RECEIVED -> "Đã tiếp nhận thiết bị tại trung tâm kỹ thuật";
+                case REPAIRING -> "Đang tiến hành kiểm tra & sửa chữa";
+                case COMPLETED -> "Đã hoàn tất sửa chữa và kiểm thử thành công";
+                case CLOSED -> "Đã bàn giao thiết bị cho khách hàng, đóng phiếu";
+                default -> newStatus.name();
+            };
+            String note = body.get("note") != null ? body.get("note").toString() : "Tiến độ bảo hành được cập nhật bởi kỹ thuật viên.";
+
+            Message msg = new Message();
+            msg.setTicket(t);
+            msg.setSenderType(SenderType.STAFF);
+            msg.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);
+            msg.setStaff(s);
+            msg.setContentOriginal("CẬP NHẬT TIẾN ĐỘ BẢO HÀNH [" + wc.getCaseCode() + "]: " + statusVi + ". " + note);
+            msg.setContentTranslated(msg.getContentOriginal());
+            msg.setLanguage("vi");
+            msg.setApprovedByHuman(true);
+            messages.save(msg);
+        }
+
+        // Đánh thức n8n Luồng L10 nếu hoàn tất
+        if (newStatus == WarrantyCaseStatus.COMPLETED || newStatus == WarrantyCaseStatus.CLOSED) {
+            try {
+                Map<String, Object> resumeData = new HashMap<>();
+                resumeData.put("case_code", wc.getCaseCode());
+                resumeData.put("status", newStatus.name());
+                resumeData.put("action", "WARRANTY_COMPLETED");
+                if (t != null) {
+                    resumeData.put("ticket_id", t.getId());
+                }
+                n8nService.resumeWaitingWebhook("c98e4ff5-d5ac-488c-9391-b1e771184f3d", resumeData);
+            } catch (Exception ex) {
+                log.warn("Lỗi đánh thức n8n L10: {}", ex.getMessage());
+            }
+        }
+
+        return Map.of("status", newStatus.name(), "caseCode", wc.getCaseCode(), "message", "Cập nhật trạng thái bảo hành thành công");
     }
 
     // Quản lý KB (L04)
