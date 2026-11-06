@@ -144,3 +144,17 @@ CREATE TABLE `tickets` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-11-04 20:29:40
+
+-- ==========================================
+-- Luồng 12: Customer Satisfaction (CSAT) Survey
+-- ==========================================
+ALTER TABLE tickets ADD COLUMN csat_sent BOOLEAN DEFAULT FALSE;
+ALTER TABLE tickets ADD COLUMN csat_sent_at DATETIME NULL;
+
+CREATE TABLE IF NOT EXISTS csat_surveys (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id BIGINT NOT NULL,
+    rating INT NOT NULL,
+    feedback TEXT NULL,
+    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
