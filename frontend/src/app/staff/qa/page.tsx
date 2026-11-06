@@ -19,6 +19,7 @@ import Link from 'next/link';
 export default function StaffQaPage() {
     const [records, setRecords] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [evaluating, setEvaluating] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
     const fetchQaScores = async () => {
@@ -33,6 +34,25 @@ export default function StaffQaPage() {
             console.error('Lỗi tải đánh giá QA:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleTriggerQa = async () => {
+        setEvaluating(true);
+        try {
+            const res = await fetch('http://localhost:8080/api/staff/qa/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actor: 'STAFF_PORTAL' })
+            });
+            if (res.ok) {
+                alert('Đã kích hoạt n8n Luồng 11 (L11_Support_QA) chấm điểm QA tự động!');
+                setTimeout(fetchQaScores, 4000);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setEvaluating(false);
         }
     };
 
@@ -78,6 +98,14 @@ export default function StaffQaPage() {
                         </p>
                     </div>
 
+                    <button
+                        onClick={handleTriggerQa}
+                        disabled={evaluating}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+                    >
+                        <Sparkles size={15} className={evaluating ? 'animate-spin' : ''} />
+                        {evaluating ? 'Đang chấm điểm...' : 'Kích hoạt QA (L11)'}
+                    </button>
                     <button
                         onClick={fetchQaScores}
                         className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm"

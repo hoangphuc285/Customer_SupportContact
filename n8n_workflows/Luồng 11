@@ -1,0 +1,698 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * *"
+            }
+          ]
+        }
+      },
+      "id": "07471430-e12c-4d60-a7f9-086e455993a0",
+      "name": "Schedule Trigger - 23h hằng ngày",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3040,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-qa",
+        "options": {}
+      },
+      "id": "f3a2dde6-10e4-48e7-a4e0-453ad656791d",
+      "name": "Webhook - Kích hoạt đánh giá QA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3040,
+        -96
+      ],
+      "webhookId": "abd9eac9-6918-4454-8941-1b9fdace5dc3"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.id, t.ticket_code, t.status, t.priority, t.category, t.intent, t.csat_score, t.sla_breached, t.last_alert_level, t.assignee_id, t.customer_id, t.created_at, t.updated_at, s.full_name AS staff_name, s.email AS staff_email, c.full_name AS customer_name FROM tickets t LEFT JOIN staff s ON t.assignee_id = s.id LEFT JOIN customers c ON t.customer_id = c.id WHERE t.status IN ('CLOSED', 'RESOLVED') OR t.status = 'ESCALATED' OR t.sla_breached = 1 OR t.csat_score IS NOT NULL ORDER BY t.id DESC;",
+        "options": {}
+      },
+      "id": "c7bc2006-92b1-4146-94db-05955ee78f50",
+      "name": "MySQL - Lấy ticket cần đánh giá QA",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -2800,
+        0
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (!items || items.length === 0) {\n  return [];\n}\n\nconst sampled = [];\nconst remaining = [];\n\nitems.forEach(it => {\n  const t = it.json;\n  const isEscalated = t.status === 'ESCALATED' || t.sla_breached == 1 || (t.last_alert_level && t.last_alert_level >= 3);\n  const isLowCsat = t.csat_score !== null && t.csat_score !== undefined && Number(t.csat_score) <= 3;\n  \n  if (isEscalated) {\n    sampled.push({ ...t, sample_reason: 'ESCALATED' });\n  } else if (isLowCsat) {\n    sampled.push({ ...t, sample_reason: 'LOW_CSAT' });\n  } else {\n    remaining.push(t);\n  }\n});\n\n// Take 15% random sample of remaining (or at least 1 if remaining has items and sampled is small)\nconst sampleSize = Math.max(remaining.length > 0 && sampled.length < 3 ? 1 : 0, Math.ceil(remaining.length * 0.15));\nconst shuffled = remaining.sort(() => 0.5 - Math.random());\nfor (let i = 0; i < Math.min(sampleSize, shuffled.length); i++) {\n  sampled.push({ ...shuffled[i], sample_reason: 'RANDOM_SAMPLE' });\n}\n\nreturn sampled.map(s => ({ json: s }));"
+      },
+      "id": "941a67f7-c440-4af9-9442-f3a9c494e858",
+      "name": "Code - Lấy mẫu hội thoại (100% leo thang, CSAT thấp, 15% ngẫu nhiên)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b860dc55-4c2c-456c-bf40-2a6cc2167ceb",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT m.id, m.sender_type, m.staff_id, m.content_original, m.content_translated, m.channel, m.created_at, s.full_name AS staff_name FROM messages m LEFT JOIN staff s ON m.staff_id = s.id WHERE m.ticket_id = {{ $('Loop Over Items').first()?.json.id }} ORDER BY m.created_at ASC;",
+        "options": {}
+      },
+      "id": "33adb6b0-a616-4639-a484-aa66a3dd2c2e",
+      "name": "MySQL - Tải tin nhắn của ticket",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -1984,
+        0
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst ticket = $('Loop Over Items').first()?.json;\n\nlet transcript = '';\nif (items.length === 0 || !items[0].json.id) {\n  transcript = `[Hệ thống]: Không tìm thấy lịch sử tin nhắn cho ticket #${ticket.ticket_code}. Khách hàng phản ánh vấn đề liên quan đến ${ticket.category || 'dịch vụ'}.`;\n} else {\n  transcript = items.map(it => {\n    const sender = it.json.sender_type === 'CUSTOMER' ? `[Khách hàng ${ticket.customer_name || ''}]` :\n                   it.json.sender_type === 'STAFF' ? `[Nhân viên: ${it.json.staff_name || ticket.staff_name || 'Hỗ trợ viên'}]` :\n                   it.json.sender_type === 'AI' ? `[AI Trợ lý]` :\n                   `[${it.json.sender_type}]`;\n    return `${sender}: ${it.json.content_original}`;\n  }).join('\\n');\n}\n\nconst checklist = [\n  \"1. Chào hỏi & Xưng hô chuẩn mực (0 - 10): Có lời chào đầu/kết lịch sự, xưng hô tôn trọng, đúng tác phong CSKH chuyên nghiệp.\",\n  \"2. Xác minh thông tin & Làm rõ vấn đề (0 - 10): Chủ động hỏi và xác minh rõ thông tin mã đơn/sản phẩm/triệu chứng lỗi trước khi đưa ra kết luận.\",\n  \"3. Tuân thủ chính sách & Quy trình (0 - 10): Hướng dẫn đúng chính sách đổi trả (7 ngày 1 đổi 1 tận nơi nếu lỗi NSX) và bảo hành (12 tháng chính hãng); không bịa đặt hoặc tự ý từ chối quyền lợi khách.\",\n  \"4. Thái độ & Giọng điệu chuyên nghiệp (0 - 10): Lắng nghe, kiên nhẫn, đồng cảm khi khách bức xúc, tuyệt đối không cộc lốc, vô trách nhiệm hay tranh cãi.\",\n  \"5. Giải quyết triệt để & Hướng dẫn tiếp theo (0 - 10): Đưa ra giải pháp rõ ràng, mốc giờ cam kết hoàn tất cụ thể, hướng dẫn các bước tiếp theo.\"\n];\n\nreturn [{\n  json: {\n    ticket_id: ticket.id,\n    ticket_code: ticket.ticket_code,\n    status: ticket.status,\n    priority: ticket.priority,\n    category: ticket.category || 'GENERAL',\n    staff_id: ticket.assignee_id,\n    staff_name: ticket.staff_name || 'Chưa gán',\n    customer_name: ticket.customer_name || 'Khách hàng',\n    csat_score: ticket.csat_score,\n    sample_reason: ticket.sample_reason,\n    conversation_transcript: transcript,\n    checklist_text: checklist.join('\\n')\n  }\n}];"
+      },
+      "id": "500f7437-5fdb-4164-853d-156625b45591",
+      "name": "Code - Chuẩn bị nội dung hội thoại & Checklist QA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1712,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là Chuyên gia Đánh giá Chất lượng Chăm sóc Khách hàng (Senior Support QA Auditor) của VKU Store.\nNhiệm vụ của bạn là đánh giá chất lượng phiên hỗ trợ khách hàng dựa trên lịch sử tin nhắn thực tế và Bộ tiêu chí QA Checklist.\n\nThông tin Ticket:\n- Mã Ticket: {{ $json.ticket_code }}\n- Khách hàng: {{ $json.customer_name }}\n- Nhân viên phụ trách: {{ $json.staff_name }}\n- Trạng thái: {{ $json.status }} | Lý do kiểm tra: {{ $json.sample_reason }} | Điểm CSAT khách chấm: {{ $json.csat_score || 'Chưa đánh giá' }}\n\nNội dung hội thoại thực tế:\n\"\"\"\n{{ $json.conversation_transcript }}\n\"\"\"\n\nBộ tiêu chí QA Checklist chuẩn:\n\"\"\"\n{{ $json.checklist_text }}\n\"\"\"\n\nChính sách hỗ trợ tham chiếu:\n- Đổi trả: Lỗi nhà sản xuất được 1 đổi 1 trong 7 ngày đầu tiên (hỗ trợ đổi tận nơi).\n- Bảo hành: 12 tháng chính hãng đối với thiết bị điện tử/phụ kiện.\n- Tác phong: Luôn chào hỏi thân thiện, đồng cảm với khách hàng, không trả lời cộc lốc.\n\nHướng dẫn chấm điểm:\n1. Chấm điểm từ 0 đến 10 cho từng tiêu chí trong checklist: greeting, verification, policy_compliance, tone_attitude, resolution.\n2. Nếu có câu trả lời cung cấp sai chính sách, cộc lốc hoặc thiếu trách nhiệm, hãy trích dẫn câu minh chứng vào danh sách violations.\n3. Đặt critical_violation = true nếu nhân viên trả lời cộc lốc vô trách nhiệm, từ chối quyền lợi chính đáng của khách sai chính sách, hoặc xúc phạm khách hàng.\n4. Tóm tắt nhận xét tổng quát (summary) chỉ rõ điểm mạnh và điểm yếu cốt lõi.\n\nHãy xuất kết quả đúng theo định dạng của Structured Output Parser.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "id": "2b26c600-406f-4b47-95d1-276e6e83d67b",
+      "name": "AI Agent - Chấm điểm hội thoại theo Checklist",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1456,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "2a567604-8f7d-4c94-9d70-51ba05cc96fa",
+      "name": "Google Gemini Chat Model - Chấm điểm QA",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1568,
+        224
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"scores\": {\n    \"greeting\": 8,\n    \"verification\": 7,\n    \"policy_compliance\": 4,\n    \"tone_attitude\": 3,\n    \"resolution\": 5\n  },\n  \"violations\": [\n    \"Nhân viên từ chối đổi mới trong 7 ngày trái với cam kết chính sách\",\n    \"Thái độ cộc lốc, không chào hỏi đầu câu\"\n  ],\n  \"critical_violation\": true,\n  \"summary\": \"Nhân viên xử lý cộc lốc, cung cấp sai chính sách đổi trả làm khách hàng bức xúc.\"\n}"
+      },
+      "id": "e7e4eff2-2214-457d-bf6d-232cd543bbfe",
+      "name": "Structured Output Parser - Định dạng điểm số & Vi phạm",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1392,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Tra cứu tài liệu chính sách đổi trả, bảo hành và dịch vụ khách hàng từ kho tri thức vku_knowledge để đối chiếu tính chính xác của câu trả lời",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "vku_knowledge",
+          "mode": "list",
+          "cachedResultName": "vku_knowledge"
+        },
+        "options": {}
+      },
+      "id": "48258367-448c-407e-a2d2-05b2f7de1bb7",
+      "name": "Vector Store Tool - Đối chiếu Kho tri thức",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        -1216,
+        224
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "y730vllKiyJ4P0LX",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "1cbff003-3686-4561-bf52-5e8633b57ee9",
+      "name": "Embeddings Google Gemini (Tool)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1216,
+        400
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst prep = $('Code - Chuẩn bị nội dung hội thoại & Checklist QA').first().json;\n\nlet parsed = {};\ntry {\n  if (typeof item.output === 'object' && item.output !== null) {\n    parsed = item.output;\n  } else if (typeof item.output === 'string') {\n    let clean = item.output.replace(/```json/g, '').replace(/```/g, '').trim();\n    parsed = JSON.parse(clean);\n  } else if (typeof item.text === 'string') {\n    let clean = item.text.replace(/```json/g, '').replace(/```/g, '').trim();\n    parsed = JSON.parse(clean);\n  } else if (item.scores) {\n    parsed = item;\n  }\n} catch (e) {\n  parsed = {\n    scores: { greeting: 7, verification: 7, policy_compliance: 7, tone_attitude: 7, resolution: 7 },\n    violations: [],\n    critical_violation: false,\n    summary: item.output || item.text || \"Đã đánh giá chất lượng hội thoại.\"\n  };\n}\n\nconst scores = parsed.scores || { greeting: 7, verification: 7, policy_compliance: 7, tone_attitude: 7, resolution: 7 };\nconst greeting = Number(scores.greeting) || 0;\nconst verification = Number(scores.verification) || 0;\nconst policy = Number(scores.policy_compliance || scores.policy) || 0;\nconst tone = Number(scores.tone_attitude || scores.tone) || 0;\nconst resolution = Number(scores.resolution) || 0;\n\n// Raw total out of 50 -> scaled to 100\nconst rawTotal = greeting + verification + policy + tone + resolution;\nconst totalScore = Math.min(100, Math.max(0, rawTotal * 2));\n\nconst criticalViolation = Boolean(parsed.critical_violation || (policy <= 3 || tone <= 3));\nlet grade = 'PASS';\nif (criticalViolation || totalScore < 60) {\n  grade = 'FAIL';\n} else if (totalScore < 80) {\n  grade = 'NEEDS_IMPROVEMENT';\n}\n\nconst violations = Array.isArray(parsed.violations) ? parsed.violations : [];\nconst violationsText = violations.join('; ');\n\nreturn [{\n  json: {\n    ticket_id: prep.ticket_id,\n    ticket_code: prep.ticket_code,\n    status: prep.status,\n    priority: prep.priority,\n    category: prep.category,\n    staff_id: prep.staff_id,\n    staff_name: prep.staff_name,\n    customer_name: prep.customer_name,\n    csat_score: prep.csat_score,\n    sample_reason: prep.sample_reason,\n    scores: {\n      greeting,\n      verification,\n      policy_compliance: policy,\n      tone_attitude: tone,\n      resolution\n    },\n    total_score: totalScore,\n    grade: grade,\n    critical_violation: criticalViolation,\n    violations: violations,\n    violations_text: violationsText,\n    summary: parsed.summary || 'Đã hoàn tất đánh giá chất lượng hội thoại.'\n  }\n}];"
+      },
+      "id": "8d2fab41-9641-4bcf-b0b2-5659c8f9d4f2",
+      "name": "Code - Tính điểm tổng & Xếp loại",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên gia Huấn luyện và Đào tạo Dịch vụ Khách hàng (CSKH Coaching Specialist).\nDựa trên kết quả chấm điểm QA của ticket sau đây, hãy viết một lời gợi ý / mẹo huấn luyện (coaching_tip) ngắn gọn, mang tính xây dựng, gửi trực tiếp cho nhân viên phụ trách:\n- Nhân viên: {{ $json.staff_name }}\n- Mã Ticket: {{ $json.ticket_code }}\n- Điểm tổng QA: {{ $json.total_score }}/100 (Xếp loại: {{ $json.grade }})\n- Chi tiết điểm: Chào hỏi: {{ $json.scores.greeting }}/10, Xác minh: {{ $json.scores.verification }}/10, Tuân thủ chính sách: {{ $json.scores.policy_compliance }}/10, Thái độ: {{ $json.scores.tone_attitude }}/10, Giải quyết: {{ $json.scores.resolution }}/10\n- Lỗi vi phạm: {{ $json.violations_text || 'Không có vi phạm' }}\n- Đánh giá tóm tắt: {{ $json.summary }}\n\nYêu cầu:\n1. Nêu rõ điểm nhân viên đã làm tốt (nếu có).\n2. Chỉ ra điểm yếu cốt lõi cần khắc phục ngay (về câu từ, quy trình hoặc thái độ).\n3. Đưa ra 1-2 câu mẫu cụ thể để nhân viên áp dụng ngay trong các ca tương tự.\n4. Giữ văn phong khích lệ, chuyên nghiệp (dưới 120 từ).",
+        "batching": {}
+      },
+      "id": "39fcafe4-6f5a-4390-a1a1-6741078a5ded",
+      "name": "Basic LLM Chain - Gợi ý huấn luyện cho nhân viên",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -848,
+        0
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "fec67950-0327-4367-9436-beb836af0538",
+      "name": "Google Gemini Chat Model - Gợi ý huấn luyện",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -848,
+        224
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const coachingText = $input.first().json.text || 'Tiếp tục phát huy các thế mạnh và khắc phục các điểm thiếu sót.';\nconst graded = $('Code - Tính điểm tổng & Xếp loại').first().json;\n\nreturn [{\n  json: {\n    ...graded,\n    coaching_tip: coachingText\n  }\n}];"
+      },
+      "id": "9077021b-9987-42c2-b2d4-64d0d3f2bc9a",
+      "name": "Code - Chuẩn bị dữ liệu lưu QA & Thông báo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-critical",
+              "leftValue": "={{ $json.critical_violation }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            },
+            {
+              "id": "cond-fail",
+              "leftValue": "={{ $json.grade }}",
+              "rightValue": "FAIL",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "0db88f53-41eb-4bd7-bd59-538b17f77644",
+      "name": "IF - Có vi phạm nghiêm trọng?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -336,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "9274620117",
+        "text": "=🚨 [CẢNH BÁO QA KHẨN CẤP - VI PHẠM NGHIÊM TRỌNG]\n\n- Mã Ticket: #{{ $json.ticket_code }}\n- Nhân viên phụ trách: {{ $json.staff_name }} (ID: {{ $json.staff_id || 'Chưa gán' }})\n- Điểm QA: {{ $json.total_score }}/100 (Xếp loại: {{ $json.grade }})\n- Lỗi vi phạm phát hiện:\n{{ $json.violations_text }}\n\n- Tóm tắt đánh giá:\n{{ $json.summary }}\n\n- Mẹo đào tạo đề xuất:\n{{ $json.coaching_tip }}\n\n⚠️ Đề nghị Trưởng nhóm/Supervisor kiểm tra lại hội thoại và tiến hành can thiệp hỗ trợ kịp thời!",
+        "additionalFields": {}
+      },
+      "id": "33e7ddff-a55f-49fe-b887-804a2517b8e0",
+      "name": "Telegram / Slack - Báo Supervisor vi phạm nghiêm trọng",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        -112
+      ],
+      "webhookId": "e4fcf946-3a44-4958-a43d-2ab0026e60e9",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO qa_scores (\n  ticket_id,\n  staff_id,\n  total_score,\n  grade,\n  scores,\n  violations,\n  summary,\n  critical_violation,\n  coaching_tip,\n  created_at,\n  updated_at\n) VALUES (\n  {{ $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.ticket_id }},\n  {{ $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.staff_id ? $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.staff_id : 'NULL' }},\n  {{ $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.total_score }},\n  '{{ $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.grade }}',\n  '{{ JSON.stringify($('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.scores).replace(/'/g, \"\\\\'\") }}',\n  '{{ ($('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.violations_text || \"\").replace(/'/g, \"\\\\'\") }}',\n  '{{ ($('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.summary || \"\").replace(/'/g, \"\\\\'\") }}',\n  {{ $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.critical_violation ? 1 : 0 }},\n  '{{ ($('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').first()?.json.coaching_tip || \"\").replace(/'/g, \"\\\\'\") }}',\n  NOW(),\n  NOW()\n);",
+        "options": {}
+      },
+      "id": "1b437840-081d-47ac-a681-72b77bc8a068",
+      "name": "MySQL - Lưu qa_scores",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        192,
+        0
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let evaluated = [];\ntry {\n  evaluated = $('Code - Chuẩn bị dữ liệu lưu QA & Thông báo').all().map(i => i.json);\n} catch (e) {\n  try {\n    evaluated = $('Code - Tính điểm tổng & Xếp loại').all().map(i => i.json);\n  } catch (err) {\n    evaluated = [];\n  }\n}\n\nlet total = evaluated.length;\nlet passCount = evaluated.filter(e => e.grade === 'PASS').length;\nlet needsImprovementCount = evaluated.filter(e => e.grade === 'NEEDS_IMPROVEMENT').length;\nlet failCount = evaluated.filter(e => e.grade === 'FAIL').length;\nlet criticalCount = evaluated.filter(e => e.critical_violation).length;\nlet avgScore = total > 0 ? Math.round((evaluated.reduce((acc, cur) => acc + (cur.total_score || 0), 0) / total) * 10) / 10 : 0;\n\nlet allViolations = [];\nevaluated.forEach(e => {\n  if (Array.isArray(e.violations)) {\n    e.violations.forEach(v => allViolations.push({ ticket_code: e.ticket_code, staff_name: e.staff_name, violation: v }));\n  }\n});\n\nreturn [{\n  json: {\n    total_sampled: total,\n    pass_count: passCount,\n    needs_improvement_count: needsImprovementCount,\n    fail_count: failCount,\n    critical_violation_count: criticalCount,\n    pass_rate: total > 0 ? Math.round((passCount / total) * 100) : 100,\n    average_score: avgScore,\n    all_violations: allViolations,\n    evaluated_tickets: evaluated.map(e => ({\n      ticket_code: e.ticket_code,\n      staff_name: e.staff_name,\n      total_score: e.total_score,\n      grade: e.grade,\n      summary: e.summary,\n      critical_violation: e.critical_violation,\n      coaching_tip: e.coaching_tip\n    }))\n  }\n}];"
+      },
+      "id": "814b050b-3983-4c03-b4e5-4d2bbc5cb678",
+      "name": "Code - Gom số liệu đánh giá QA & Thống kê lỗi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là Trưởng bộ phận Đảm bảo Chất lượng Dịch vụ (QA Lead) của VKU Store.\nDựa vào số liệu đánh giá QA sau đây, hãy soạn thảo Báo cáo QA Toàn diện gửi Giám sát viên và Quản lý hỗ trợ:\n- Tổng số ticket được kiểm tra: {{ $json.total_sampled }}\n- Tỷ lệ Đạt (PASS): {{ $json.pass_rate }}% ({{ $json.pass_count }}/{{ $json.total_sampled }})\n- Cần cải thiện (NEEDS_IMPROVEMENT): {{ $json.needs_improvement_count }} ca\n- Không đạt (FAIL): {{ $json.fail_count }} ca\n- Số ca có vi phạm nghiêm trọng: {{ $json.critical_violation_count }} ca\n- Điểm trung bình toàn đoàn: {{ $json.average_score }}/100\n- Chi tiết các ca đã chấm: {{ JSON.stringify($json.evaluated_tickets) }}\n- Thống kê các lỗi phát hiện: {{ JSON.stringify($json.all_violations) }}\n\nYêu cầu báo cáo chuyên nghiệp:\n1. Tóm tắt tình hình chất lượng hỗ trợ (Executive Summary).\n2. Phân tích chi tiết các ca vi phạm nghiêm trọng và lỗi phổ biến theo chủ đề (Thái độ, Kiến thức chính sách, Chào hỏi quy trình).\n3. Đề xuất cập nhật Kho tri thức (KB) / Tài liệu chính sách nếu có khoảng trống kiến thức.\n4. Kế hoạch đào tạo và coaching nhân viên trong tuần tới.",
+        "batching": {}
+      },
+      "id": "20bcfa93-9cba-4933-a49c-b4cf318a7d77",
+      "name": "Basic LLM Chain - Soạn Báo cáo QA Định kỳ cho Supervisor",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -1888,
+        384
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "2d71a3ad-85ea-40ed-9c35-38290ed1409f",
+      "name": "Google Gemini Chat Model - Soạn Báo cáo QA",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1888,
+        576
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "qa-system@support.local",
+        "toEmail": "hoangphuc2855@gmail.com",
+        "subject": "=📊 [BÁO CÁO QA ĐỊNH KỲ] Tổng hợp chất lượng hỗ trợ CSKH - VKU Store",
+        "emailFormat": "text",
+        "options": {}
+      },
+      "id": "87399e96-0766-41ee-94e7-3e49244fb14a",
+      "name": "Gmail / Email - Báo cáo QA hằng tuần cho Supervisor",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -1568,
+        384
+      ],
+      "webhookId": "d2491c58-03f2-4bfb-880c-ac2ce20108a8",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      },
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - 23h hằng ngày": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lấy ticket cần đánh giá QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Kích hoạt đánh giá QA": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lấy ticket cần đánh giá QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lấy ticket cần đánh giá QA": {
+      "main": [
+        [
+          {
+            "node": "Code - Lấy mẫu hội thoại (100% leo thang, CSAT thấp, 15% ngẫu nhiên)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Lấy mẫu hội thoại (100% leo thang, CSAT thấp, 15% ngẫu nhiên)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code - Gom số liệu đánh giá QA & Thống kê lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Tải tin nhắn của ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tải tin nhắn của ticket": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn bị nội dung hội thoại & Checklist QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn bị nội dung hội thoại & Checklist QA": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Chấm điểm hội thoại theo Checklist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Chấm điểm hội thoại theo Checklist": {
+      "main": [
+        [
+          {
+            "node": "Code - Tính điểm tổng & Xếp loại",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Chấm điểm QA": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Chấm điểm hội thoại theo Checklist",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser - Định dạng điểm số & Vi phạm": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent - Chấm điểm hội thoại theo Checklist",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Tool - Đối chiếu Kho tri thức": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent - Chấm điểm hội thoại theo Checklist",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini (Tool)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Vector Store Tool - Đối chiếu Kho tri thức",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Tính điểm tổng & Xếp loại": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Gợi ý huấn luyện cho nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Gợi ý huấn luyện cho nhân viên": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn bị dữ liệu lưu QA & Thông báo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Gợi ý huấn luyện": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Gợi ý huấn luyện cho nhân viên",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn bị dữ liệu lưu QA & Thông báo": {
+      "main": [
+        [
+          {
+            "node": "IF - Có vi phạm nghiêm trọng?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có vi phạm nghiêm trọng?": {
+      "main": [
+        [
+          {
+            "node": "Telegram / Slack - Báo Supervisor vi phạm nghiêm trọng",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Lưu qa_scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram / Slack - Báo Supervisor vi phạm nghiêm trọng": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lưu qa_scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lưu qa_scores": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Gom số liệu đánh giá QA & Thống kê lỗi": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn Báo cáo QA Định kỳ cho Supervisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Soạn Báo cáo QA Định kỳ cho Supervisor": {
+      "main": [
+        [
+          {
+            "node": "Gmail / Email - Báo cáo QA hằng tuần cho Supervisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Soạn Báo cáo QA": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn Báo cáo QA Định kỳ cho Supervisor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
+}

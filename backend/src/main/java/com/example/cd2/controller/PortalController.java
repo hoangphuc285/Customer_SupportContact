@@ -221,8 +221,23 @@ public class PortalController {
         return portal.getAllQaScores();
     }
 
+    @PostMapping({"/staff/qa/trigger", "/admin/qa/trigger", "/portal/qa/trigger", "/qa/trigger"})
+    public Map<String, Object> triggerQa(@RequestBody(required = false) Map<String, Object> req) {
+        return portal.triggerQaEvaluation(req);
+    }
+
     @GetMapping("/staff/reports")
     public Map<String, Object> staffReports() {
         return portal.getStaffReports();
+    }
+
+    @PostMapping({"/staff/reports/trigger", "/admin/reports/trigger", "/portal/reports/trigger", "/reports/trigger"})
+    public Map<String, Object> triggerReports(@RequestBody(required = false) Map<String, Object> req) {
+        return portal.triggerReporting(req);
+    }
+
+    @PostMapping({"/staff/reports/tasks", "/portal/improvement-tasks", "/improvement-tasks"})
+    public Map<String, Object> handleImprovementTask(@RequestBody Map<String, Object> req) {
+        return portal.handleImprovementTask(req);
     }
 }

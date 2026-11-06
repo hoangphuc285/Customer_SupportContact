@@ -41,6 +41,7 @@ public class PortalService {
     private final KbDocumentRepository kbDocuments;
     private final QaScoreRepository qaScores;
     private final KnowledgeGapRepository knowledgeGaps;
+    private final AuditLogRepository auditLogs;
 
     public PortalService(
             CustomerOrderRepository orders,
@@ -56,7 +57,8 @@ public class PortalService {
             N8nClientService n8nService,
             KbDocumentRepository kbDocuments,
             QaScoreRepository qaScores,
-            KnowledgeGapRepository knowledgeGaps) {
+            KnowledgeGapRepository knowledgeGaps,
+            AuditLogRepository auditLogs) {
         this.orders = orders;
         this.orderItems = orderItems;
         this.tickets = tickets;
@@ -71,6 +73,7 @@ public class PortalService {
         this.kbDocuments = kbDocuments;
         this.qaScores = qaScores;
         this.knowledgeGaps = knowledgeGaps;
+        this.auditLogs = auditLogs;
     }
 
     // ---- Khach hang: du lieu thuc tu SQL ----
@@ -1053,5 +1056,93 @@ public class PortalService {
         res.put("noAnswerGaps", gaps);
 
         return res;
+    }
+
+    // Kích hoạt đánh giá QA (L11)
+    @Transactional
+    public Map<String, Object> triggerQaEvaluation(Map<String, Object> req) {
+        String actor = (req != null && req.get("actor") != null) ? req.get("actor").toString() : "STAFF_PORTAL";
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("timestamp", Instant.now().toString());
+        payload.put("triggeredBy", actor);
+        if (req != null) {
+            payload.putAll(req);
+        }
+
+        n8nService.triggerSupportQa(payload);
+
+        AuditLog audit = new AuditLog();
+        audit.setWorkflow("L11_Support_QA");
+        audit.setEntityType("qa_evaluation");
+        audit.setAction("TRIGGER_QA_EVALUATION");
+        audit.setActor(actor);
+        audit.setDetail(Map.of("message", "Đã gửi yêu cầu kích hoạt đánh giá QA tới n8n webhook /webhook/support-qa"));
+        auditLogs.save(audit);
+
+        return Map.of(
+                "success", true,
+                "message", "Đã kích hoạt quy trình chấm điểm QA tự động qua luồng n8n L11_Support_QA",
+                "triggeredAt", Instant.now().toString(),
+                "workflow", "L11_Support_QA"
+        );
+    }
+
+    // Kích hoạt báo cáo vận hành & lỗ hổng tri thức (L12)
+    @Transactional
+    public Map<String, Object> triggerReporting(Map<String, Object> req) {
+        String actor = (req != null && req.get("actor") != null) ? req.get("actor").toString() : "STAFF_PORTAL";
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("timestamp", Instant.now().toString());
+        payload.put("triggeredBy", actor);
+        if (req != null) {
+            payload.putAll(req);
+        }
+
+        n8nService.triggerReporting(payload);
+
+        AuditLog audit = new AuditLog();
+        audit.setWorkflow("L12_Reporting");
+        audit.setEntityType("reporting");
+        audit.setAction("TRIGGER_REPORTING");
+        audit.setActor(actor);
+        audit.setDetail(Map.of("message", "Đã gửi yêu cầu kích hoạt tổng hợp báo cáo tới n8n webhook /webhook/reporting"));
+        auditLogs.save(audit);
+
+        return Map.of(
+                "success", true,
+                "message", "Đã kích hoạt tạo báo cáo điều hành qua luồng n8n L12_Reporting",
+                "triggeredAt", Instant.now().toString(),
+                "workflow", "L12_Reporting"
+        );
+    }
+
+    // Tiếp nhận Task Cải tiến tạo từ L12
+    @Transactional
+    public Map<String, Object> handleImprovementTask(Map<String, Object> req) {
+        String title = (req != null && req.get("title") != null) ? req.get("title").toString() : "Nhiệm vụ cải tiến từ Báo cáo L12";
+        String description = (req != null && req.get("description") != null) ? req.get("description").toString() : "";
+        String gapQuestion = (req != null && req.get("gapQuestion") != null) ? req.get("gapQuestion").toString() : title;
+
+        // Lưu hoặc cập nhật lỗ hổng tri thức
+        KnowledgeGap gap = new KnowledgeGap();
+        gap.setQuestion(gapQuestion + (description.isBlank() ? "" : " - " + description));
+        gap.setStatus(GapStatus.NEW);
+        KnowledgeGap savedGap = knowledgeGaps.save(gap);
+
+        AuditLog audit = new AuditLog();
+        audit.setWorkflow("L12_Reporting");
+        audit.setEntityType("improvement_task");
+        audit.setEntityId(savedGap.getId());
+        audit.setAction("CREATE_IMPROVEMENT_TASK");
+        audit.setActor("N8N_L12");
+        audit.setDetail(req != null ? req : Map.of());
+        auditLogs.save(audit);
+
+        return Map.of(
+                "success", true,
+                "message", "Đã tiếp nhận và tạo task cải tiến thành công trong hệ thống",
+                "taskId", savedGap.getId(),
+                "title", title
+        );
     }
 }

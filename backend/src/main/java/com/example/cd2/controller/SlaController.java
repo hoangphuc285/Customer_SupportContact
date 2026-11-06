@@ -32,4 +32,12 @@ public class SlaController {
     public ResponseEntity<Map<String, Object>> getSlaOverview() {
         return ResponseEntity.ok(slaService.getSlaOverview());
     }
+
+    /**
+     * Tiếp nhận sự kiện cảnh báo/vi phạm SLA gửi từ n8n L07_SLA_Monitor
+     */
+    @PostMapping({"/sla/events", "/staff/sla/events", "/admin/sla/events"})
+    public ResponseEntity<Map<String, Object>> handleSlaEvent(@RequestBody Map<String, Object> eventData) {
+        return ResponseEntity.ok(slaService.handleSlaEventFromN8n(eventData));
+    }
 }
