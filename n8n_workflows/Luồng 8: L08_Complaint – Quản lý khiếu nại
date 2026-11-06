@@ -968,18 +968,7 @@
       ]
     }
   },
-  "pinData": {
-    "Execute Workflow Trigger": [
-      {
-        "ticket_id": 26,
-        "customer_id": 2,
-        "message_id": 26,
-        "content_original": "{\"text\":\"Các bạn lừa đảo! Bán hàng giả rồi không chịu hoàn tiền. Tôi sẽ báo công an và đăng lên báo chí, kiện công ty ngay trong hôm nay!\"}",
-        "sentiment": "VERY_NEGATIVE",
-        "urgency": "HIGH"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }

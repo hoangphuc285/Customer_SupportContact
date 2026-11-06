@@ -91,15 +91,23 @@ public class PortalController {
     }
 
     @GetMapping("/portal/tickets")
-    public List<TicketDto> myTickets(@AuthenticationPrincipal AccountPrincipal p) {
-        Long customerId = (p != null) ? p.getCustomerId() : null;
-        return portal.myTickets(customerId);
+    public List<TicketDto> myTickets(@AuthenticationPrincipal AccountPrincipal p,
+                                     @RequestParam(required = false) Long customerId,
+                                     @RequestParam(required = false) String email) {
+        Long cId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
+        String userEmail = (p != null && p.getUsername() != null) ? p.getUsername() : email;
+        return portal.myTickets(cId, userEmail);
     }
 
     @PostMapping("/portal/tickets")
     public TicketDto createTicket(@AuthenticationPrincipal AccountPrincipal p,
                                   @RequestBody Map<String, Object> req) {
-        Long customerId = (p != null) ? p.getCustomerId() : 2L;
+        Long customerId = (p != null) ? p.getCustomerId() : null;
+        if (customerId == null && req.get("customerId") != null) {
+            try {
+                customerId = Long.valueOf(req.get("customerId").toString());
+            } catch (Exception ignored) {}
+        }
         return portal.createTicket(req, customerId);
     }
 

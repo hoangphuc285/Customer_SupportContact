@@ -218,11 +218,8 @@ export default function StaffRefundsPage() {
                                 filteredRefunds.map((item) => (
                                     <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                                         <td className="p-4 font-mono font-bold text-slate-900">{item.refundCode}</td>
-                                        <td className="p-4 font-mono font-bold text-blue-600">
-                                            <Link href={`/user/orders?q=${item.orderCode}`} target="_blank" className="hover:underline flex items-center gap-1">
-                                                <span>{item.orderCode}</span>
-                                                <ExternalLink size={11} />
-                                            </Link>
+                                        <td className="p-4 font-mono font-bold text-slate-700">
+                                            <span>{item.orderCode}</span>
                                         </td>
                                         <td className="p-4 font-black text-slate-900">{formatCurrency(item.amount)}</td>
                                         <td className="p-4">

@@ -165,12 +165,19 @@ public class PortalService {
     }
 
     public List<TicketDto> myTickets(Long customerId) {
-        List<Ticket> list = (customerId != null)
-                ? tickets.findByCustomerIdOrderByCreatedAtDesc(customerId)
-                : tickets.findAll();
-        if (list.isEmpty()) {
-            list = tickets.findAll();
+        return myTickets(customerId, null);
+    }
+
+    public List<TicketDto> myTickets(Long customerId, String email) {
+        if (customerId == null && email != null && !email.isBlank()) {
+            customerId = customers.findByEmail(email.trim().toLowerCase())
+                    .map(Customer::getId)
+                    .orElse(null);
         }
+        if (customerId == null) {
+            return List.of();
+        }
+        List<Ticket> list = tickets.findByCustomerIdOrderByCreatedAtDesc(customerId);
         return list.stream().map(this::toDto).toList();
     }
 
