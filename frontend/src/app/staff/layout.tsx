@@ -28,13 +28,16 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     const [agentRole, setAgentRole] = useState('Chuyên viên CSKH');
     const [isAdmin, setIsAdmin] = useState(false);
 
-    const getRoleTitle = (role: string) => {
-        const r = role.toUpperCase();
+    const getRoleTitle = (user: any) => {
+        const r = String(user?.role || '').toUpperCase();
+        const email = String(user?.email || '').toLowerCase();
         if (r.includes('ADMIN')) return 'Quản trị hệ thống';
         if (r.includes('MANAGER')) return 'Quản lý CSKH';
         if (r.includes('TEAM_LEAD')) return 'Trưởng nhóm CSKH';
-        if (r.includes('TECH')) return 'Kỹ thuật viên';
-        if (r.includes('LEGAL')) return 'Ban Pháp chế';
+        if (r.includes('TECH') || email.includes('tech')) return 'Kỹ thuật viên';
+        if (r.includes('LEGAL') || email.includes('legal')) return 'Ban Pháp chế';
+        if (email.includes('delivery')) return 'Điều phối Giao hàng';
+        if (email.includes('accounting')) return 'Kế toán viên';
         return 'Chuyên viên CSKH';
     };
 
@@ -60,7 +63,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             else if (user.name) setAgentName(user.name);
             else if (user.email) setAgentName(user.email);
 
-            setAgentRole(getRoleTitle(roleStr));
+            setAgentRole(getRoleTitle(user));
             setIsAdmin(roleStr === 'ADMIN' || roleStr.includes('ADMIN'));
         } catch (e) {
             console.error(e);

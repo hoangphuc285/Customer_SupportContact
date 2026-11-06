@@ -14,4 +14,12 @@ public interface StaffRepository extends JpaRepository<Staff, Long> {
     Optional<Staff> findByEmail(String email);
 
     List<Staff> findByRoleAndActiveTrueOrderByCurrentLoadAsc(StaffRole role);
+
+    List<Staff> findByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(Long departmentId);
+
+    List<Staff> findByActiveTrueOrderByCurrentLoadAsc();
+
+    Optional<Staff> findFirstByDepartmentIdAndActiveTrueOrderByCurrentLoadAsc(Long departmentId);
+
+    Optional<Staff> findFirstByActiveTrueOrderByCurrentLoadAsc();
 }

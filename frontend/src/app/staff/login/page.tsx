@@ -17,7 +17,10 @@ import {
     Wrench, 
     Users, 
     Check,
-    AlertCircle
+    AlertCircle,
+    Truck,
+    CreditCard,
+    Scale
 } from 'lucide-react';
 
 interface StaffPreset {
@@ -30,10 +33,13 @@ interface StaffPreset {
 
 const STAFF_PRESETS: StaffPreset[] = [
     { roleName: 'Chuyên viên CSKH', roleKey: 'AGENT', email: 'agent@support.local', dept: 'Phòng CSKH', icon: Headphones },
-    { roleName: 'Quản trị hệ thống', roleKey: 'ADMIN', email: 'admin@support.local', dept: 'Toàn quyền', icon: ShieldCheck },
-    { roleName: 'Trưởng nhóm CSKH', roleKey: 'TEAM_LEAD', email: 'teamlead@support.local', dept: 'Phòng CSKH', icon: Users },
-    { roleName: 'Quản lý CSKH', roleKey: 'MANAGER', email: 'manager@support.local', dept: 'Ban Quản trị', icon: Layers },
+    { roleName: 'Điều phối Giao hàng', roleKey: 'AGENT', email: 'delivery@support.local', dept: 'Phòng Giao hàng', icon: Truck },
     { roleName: 'Kỹ thuật viên', roleKey: 'TECHNICIAN', email: 'tech@support.local', dept: 'Phòng Kỹ thuật', icon: Wrench },
+    { roleName: 'Kế toán viên', roleKey: 'AGENT', email: 'accounting@support.local', dept: 'Phòng Kế toán', icon: CreditCard },
+    { roleName: 'Chuyên viên Pháp chế', roleKey: 'LEGAL', email: 'legal@support.local', dept: 'Ban Pháp chế', icon: Scale },
+    { roleName: 'Trưởng nhóm CSKH', roleKey: 'TEAM_LEAD', email: 'teamlead@support.local', dept: 'Phòng CSKH', icon: Users },
+    { roleName: 'Quản lý CSKH', roleKey: 'MANAGER', email: 'manager@support.local', dept: 'Ban Quản lý', icon: Layers },
+    { roleName: 'Quản trị hệ thống', roleKey: 'ADMIN', email: 'admin@support.local', dept: 'Toàn quyền', icon: ShieldCheck },
 ];
 
 export default function StaffLoginPage() {

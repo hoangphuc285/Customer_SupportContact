@@ -180,13 +180,29 @@ public class PortalController {
 
     // GIẢI PHÁP 3: Xử lý giải quyết khiếu nại và đánh thức L08
     @PostMapping("/staff/complaints/{code}/resolve")
-    public Map<String, Object> resolveComplaint(@PathVariable String code, @RequestBody Map<String, Object> body) {
-        return portal.resolveComplaint(code, body);
+    public Map<String, Object> resolveComplaint(@PathVariable String code, 
+                                                @RequestBody Map<String, Object> body,
+                                                @AuthenticationPrincipal AccountPrincipal p,
+                                                @RequestParam(required = false) Long staffId) {
+        Long actualStaffId = (p != null && p.getStaffId() != null) ? p.getStaffId() : staffId;
+        String actualRole = (p != null && p.getRole() != null) ? p.getRole().name() : null;
+        return portal.resolveComplaint(code, body, actualStaffId, actualRole);
+    }
+
+    @PostMapping("/staff/complaints/{code}/assign")
+    public Map<String, Object> assignComplaintStaff(@PathVariable String code, @RequestBody Map<String, Object> body) {
+        Long staffId = Long.parseLong(body.get("staffId").toString());
+        return portal.autoAssignStaffToComplaint(code, staffId);
     }
 
     @GetMapping("/staff/complaints")
-    public List<Map<String, Object>> staffComplaints() {
-        return portal.getAllStaffComplaints();
+    public List<Map<String, Object>> staffComplaints(@AuthenticationPrincipal AccountPrincipal p,
+                                                     @RequestParam(required = false) Long staffId,
+                                                     @RequestParam(required = false) String scope,
+                                                     @RequestParam(required = false) Long departmentId) {
+        Long actualStaffId = (p != null && p.getStaffId() != null) ? p.getStaffId() : staffId;
+        String actualRole = (p != null && p.getRole() != null) ? p.getRole().name() : null;
+        return portal.getStaffComplaints(actualStaffId, actualRole, scope, departmentId);
     }
 
     @GetMapping("/staff/refunds")
