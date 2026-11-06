@@ -31,6 +31,7 @@ interface TicketItem {
     priority: string;
     channel: string;
     intent?: string;
+    assignee?: string | null;
     assigneeName?: string | null;
     createdAt: string;
     updatedAt?: string;
@@ -65,7 +66,20 @@ function UserTicketsContent() {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const res = await fetch('http://localhost:8080/api/portal/tickets', { headers });
+            let customerId: number | null = null;
+            try {
+                const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    customerId = parsed.customerId || parsed.customer_id || (parsed.role === 'CUSTOMER' ? parsed.id : null);
+                }
+            } catch (err) {}
+
+            const url = customerId 
+                ? `http://localhost:8080/api/portal/tickets?customerId=${customerId}`
+                : 'http://localhost:8080/api/portal/tickets';
+
+            const res = await fetch(url, { headers });
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
@@ -285,7 +299,7 @@ function UserTicketsContent() {
                         </div>
                         <div>
                             <span className="text-slate-400 block mb-0.5">Chuyên viên phụ trách:</span>
-                            <strong className="text-slate-800">{selectedTicket.assigneeName || 'Đang tự động điều phối'}</strong>
+                            <strong className="text-slate-800">{selectedTicket.assignee || selectedTicket.assigneeName || 'Đang tự động điều phối'}</strong>
                         </div>
                         <div>
                             <span className="text-slate-400 block mb-0.5">Khách hàng:</span>
@@ -493,7 +507,7 @@ function UserTicketsContent() {
 
                                 <div className="pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
                                     <div>
-                                        Người phụ trách: <strong className="text-slate-800">{ticket.assigneeName || 'Đang tự động điều phối'}</strong>
+                                        Người phụ trách: <strong className="text-slate-800">{ticket.assignee || ticket.assigneeName || 'Đang tự động điều phối'}</strong>
                                         <span className="mx-2 text-slate-300">|</span>
                                         Khởi tạo: {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('vi-VN') : 'Hôm nay'}
                                     </div>

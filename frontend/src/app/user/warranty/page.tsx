@@ -21,7 +21,8 @@ import {
     Info,
     HelpCircle,
     Calendar,
-    BadgeCheck
+    BadgeCheck,
+    ExternalLink
 } from 'lucide-react';
 
 interface WarrantyItem {
@@ -34,10 +35,75 @@ interface WarrantyItem {
     customerName: string;
 }
 
+interface WarrantyClaimItem {
+    id: number;
+    caseCode: string;
+    serialNumber: string;
+    productName: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    ticketId?: number | null;
+    ticketCode?: string | null;
+    issueDescription: string;
+    faultType: string;
+    resolutionType: string;
+    status: string;
+    serviceCenter: string;
+    repairFee?: number | null;
+    createdAt: string;
+    staffId?: number | null;
+    staffName?: string | null;
+    staffEmail?: string | null;
+}
+
 function WarrantyContent() {
     const searchParams = useSearchParams();
     const prefillOrder = searchParams.get('orderCode') || '';
     const prefillSerial = searchParams.get('serial') || '';
+
+    // Tab chuyển đổi: Gửi yêu cầu mới vs Lịch sử phiếu bảo hành
+    const [mainTab, setMainTab] = useState<'create' | 'history'>('create');
+    const [warrantyClaims, setWarrantyClaims] = useState<WarrantyClaimItem[]>([]);
+    const [claimsLoading, setClaimsLoading] = useState(false);
+    const [claimSearch, setClaimSearch] = useState('');
+    const [claimStatusFilter, setClaimStatusFilter] = useState('ALL');
+
+    const fetchWarrantyClaims = async () => {
+        setClaimsLoading(true);
+        try {
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            const headers: Record<string, string> = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            let customerId: number | null = null;
+            try {
+                const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    customerId = parsed.customerId || parsed.customer_id || (parsed.role === 'CUSTOMER' ? parsed.id : null);
+                }
+            } catch (err) {}
+
+            const url = customerId 
+                ? `http://localhost:8080/api/portal/warranties/claims?customerId=${customerId}`
+                : 'http://localhost:8080/api/portal/warranties/claims';
+
+            const res = await fetch(url, { headers });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) setWarrantyClaims(data);
+            }
+        } catch (e) {
+            console.error('Lỗi tải danh sách bảo hành:', e);
+        } finally {
+            setClaimsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchWarrantyClaims();
+    }, []);
 
     // Khách tự nhập: mã đơn, serial, mô tả sản phẩm (ô text tự do)
     const [identifier, setIdentifier] = useState(prefillSerial || prefillOrder || '');
@@ -172,6 +238,15 @@ function WarrantyContent() {
         const targetSerial = lookupResult?.serialNumber || identifier || 'SN-XYZ-1024';
         const targetProduct = lookupResult?.productName || productDescription || 'Thiết bị điện tử';
 
+        let customerId: number | null = null;
+        try {
+            const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                customerId = parsed.customerId || parsed.customer_id || (parsed.role === 'CUSTOMER' ? parsed.id : null);
+            }
+        } catch (err) {}
+
         const payload = {
             serialNumber: targetSerial.trim().toUpperCase(),
             orderCode: lookupResult?.orderCode || prefillOrder || 'DH1024',
@@ -180,6 +255,7 @@ function WarrantyContent() {
             faultType,
             serviceType,
             customerAddress,
+            customerId: customerId || undefined,
         };
 
         try {
@@ -245,6 +321,7 @@ function WarrantyContent() {
                 status: savedCase?.status || 'RECEIVED',
                 estimatedDays: '3 – 5 ngày làm việc',
             });
+            fetchWarrantyClaims();
         } catch (err) {
             console.error('Lỗi tạo phiếu bảo hành:', err);
             setTicketResult({
@@ -291,6 +368,234 @@ function WarrantyContent() {
                     Quy trình chuẩn L10
                 </span>
             </div>
+
+            {/* TABS CHUYỂN ĐỔI: GỬI YÊU CẦU vs LỊCH SỬ PHIẾU BẢO HÀNH */}
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <button
+                    type="button"
+                    onClick={() => setMainTab('create')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                        mainTab === 'create'
+                            ? 'bg-amber-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                >
+                    <Wrench size={14} />
+                    <span>Gửi Yêu Cầu Bảo Hành Mới</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setMainTab('history');
+                        fetchWarrantyClaims();
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                        mainTab === 'history'
+                            ? 'bg-amber-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                >
+                    <Clock size={14} />
+                    <span>Lịch Sử Phiếu Bảo Hành</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                        mainTab === 'history' ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                        {warrantyClaims.length}
+                    </span>
+                </button>
+            </div>
+
+            {mainTab === 'history' ? (
+                <div className="space-y-4">
+                    {/* BỘ LỌC VÀ TÌM KIẾM */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                            <input
+                                type="text"
+                                placeholder="Tìm theo mã phiếu (WR-...), số Serial (SN-...), sản phẩm, sự cố..."
+                                value={claimSearch}
+                                onChange={(e) => setClaimSearch(e.target.value)}
+                                className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={claimStatusFilter}
+                                onChange={(e) => setClaimStatusFilter(e.target.value)}
+                                className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+                            >
+                                <option value="ALL">Tất cả trạng thái</option>
+                                <option value="CREATED">Mới tạo (CREATED)</option>
+                                <option value="RECEIVED">Đã tiếp nhận thiết bị (RECEIVED)</option>
+                                <option value="REPAIRING">Đang sửa chữa (REPAIRING)</option>
+                                <option value="COMPLETED">Hoàn tất sửa chữa (COMPLETED)</option>
+                                <option value="CLOSED">Đã bàn giao (CLOSED)</option>
+                            </select>
+
+                            <button
+                                type="button"
+                                onClick={fetchWarrantyClaims}
+                                disabled={claimsLoading}
+                                className="p-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 transition cursor-pointer"
+                                title="Tải lại danh sách"
+                            >
+                                <RefreshCw size={15} className={claimsLoading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* DANH SÁCH PHIẾU BẢO HÀNH */}
+                    {claimsLoading ? (
+                        <div className="p-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                            <RefreshCw size={20} className="animate-spin text-amber-600" />
+                            <span>Đang tải lịch sử phiếu bảo hành...</span>
+                        </div>
+                    ) : warrantyClaims.filter((claim) => {
+                        const matchesSearch = !claimSearch ||
+                            (claim.caseCode && claim.caseCode.toLowerCase().includes(claimSearch.toLowerCase())) ||
+                            (claim.serialNumber && claim.serialNumber.toLowerCase().includes(claimSearch.toLowerCase())) ||
+                            (claim.productName && claim.productName.toLowerCase().includes(claimSearch.toLowerCase())) ||
+                            (claim.issueDescription && claim.issueDescription.toLowerCase().includes(claimSearch.toLowerCase()));
+                        const matchesStatus = claimStatusFilter === 'ALL' || claim.status === claimStatusFilter;
+                        return matchesSearch && matchesStatus;
+                    }).length === 0 ? (
+                        <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 space-y-3">
+                            <Shield className="mx-auto text-slate-300" size={36} />
+                            <h3 className="text-sm font-bold text-slate-700">Chưa có phiếu bảo hành nào</h3>
+                            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                Quý khách chưa gửi yêu cầu bảo hành thiết bị nào hoặc không có phiếu nào khớp với bộ lọc.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setMainTab('create')}
+                                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition cursor-pointer"
+                            >
+                                Tạo phiếu bảo hành ngay
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {warrantyClaims.filter((claim) => {
+                                const matchesSearch = !claimSearch ||
+                                    (claim.caseCode && claim.caseCode.toLowerCase().includes(claimSearch.toLowerCase())) ||
+                                    (claim.serialNumber && claim.serialNumber.toLowerCase().includes(claimSearch.toLowerCase())) ||
+                                    (claim.productName && claim.productName.toLowerCase().includes(claimSearch.toLowerCase())) ||
+                                    (claim.issueDescription && claim.issueDescription.toLowerCase().includes(claimSearch.toLowerCase()));
+                                const matchesStatus = claimStatusFilter === 'ALL' || claim.status === claimStatusFilter;
+                                return matchesSearch && matchesStatus;
+                            }).map((claim) => {
+                                const isCompleted = claim.status === 'COMPLETED';
+                                const isRepairing = claim.status === 'REPAIRING';
+                                const isReceived = claim.status === 'RECEIVED';
+                                const isClosed = claim.status === 'CLOSED';
+
+                                const badgeClass = isCompleted
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : isRepairing
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : isReceived
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : isClosed
+                                    ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                    : 'bg-indigo-50 text-indigo-700 border-indigo-200';
+
+                                const badgeText = isCompleted
+                                    ? '✓ Đã sửa xong - Sẵn sàng bàn giao'
+                                    : isRepairing
+                                    ? '⚙ Đang kiểm tra & sửa chữa'
+                                    : isReceived
+                                    ? '📦 Đã tiếp nhận tại trung tâm'
+                                    : isClosed
+                                    ? '✓ Đã hoàn tất & đóng phiếu'
+                                    : '⏳ Mới khởi tạo tiếp nhận';
+
+                                return (
+                                    <div
+                                        key={claim.id || claim.caseCode}
+                                        className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-amber-300 transition shadow-xs space-y-3"
+                                    >
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                                    {claim.caseCode}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyCode(claim.caseCode)}
+                                                    className="p-1 rounded text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                                                    title="Sao chép mã phiếu"
+                                                >
+                                                    {copiedCase === claim.caseCode ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                                                </button>
+                                                <span className="text-slate-300">|</span>
+                                                <span className="text-[11px] text-slate-500">
+                                                    Serial: <strong className="font-mono text-slate-700">{claim.serialNumber}</strong>
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${badgeClass}`}>
+                                                    {badgeText}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Sản phẩm bảo hành</span>
+                                                <span className="font-bold text-slate-800">
+                                                    {claim.productName || 'Thiết bị điện tử'}
+                                                </span>
+                                            </div>
+
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Kỹ thuật viên phụ trách</span>
+                                                <span className="font-bold text-amber-800">
+                                                    {claim.staffName || 'Kỹ thuật viên LotusCare'}
+                                                </span>
+                                            </div>
+
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Ngày tiếp nhận</span>
+                                                <span className="font-medium text-slate-700">
+                                                    {claim.createdAt ? new Date(claim.createdAt).toLocaleString('vi-VN') : 'Mới đây'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs text-slate-600">
+                                            <span className="font-semibold text-slate-700">Tình trạng sự cố: </span>
+                                            <span>{claim.issueDescription}</span>
+                                        </div>
+
+                                        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-100 text-[11px]">
+                                            <div className="text-slate-500 flex items-center gap-1.5">
+                                                <MapPin size={12} className="text-slate-400 shrink-0" />
+                                                <span>{claim.serviceCenter || 'Trung tâm bảo hành LotusCare'}</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                {(claim.ticketCode || claim.caseCode) && (
+                                                    <Link
+                                                        href={`/user/tickets?q=${claim.ticketCode || claim.caseCode}`}
+                                                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>Xem tiến độ trao đổi</span>
+                                                        <ExternalLink size={12} />
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
 
             {/* GHI CHÚ BÁO CÁO: DỮ LIỆU ĐƯỢC MÔ PHỎNG PHỤC VỤ TRA CỨU */}
             <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
@@ -544,6 +849,8 @@ function WarrantyContent() {
                         )}
                     </button>
                 </form>
+            )}
+            </>
             )}
         </div>
     );

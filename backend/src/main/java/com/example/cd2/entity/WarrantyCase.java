@@ -32,6 +32,10 @@ public class WarrantyCase extends BaseEntity {
     @JoinColumn(name = "ticket_id")
     private Ticket ticket;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_id")
+    private Staff staff;
+
     @Column(name = "issue_description", columnDefinition = "text")
     private String issueDescription;
 

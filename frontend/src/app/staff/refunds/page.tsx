@@ -27,6 +27,9 @@ interface RefundItem {
     status: string;
     approvalLevel: string;
     createdAt: string;
+    staffId?: number | null;
+    staffName?: string | null;
+    ticketCode?: string | null;
 }
 
 export default function StaffRefundsPage() {
@@ -138,28 +141,28 @@ export default function StaffRefundsPage() {
             {/* STATS OVERVIEW */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Tổng hoàn tiền</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG HOÀN TIỀN</span>
                     <span className="text-xl font-black text-slate-900 mt-1 block">
                         {formatCurrency(refunds.reduce((acc, r) => acc + (r.amount || 0), 0))}
                     </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Duyệt tự động (AUTO)</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">DUYỆT TỰ ĐỘNG (AUTO)</span>
                     <span className="text-xl font-black text-emerald-600 mt-1 block">
                         {refunds.filter(r => r.approvalLevel === 'AUTO').length} ca
                     </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Chờ Team Lead duyệt</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CHỜ TEAM LEAD DUYỆT</span>
                     <span className="text-xl font-black text-blue-600 mt-1 block">
                         {refunds.filter(r => r.approvalLevel === 'TEAM_LEAD').length} ca
                     </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Chờ Quản lý duyệt</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CHỜ QUẢN LÝ DUYỆT</span>
                     <span className="text-xl font-black text-amber-600 mt-1 block">
                         {refunds.filter(r => r.approvalLevel === 'MANAGER').length} ca
                     </span>

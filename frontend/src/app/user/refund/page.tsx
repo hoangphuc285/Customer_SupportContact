@@ -58,6 +58,49 @@ function RefundContent() {
     const [refundResult, setRefundResult] = useState<any>(null);
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+    // Tab chuyển đổi: Tạo yêu cầu mới vs Lịch sử đổi trả
+    const [mainTab, setMainTab] = useState<'create' | 'history'>('create');
+    const [refundHistory, setRefundHistory] = useState<any[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historySearch, setHistorySearch] = useState('');
+    const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL');
+
+    const fetchRefundHistory = async () => {
+        setHistoryLoading(true);
+        try {
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            const headers: Record<string, string> = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            let customerId: number | null = null;
+            try {
+                const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    customerId = parsed.customerId || parsed.customer_id || (parsed.role === 'CUSTOMER' ? parsed.id : null);
+                }
+            } catch (err) {}
+
+            const url = customerId 
+                ? `http://localhost:8080/api/portal/refunds?customerId=${customerId}`
+                : 'http://localhost:8080/api/portal/refunds';
+
+            const res = await fetch(url, { headers });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) setRefundHistory(data);
+            }
+        } catch (e) {
+            console.error('Lỗi tải lịch sử hoàn tiền:', e);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRefundHistory();
+    }, []);
+
     // Xử lý Wait node & Live Tracking Luồng L09
     const [lookupCodeInput, setLookupCodeInput] = useState('');
     const [lookingUp, setLookingUp] = useState(false);
@@ -312,6 +355,15 @@ function RefundContent() {
             approver = 'Quản lý CSKH phê duyệt';
         }
 
+        let customerId: number | null = null;
+        try {
+            const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                customerId = parsed.customerId || parsed.customer_id || (parsed.role === 'CUSTOMER' ? parsed.id : null);
+            }
+        } catch (err) {}
+
         const payload = {
             orderCode: orderCode.trim().toUpperCase() || 'DH1024',
             amount: refundAmt,
@@ -319,6 +371,7 @@ function RefundContent() {
             evidenceUrl: evidenceUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e',
             bankName,
             bankAccount,
+            customerId: customerId || undefined,
         };
 
         try {
@@ -390,6 +443,7 @@ function RefundContent() {
             // Tự động kiểm tra cập nhật kết quả đối soát sau 1.5s
             setTimeout(() => {
                 refreshRefundStatus(currentRefundCode);
+                fetchRefundHistory();
             }, 1500);
         } catch (err) {
             console.error('Lỗi gửi hoàn tiền:', err);
@@ -458,6 +512,243 @@ function RefundContent() {
                     </div>
                 </div>
             </div>
+
+            {/* TABS CHUYỂN ĐỔI: TẠO MỚI vs LỊCH SỬ ĐỔI TRẢ */}
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <button
+                    type="button"
+                    onClick={() => setMainTab('create')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                        mainTab === 'create'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                >
+                    <RotateCcw size={14} />
+                    <span>Gửi Yêu Cầu Hoàn Tiền Mới</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setMainTab('history');
+                        fetchRefundHistory();
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                        mainTab === 'history'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                >
+                    <Clock size={14} />
+                    <span>Lịch Sử Đổi Trả / Hoàn Tiền</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                        mainTab === 'history' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                        {refundHistory.length}
+                    </span>
+                </button>
+            </div>
+
+            {mainTab === 'history' ? (
+                <div className="space-y-4">
+                    {/* BỘ LỌC VÀ TÌM KIẾM */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                            <input
+                                type="text"
+                                placeholder="Tìm theo mã hoàn tiền (REF-...), mã đơn (ORD-...), lý do..."
+                                value={historySearch}
+                                onChange={(e) => setHistorySearch(e.target.value)}
+                                className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={historyStatusFilter}
+                                onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                                className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+                            >
+                                <option value="ALL">Tất cả trạng thái</option>
+                                <option value="PENDING_INFO">Chờ thông tin (PENDING_INFO)</option>
+                                <option value="PENDING_APPROVAL">Chờ duyệt (PENDING_APPROVAL)</option>
+                                <option value="APPROVED">Đã duyệt (APPROVED)</option>
+                                <option value="PAID">Đã hoàn tiền (PAID)</option>
+                                <option value="REJECTED">Từ chối (REJECTED)</option>
+                            </select>
+
+                            <button
+                                type="button"
+                                onClick={fetchRefundHistory}
+                                disabled={historyLoading}
+                                className="p-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 transition cursor-pointer"
+                                title="Tải lại danh sách"
+                            >
+                                <RefreshCw size={15} className={historyLoading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* DANH SÁCH YÊU CẦU HOÀN TIỀN */}
+                    {historyLoading ? (
+                        <div className="p-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                            <RefreshCw size={20} className="animate-spin text-emerald-600" />
+                            <span>Đang tải lịch sử yêu cầu hoàn tiền...</span>
+                        </div>
+                    ) : refundHistory.filter((item) => {
+                        const matchesSearch = !historySearch ||
+                            (item.refundCode && item.refundCode.toLowerCase().includes(historySearch.toLowerCase())) ||
+                            (item.orderCode && item.orderCode.toLowerCase().includes(historySearch.toLowerCase())) ||
+                            (item.reason && item.reason.toLowerCase().includes(historySearch.toLowerCase()));
+                        const matchesStatus = historyStatusFilter === 'ALL' || item.status === historyStatusFilter;
+                        return matchesSearch && matchesStatus;
+                    }).length === 0 ? (
+                        <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 space-y-3">
+                            <RotateCcw className="mx-auto text-slate-300" size={36} />
+                            <h3 className="text-sm font-bold text-slate-700">Chưa có yêu cầu hoàn tiền nào</h3>
+                            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                Quý khách chưa gửi yêu cầu hoàn tiền nào hoặc không có yêu cầu nào khớp với bộ lọc tìm kiếm.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setMainTab('create')}
+                                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer"
+                            >
+                                Gửi yêu cầu hoàn tiền ngay
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {refundHistory.filter((item) => {
+                                const matchesSearch = !historySearch ||
+                                    (item.refundCode && item.refundCode.toLowerCase().includes(historySearch.toLowerCase())) ||
+                                    (item.orderCode && item.orderCode.toLowerCase().includes(historySearch.toLowerCase())) ||
+                                    (item.reason && item.reason.toLowerCase().includes(historySearch.toLowerCase()));
+                                const matchesStatus = historyStatusFilter === 'ALL' || item.status === historyStatusFilter;
+                                return matchesSearch && matchesStatus;
+                            }).map((item) => {
+                                const isPaid = item.status === 'PAID';
+                                const isApproved = item.status === 'APPROVED';
+                                const isPendingAppr = item.status === 'PENDING_APPROVAL';
+                                const isPendingInfo = item.status === 'PENDING_INFO';
+
+                                const statusBadgeClass = isPaid
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : isApproved
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : isPendingAppr
+                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                    : isPendingInfo
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200';
+
+                                const statusText = isPaid
+                                    ? '✓ Đã hoàn tất chi trả'
+                                    : isApproved
+                                    ? '✓ Kế toán đã phê duyệt'
+                                    : isPendingAppr
+                                    ? '⏳ Chờ phê duyệt'
+                                    : isPendingInfo
+                                    ? '⚠️ Chờ thẩm định / bổ sung'
+                                    : '✕ Đã từ chối';
+
+                                return (
+                                    <div
+                                        key={item.id || item.refundCode}
+                                        className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 transition shadow-xs space-y-3"
+                                    >
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                                    {item.refundCode}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyCode(item.refundCode)}
+                                                    className="p-1 rounded text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                                                    title="Sao chép mã"
+                                                >
+                                                    {copiedCode === item.refundCode ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                                                </button>
+                                                <span className="text-slate-300">|</span>
+                                                <span className="text-[11px] text-slate-500">
+                                                    Đơn hàng: <strong className="font-mono text-slate-700">{item.orderCode || 'ORD-N/A'}</strong>
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusBadgeClass}`}>
+                                                    {statusText}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Số tiền hoàn</span>
+                                                <span className="font-black text-slate-900 text-sm text-emerald-700">
+                                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.amount || 0)}
+                                                </span>
+                                            </div>
+
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Nhân viên phụ trách</span>
+                                                <span className="font-bold text-slate-800">
+                                                    {item.staffName || 'Kế toán xử lý'}
+                                                </span>
+                                            </div>
+
+                                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Thời gian khởi tạo</span>
+                                                <span className="font-medium text-slate-700">
+                                                    {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Mới đây'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs text-slate-600">
+                                            <span className="font-semibold text-slate-700">Lý do yêu cầu: </span>
+                                            <span>{item.reason}</span>
+                                        </div>
+
+                                        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-100">
+                                            <div className="text-[11px] text-slate-400">
+                                                Cấp duyệt quy định: <strong className="text-slate-600">{item.approvalLevel || 'AUTO'}</strong>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setRefundResult(item);
+                                                        setMainTab('create');
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                                >
+                                                    <Clock size={12} />
+                                                    <span>Tiến độ Live Tracking</span>
+                                                </button>
+
+                                                {(item.ticketCode || item.refundCode) && (
+                                                    <Link
+                                                        href={`/user/tickets?q=${item.ticketCode || item.refundCode}`}
+                                                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>Trao đổi qua Ticket</span>
+                                                        <ExternalLink size={12} />
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
 
             {/* TRA CỨU ĐƠN HOÀN TIỀN ĐÃ CÓ / ĐANG CHỜ DUYỆT */}
             <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
@@ -910,6 +1201,8 @@ function RefundContent() {
                         )}
                     </button>
                 </form>
+            )}
+            </>
             )}
         </div>
     );

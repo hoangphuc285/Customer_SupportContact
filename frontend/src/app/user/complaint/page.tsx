@@ -44,12 +44,22 @@ function ComplaintContent() {
         const slaMinutes = severity === 'CRITICAL' ? 15 : severity === 'MAJOR' ? 60 : 120;
         const priority = severity === 'CRITICAL' ? 'P1 (Khẩn cấp)' : 'P2 (Cao)';
 
+        let customerId: number | null = null;
+        try {
+            const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                customerId = parsed.customerId || parsed.customer_id || (parsed.role === 'CUSTOMER' ? parsed.id : null);
+            }
+        } catch (err) {}
+
         const payload = {
             orderCode: orderCode.trim().toUpperCase() || 'DH1024',
             departmentCode,
             type: complaintType,
             severity,
             description: subject ? `${subject} - ${description}` : description || 'Khiếu nại dịch vụ',
+            customerId: customerId || undefined,
         };
 
         try {

@@ -52,6 +52,10 @@ public class Refund extends BaseEntity {
     private ApprovalLevel approvalLevel;  // AUTO <=500k, TEAM_LEAD <=5tr, MANAGER >5tr
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_id")
+    private Staff staff;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by_id")
     private Staff approvedBy;
 

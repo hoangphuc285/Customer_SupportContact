@@ -50,6 +50,9 @@ interface WarrantyCaseItem {
     serviceCenter: string;
     repairFee: number | null;
     createdAt: string;
+    staffId?: number | null;
+    staffName?: string | null;
+    staffEmail?: string | null;
 }
 
 export default function StaffWarrantyPage() {
@@ -191,26 +194,26 @@ export default function StaffWarrantyPage() {
             {/* STATS OVERVIEW */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Phiếu Bảo Hành Mới</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">PHIẾU BẢO HÀNH MỚI</span>
                     <span className="text-xl font-black text-amber-600 mt-1 block">{warrantyCases.length} phiếu</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Chờ Tiếp Nhận (CREATED)</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CHỜ TIẾP NHẬN (CREATED)</span>
                     <span className="text-xl font-black text-blue-600 mt-1 block">
                         {warrantyCases.filter(c => c.status === 'CREATED').length} phiếu
                     </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Thiết Bị CSDL (Warranties)</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">THIẾT BỊ CSDL (WARRANTIES)</span>
                     <span className="text-xl font-black text-slate-900 mt-1 block">
                         {warranties.length} máy
                     </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Còn Hạn Bảo Hành (ACTIVE)</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CÒN HẠN BẢO HÀNH (ACTIVE)</span>
                     <span className="text-xl font-black text-emerald-600 mt-1 block">
                         {warranties.filter(w => w.status === 'ACTIVE').length} máy
                     </span>
