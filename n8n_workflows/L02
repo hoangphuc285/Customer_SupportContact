@@ -68,7 +68,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Hãy phân tích tin nhắn của khách hàng và lịch sử trò chuyện dưới đây để xác định ý định, cảm xúc và trích xuất các thông tin quan trọng.\n\n--- TIN NHẮN HIỆN TẠI ---\n{{ $('Call L03_Multilingual').item.json.message }}\n\n--- LỊCH SỬ 5 TIN NHẮN GẦN NHẤT ---\n{{ JSON.stringify($('Get Recent Messages').all().map(i => i.json.content_original)) }}\n\n--- YÊU CẦU XỬ LÝ ---\n1. Intent (Ý định): Chọn 1 trong các giá trị: COMPLAINT, FAQ, ORDER_STATUS, OTHER, PRODUCT_INFO, REFUND, WARRANTY.\n2. Sentiment (Cảm xúc): Chọn 1 trong các giá trị: POSITIVE, NEUTRAL, NEGATIVE, VERY_NEGATIVE.\n3. Information Extraction (Trích xuất): Tìm order_code (mã đơn), product_name (tên sản phẩm), serial_number (số serial), amount (số tiền). Nếu không có thì để null.\n4. Confidence (Độ tin cậy): Số thực từ 0.0 đến 1.0 đánh giá mức độ chắc chắn của phân loại trên.",
+        "text": "=Hãy phân tích tin nhắn của khách hàng và lịch sử trò chuyện dưới đây để xác định ý định, cảm xúc và trích xuất các thông tin quan trọng.\n\n--- TIN NHẮN HIỆN TẠI ---\n{{ $('Call L03_Multilingual').first()?.json.message }}\n\n--- LỊCH SỬ 5 TIN NHẮN GẦN NHẤT ---\n{{ JSON.stringify($('Get Recent Messages').all().map(i => i.json.content_original)) }}\n\n--- YÊU CẦU XỬ LÝ ---\n1. Intent (Ý định): Chọn 1 trong các giá trị: COMPLAINT, FAQ, ORDER_STATUS, OTHER, PRODUCT_INFO, REFUND, WARRANTY.\n2. Sentiment (Cảm xúc): Chọn 1 trong các giá trị: POSITIVE, NEUTRAL, NEGATIVE, VERY_NEGATIVE.\n3. Information Extraction (Trích xuất): Tìm order_code (mã đơn), product_name (tên sản phẩm), serial_number (số serial), amount (số tiền). Nếu không có thì để null.\n4. Confidence (Độ tin cậy): Số thực từ 0.0 đến 1.0 đánh giá mức độ chắc chắn của phân loại trên.",
         "hasOutputParser": true,
         "messages": {
           "messageValues": [
@@ -157,7 +157,7 @@
                 "conditions": [
                   {
                     "id": "1ae41ee5-6733-4c4c-ab0b-8f052e977ca0",
-                    "leftValue": "={{ $('Merge AI Results').item.json.output.intent }}",
+                    "leftValue": "={{ $('Merge AI Results').first()?.json.output.intent }}",
                     "rightValue": "COMPLAINT",
                     "operator": {
                       "type": "string",
@@ -180,7 +180,7 @@
                 "conditions": [
                   {
                     "id": "da95ddfd-59a9-457c-a550-937cae132f66",
-                    "leftValue": "={{ $('Merge AI Results').item.json.output.intent }}",
+                    "leftValue": "={{ $('Merge AI Results').first()?.json.output.intent }}",
                     "rightValue": "REFUND",
                     "operator": {
                       "type": "string",
@@ -203,7 +203,7 @@
                 "conditions": [
                   {
                     "id": "b37490e0-9ae9-4ac3-9bfc-383aa96426ad",
-                    "leftValue": "={{ $('Merge AI Results').item.json.output.intent }}",
+                    "leftValue": "={{ $('Merge AI Results').first()?.json.output.intent }}",
                     "rightValue": "WARRANTY",
                     "operator": {
                       "type": "string",
@@ -233,7 +233,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET \n  intent = '{{ $('Merge AI Results').item.json.output.intent }}',\n  sentiment = '{{ $('Merge AI Results').item.json.output.sentiment }}',\n  urgency = '{{ $json.urgency }}',\n  confidence = {{ $('Merge AI Results').item.json.output.confidence }},\n  need_human_review = {{ $json.confidence < 0.6 ? 1 : 0 }},\n  updated_at = NOW()\nWHERE id = {{ $('Merge AI Results').item.json.ticket_id }};",
+        "query": "UPDATE tickets \nSET \n  intent = '{{ $('Merge AI Results').first()?.json.output.intent }}',\n  sentiment = '{{ $('Merge AI Results').first()?.json.output.sentiment }}',\n  urgency = '{{ $json.urgency }}',\n  confidence = {{ $('Merge AI Results').first()?.json.output.confidence }},\n  need_human_review = {{ $json.confidence < 0.6 ? 1 : 0 }},\n  updated_at = NOW()\nWHERE id = {{ $('Merge AI Results').first()?.json.ticket_id }};",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
@@ -263,8 +263,8 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}",
-            "message": "={{ $('Merge AI Results').item.json.message }}"
+            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
+            "message": "={{ $('Merge AI Results').first()?.json.message }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -316,9 +316,9 @@
           "mappingMode": "defineBelow",
           "value": {
             "need_human_review": "={{ $json.confidence < 0.6 ? true : false }}",
-            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}",
-            "urgency": "={{ $('Calculate Urgency').item.json.urgency }}",
-            "sentiment": "={{ $('Merge AI Results').item.json.output.sentiment }}"
+            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
+            "urgency": "={{ $('Calculate Urgency').first()?.json.urgency }}",
+            "sentiment": "={{ $('Merge AI Results').first()?.json.output.sentiment }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -389,7 +389,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id": "={{ $('When Executed by Another Workflow').item.json.ticket_id }}",
+            "ticket_id": "={{ $('When Executed by Another Workflow').first()?.json.ticket_id }}",
             "message": "={{ $('When Executed by Another Workflow').first().json.message }}",
             "message_id": "={{ $('When Executed by Another Workflow').first().json.message_id }}",
             "direction": "in"
@@ -487,12 +487,12 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "customer_id": "={{ $('When Executed by Another Workflow').item.json.customer_id }}",
-            "message_id": "={{ $('When Executed by Another Workflow').item.json.message_id }}",
-            "content_original": "={{ $('When Executed by Another Workflow').item.json.message }}",
-            "sentiment": "={{ $('Merge AI Results').item.json.output.sentiment }}",
-            "urgency": "={{ $('Calculate Urgency').item.json.urgency }}",
-            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}"
+            "customer_id": "={{ $('When Executed by Another Workflow').first()?.json.customer_id }}",
+            "message_id": "={{ $('When Executed by Another Workflow').first()?.json.message_id }}",
+            "content_original": "={{ $('When Executed by Another Workflow').first()?.json.message }}",
+            "sentiment": "={{ $('Merge AI Results').first()?.json.output.sentiment }}",
+            "urgency": "={{ $('Calculate Urgency').first()?.json.urgency }}",
+            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}"
           },
           "matchingColumns": [
             ""
@@ -585,18 +585,18 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id ": "={{ $('Merge AI Results').item.json.ticket_id }}",
-            "message ": "={{ $('Merge AI Results').item.json.message }}",
-            "customer_id": "={{ $('Merge AI Results').item.json.customer_id }}",
-            "attachment_url": "={{ $('When Executed by Another Workflow').item.json.attachment_url }}"
+            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
+            "message": "={{ $('Merge AI Results').first()?.json.message }}",
+            "customer_id": "={{ $('Merge AI Results').first()?.json.customer_id }}",
+            "attachment_url": "={{ $('When Executed by Another Workflow').first()?.json.attachment_url }}"
           },
           "matchingColumns": [
             ""
           ],
           "schema": [
             {
-              "id": "ticket_id ",
-              "displayName": "ticket_id ",
+              "id": "ticket_id",
+              "displayName": "ticket_id",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -605,8 +605,8 @@
               "removed": false
             },
             {
-              "id": "message ",
-              "displayName": "message ",
+              "id": "message",
+              "displayName": "message",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -661,9 +661,9 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ticket_id": "={{ $('Merge AI Results').item.json.ticket_id }}",
-            "message": "={{ $('Merge AI Results').item.json.message }}",
-            "customer_id": "={{ $('When Executed by Another Workflow').item.json.customer_id }}"
+            "ticket_id": "={{ $('Merge AI Results').first()?.json.ticket_id }}",
+            "message": "={{ $('Merge AI Results').first()?.json.message }}",
+            "customer_id": "={{ $('When Executed by Another Workflow').first()?.json.customer_id }}"
           },
           "matchingColumns": [],
           "schema": [

@@ -190,8 +190,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT w.id AS warranty_id, w.serial_number, w.start_date, w.end_date, w.status AS warranty_status, w.customer_id AS warranty_customer_id, oi.id AS order_item_id, oi.product_name, oi.warranty_months, o.id AS order_id, o.order_code, o.customer_id AS order_customer_id, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id FROM warranties w JOIN order_items oi ON w.order_item_id = oi.id JOIN orders o ON oi.order_id = o.id JOIN customers c ON w.customer_id = c.id WHERE w.serial_number = '{{ $json.body?.serial_number || $json.serial_number || $('Information Extractor').first()?.json?.output?.serial_number || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.serial_number || \"SN-KB-998877\" }}' OR o.order_code = '{{ $json.body?.order_code || $json.order_code || $('Information Extractor').first()?.json?.output?.order_code || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.order_code || \"ORD-1001\" }}' LIMIT 1;",
-        "options": {}
+        "query": "SELECT w.id AS warranty_id, w.serial_number, w.start_date, w.end_date, w.status AS warranty_status, w.customer_id AS warranty_customer_id, oi.id AS order_item_id, oi.product_name, oi.warranty_months, o.id AS order_id, o.order_code, o.customer_id AS order_customer_id, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id \nFROM warranties w \nJOIN order_items oi ON w.order_item_id = oi.id \nJOIN orders o ON oi.order_id = o.id \nJOIN customers c ON w.customer_id = c.id \nWHERE w.serial_number = '{{ $json.body?.serial_number || $json.serial_number || $(\"Information Extractor\").first()?.json?.output?.serial_number || $(\"Code - Chuẩn hóa đầu vào Warranty\").first()?.json?.serial_number || \"\" }}' \n   OR o.order_code = '{{ $json.body?.order_code || $json.order_code || $(\"Information Extractor\").first()?.json?.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Warranty\").first()?.json?.order_code || \"\" }}' \n   OR o.order_code = REPLACE('{{ $json.body?.order_code || $json.order_code || $(\"Information Extractor\").first()?.json?.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Warranty\").first()?.json?.order_code || \"\" }}', '-', '') \nLIMIT 1;",
+        "options": {
+          "alwaysOutputData": true
+        }
       },
       "id": "1205f04f-945b-48e3-a849-4f025a283cb5",
       "name": "MySQL - Tra cứu Warranty & Order",
@@ -349,7 +351,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Bạn là chuyên gia phân loại kỹ thuật bảo hành. Dựa vào triệu chứng mô tả lỗi sau:\n- Sản phẩm: {{ $('Code - Kiểm tra ngày hết hạn bảo hành').item.json.product_name }}\n- Mô tả lỗi: {{ $('Information Extractor').first()?.json?.output?.issue_description || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.content_original }}\n\nHãy phân loại nguyên nhân lỗi:\n1. MANUFACTURER: Lỗi phần cứng/linh kiện tự nhiên từ nhà sản xuất (không lên nguồn không rõ lý do, lỗi màn hình sọc, phím liệt tự nhiên...)\n2. USER_DAMAGE: Lỗi do tác động người dùng (rơi vỡ, nứt móp, ẩm ướt, vào nước, cháy nổ do cắm sai điện áp...)\n3. UNKNOWN: Chưa xác định rõ, cần kỹ thuật viên mở máy thẩm định.\n\nTrả về đúng định dạng JSON:\n{\n  \"fault_type\": \"MANUFACTURER|USER_DAMAGE|UNKNOWN\",\n  \"reason_analysis\": \"giải thích ngắn gọn\",\n  \"eligibility\": \"ELIGIBLE|INELIGIBLE|NEED_INSPECTION\"\n}",
+        "text": "=Bạn là chuyên gia phân loại kỹ thuật bảo hành. Dựa vào triệu chứng mô tả lỗi sau:\n- Sản phẩm: {{ $('Code - Kiểm tra ngày hết hạn bảo hành').first()?.json.product_name }}\n- Mô tả lỗi: {{ $('Information Extractor').first()?.json?.output?.issue_description || $('Code - Chuẩn hóa đầu vào Warranty').first()?.json?.content_original }}\n\nHãy phân loại nguyên nhân lỗi:\n1. MANUFACTURER: Lỗi phần cứng/linh kiện tự nhiên từ nhà sản xuất (không lên nguồn không rõ lý do, lỗi màn hình sọc, phím liệt tự nhiên...)\n2. USER_DAMAGE: Lỗi do tác động người dùng (rơi vỡ, nứt móp, ẩm ướt, vào nước, cháy nổ do cắm sai điện áp...)\n3. UNKNOWN: Chưa xác định rõ, cần kỹ thuật viên mở máy thẩm định.\n\nTrả về đúng định dạng JSON:\n{\n  \"fault_type\": \"MANUFACTURER|USER_DAMAGE|UNKNOWN\",\n  \"reason_analysis\": \"giải thích ngắn gọn\",\n  \"eligibility\": \"ELIGIBLE|INELIGIBLE|NEED_INSPECTION\"\n}",
         "batching": {}
       },
       "id": "571892fc-cb1b-4051-9d52-804094acd43d",
@@ -474,7 +476,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}",
+                    "leftValue": "={{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.resolution_type }}",
                     "rightValue": "SHIP_IN",
                     "operator": {
                       "type": "string",
@@ -496,7 +498,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}",
+                    "leftValue": "={{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.resolution_type }}",
                     "rightValue": "SERVICE_CENTER",
                     "operator": {
                       "type": "string",
@@ -518,7 +520,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}",
+                    "leftValue": "={{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.resolution_type }}",
                     "rightValue": "ONSITE",
                     "operator": {
                       "type": "string",
@@ -548,9 +550,9 @@
     {
       "parameters": {
         "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "={{ $json.customer_email || $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_email || \"hoangphuc2855@gmail.com\" }}",
-        "subject": "=[TIẾP NHẬN BẢO HÀNH] Mã phiếu: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}",
-        "html": "<h3>[TIẾP NHẬN BẢO HÀNH THÀNH CÔNG]</h3>\n<p>Kính gửi Quý khách <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_name }}</strong>,</p>\n<p>Hệ thống đã ghi nhận phiếu bảo hành với thông tin chi tiết:</p>\n<ul>\n  <li><strong>Mã phiếu:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}</li>\n  <li><strong>Mã Ticket:</strong> #{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.ticket_id }}</li>\n  <li><strong>Sản phẩm:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.product_name }} (S/N: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.serial_number }})</li>\n  <li><strong>Hình thức tiếp nhận:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}</li>\n  <li><strong>Trung tâm tiếp nhận:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.service_center }}</li>\n  <li><strong>Chi phí dự kiến:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee === 0 ? 'MIỄN PHÍ' : Number($('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee).toLocaleString('vi-VN') + ' VNĐ' }}</li>\n</ul>\n<p>Kỹ thuật viên sẽ liên hệ và xử lý trong thời gian sớm nhất.</p>",
+        "toEmail": "={{ $json.customer_email || $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_email || \"hoangphuc2855@gmail.com\" }}",
+        "subject": "=[TIẾP NHẬN BẢO HÀNH] Mã phiếu: {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}",
+        "html": "<h3>[TIẾP NHẬN BẢO HÀNH THÀNH CÔNG]</h3>\n<p>Kính gửi Quý khách <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_name }}</strong>,</p>\n<p>Hệ thống đã ghi nhận phiếu bảo hành với thông tin chi tiết:</p>\n<ul>\n  <li><strong>Mã phiếu:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}</li>\n  <li><strong>Mã Ticket:</strong> #{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.ticket_id }}</li>\n  <li><strong>Sản phẩm:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.product_name }} (S/N: {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.serial_number }})</li>\n  <li><strong>Hình thức tiếp nhận:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.resolution_type }}</li>\n  <li><strong>Trung tâm tiếp nhận:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.service_center }}</li>\n  <li><strong>Chi phí dự kiến:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.repair_fee === 0 ? 'MIỄN PHÍ' : Number($('Code - Chuẩn hóa Case Bảo hành').first()?.json.repair_fee).toLocaleString('vi-VN') + ' VNĐ' }}</li>\n</ul>\n<p>Kỹ thuật viên sẽ liên hệ và xử lý trong thời gian sớm nhất.</p>",
         "options": {}
       },
       "id": "3aec3a4b-837c-4645-8d01-0cf6c7260205",
@@ -573,9 +575,9 @@
     {
       "parameters": {
         "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "={{ $json.customer_email || $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_email || \"hoangphuc2855@gmail.com\" }}",
-        "subject": "=Xác nhận tiếp nhận bảo hành - {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}",
-        "html": "<h3>[XÁC NHẬN TIẾP NHẬN BẢO HÀNH]</h3>\n<p>Kính gửi Quý khách <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_name }}</strong>,</p>\n<p>Yêu cầu bảo hành thiết bị của Quý khách đã được chuyển tiếp thành công đến bộ phận Kỹ thuật.</p>\n<p><strong>Mã phiếu bảo hành:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}</p>\n<p><strong>Thiết bị:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.product_name }} - S/N: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.serial_number }}</p>\n<p>Trân trọng,<br>Đội ngũ Hỗ trợ Kỹ thuật</p>",
+        "toEmail": "={{ $json.customer_email || $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_email || \"hoangphuc2855@gmail.com\" }}",
+        "subject": "=Xác nhận tiếp nhận bảo hành - {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}",
+        "html": "<h3>[XÁC NHẬN TIẾP NHẬN BẢO HÀNH]</h3>\n<p>Kính gửi Quý khách <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_name }}</strong>,</p>\n<p>Yêu cầu bảo hành thiết bị của Quý khách đã được chuyển tiếp thành công đến bộ phận Kỹ thuật.</p>\n<p><strong>Mã phiếu bảo hành:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}</p>\n<p><strong>Thiết bị:</strong> {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.product_name }} - S/N: {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.serial_number }}</p>\n<p>Trân trọng,<br>Đội ngũ Hỗ trợ Kỹ thuật</p>",
         "options": {}
       },
       "id": "d3768451-ff85-4817-be0f-181a2f7ddf26",
@@ -599,8 +601,8 @@
       "parameters": {
         "fromEmail": "phucnh.24it@vku.udn.vn",
         "toEmail": "hoangphuc2855@gmail.com",
-        "subject": "=[KỸ THUẬT] Phiếu bảo hành mới: {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}",
-        "html": "<h2>[KỸ THUẬT] PHIẾU BẢO HÀNH THIẾT BỊ MỚI CẦN XỬ LÝ</h2>\n<p>Hệ thống CSKH vừa tiếp nhận yêu cầu bảo hành từ khách hàng. Thông tin chi tiết:</p>\n<table border=\"1\" cellpadding=\"8\" style=\"border-collapse: collapse; width: 100%; max-width: 650px;\">\n  <tr><td style=\"width: 35%; background: #f8fafc;\"><strong>Mã phiếu bảo hành</strong></td><td><strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}</strong></td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Mã Ticket</strong></td><td>#{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.ticket_id }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Tên khách hàng</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_name }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Email khách hàng</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_email }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Sản phẩm</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.product_name }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Số Serial (S/N)</strong></td><td><strong style=\"color: #b45309;\">{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.serial_number }}</strong></td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Mô tả sự cố</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.issue_desc }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Phân loại sự cố (AI)</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.fault_type }} ({{ $('Code - Chuẩn hóa Case Bảo hành').item.json.eligibility }})</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Hình thức bảo hành</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Trung tâm tiếp nhận</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.service_center }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Chi phí dự kiến</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee === 0 ? 'MIỄN PHÍ' : Number($('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee).toLocaleString('vi-VN') + ' VNĐ' }}</td></tr>\n</table>\n<p style=\"margin-top: 15px;\">Vui lòng truy cập Cổng Kỹ thuật viên để kiểm tra và nhận thiết bị sửa chữa.</p>",
+        "subject": "=[KỸ THUẬT] Phiếu bảo hành mới: {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}",
+        "html": "<h2>[KỸ THUẬT] PHIẾU BẢO HÀNH THIẾT BỊ MỚI CẦN XỬ LÝ</h2>\n<p>Hệ thống CSKH vừa tiếp nhận yêu cầu bảo hành từ khách hàng. Thông tin chi tiết:</p>\n<table border=\"1\" cellpadding=\"8\" style=\"border-collapse: collapse; width: 100%; max-width: 650px;\">\n  <tr><td style=\"width: 35%; background: #f8fafc;\"><strong>Mã phiếu bảo hành</strong></td><td><strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}</strong></td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Mã Ticket</strong></td><td>#{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.ticket_id }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Tên khách hàng</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_name }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Email khách hàng</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_email }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Sản phẩm</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.product_name }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Số Serial (S/N)</strong></td><td><strong style=\"color: #b45309;\">{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.serial_number }}</strong></td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Mô tả sự cố</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.issue_desc }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Phân loại sự cố (AI)</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.fault_type }} ({{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.eligibility }})</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Hình thức bảo hành</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.resolution_type }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Trung tâm tiếp nhận</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.service_center }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Chi phí dự kiến</strong></td><td>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.repair_fee === 0 ? 'MIỄN PHÍ' : Number($('Code - Chuẩn hóa Case Bảo hành').first()?.json.repair_fee).toLocaleString('vi-VN') + ' VNĐ' }}</td></tr>\n</table>\n<p style=\"margin-top: 15px;\">Vui lòng truy cập Cổng Kỹ thuật viên để kiểm tra và nhận thiết bị sửa chữa.</p>",
         "options": {}
       },
       "id": "8c7fa71a-08cb-4e08-af1d-7ebecb75ca9a",
@@ -639,9 +641,9 @@
     {
       "parameters": {
         "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "={{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_email || \"hoangphuc2855@gmail.com\" }}",
-        "subject": "=[HOÀN TẤT BẢO HÀNH] Thiết bị theo phiếu {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }} đã sửa xong",
-        "html": "<h2>[BẢO HÀNH HOÀN TẤT]</h2>\n<p>Kính gửi Quý khách <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.customer_name }}</strong>,</p>\n<p>Thiết bị <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.product_name }}</strong> (S/N: <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.serial_number }}</strong>) theo mã phiếu <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}</strong> đã được Kỹ thuật viên sửa chữa và kiểm tra hoàn tất.</p>\n<p>Quý khách có thể đến trung tâm tiếp nhận để nhận lại thiết bị hoặc theo dõi chuyển phát bàn giao tận nơi.</p>\n<p>Cảm ơn Quý khách đã sử dụng dịch vụ của chúng tôi!</p>",
+        "toEmail": "={{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_email || \"hoangphuc2855@gmail.com\" }}",
+        "subject": "=[HOÀN TẤT BẢO HÀNH] Thiết bị theo phiếu {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }} đã sửa xong",
+        "html": "<h2>[BẢO HÀNH HOÀN TẤT]</h2>\n<p>Kính gửi Quý khách <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.customer_name }}</strong>,</p>\n<p>Thiết bị <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.product_name }}</strong> (S/N: <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.serial_number }}</strong>) theo mã phiếu <strong>{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}</strong> đã được Kỹ thuật viên sửa chữa và kiểm tra hoàn tất.</p>\n<p>Quý khách có thể đến trung tâm tiếp nhận để nhận lại thiết bị hoặc theo dõi chuyển phát bàn giao tận nơi.</p>\n<p>Cảm ơn Quý khách đã sử dụng dịch vụ của chúng tôi!</p>",
         "options": {}
       },
       "id": "21b161b3-40b5-4ad8-a515-6e9a2cd01bd4",
@@ -664,7 +666,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE warranty_cases SET status = 'CLOSED', updated_at = NOW() WHERE case_code = '{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}';",
+        "query": "UPDATE warranty_cases SET status = 'CLOSED', updated_at = NOW() WHERE case_code = '{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}';",
         "options": {}
       },
       "id": "66a0388f-8f7b-473d-91df-a9533747cc7d",
@@ -685,7 +687,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.ticket_id || 1 }};",
+        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Thiết bị theo phiếu bảo hành {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json?.case_code }} đã được Kỹ thuật viên xử lý hoàn tất. Quý khách có thể nhận lại thiết bị hoặc liên hệ hotline để được hỗ trợ.', 'Thiết bị theo phiếu bảo hành {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json?.case_code }} đã được Kỹ thuật viên xử lý hoàn tất. Quý khách có thể nhận lại thiết bị hoặc liên hệ hotline để được hỗ trợ.', 'vi', 0, NOW(), NOW());",
         "options": {}
       },
       "id": "6a026dbc-f4bf-457a-a085-10c399fea377",
@@ -706,7 +708,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('WARRANTY_CLOSED', 'TECHNICIAN', JSON_OBJECT('case_code', '{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.case_code }}', 'resolution_type', '{{ $('Code - Chuẩn hóa Case Bảo hành').item.json.resolution_type }}', 'repair_fee', {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.repair_fee }}), {{ $('Code - Chuẩn hóa Case Bảo hành').item.json.warranty_id }}, 'warranty_case', 'L10_Warranty', NOW(), NOW());",
+        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('WARRANTY_CLOSED', 'TECHNICIAN', JSON_OBJECT('case_code', '{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.case_code }}', 'resolution_type', '{{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.resolution_type }}', 'repair_fee', {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.repair_fee }}), {{ $('Code - Chuẩn hóa Case Bảo hành').first()?.json.warranty_id }}, 'warranty_case', 'L10_Warranty', NOW(), NOW());",
         "options": {}
       },
       "id": "b1d3db9e-bf69-41fd-a1b2-8716afe95a25",

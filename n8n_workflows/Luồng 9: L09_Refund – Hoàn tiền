@@ -5,11 +5,11 @@
         "workflowInputs": {
           "values": [
             {
-              "name": "ticket_id ",
+              "name": "ticket_id",
               "type": "number"
             },
             {
-              "name": "message "
+              "name": "message"
             },
             {
               "name": "customer_id",
@@ -117,7 +117,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ !($('Information Extractor').item.json.output?.order_code || $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.order_code) }}",
+              "leftValue": "={{ !($('Information Extractor').first()?.json.output?.order_code || $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.order_code) }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -158,8 +158,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT o.id AS order_id, o.order_code, o.customer_id, o.total_amount, o.shipping_fee, o.status AS order_status, o.payment_method, o.ordered_at, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.order_code = '{{ $json.body?.order_code || $json.order_code || $json.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Refund\").first()?.json?.order_code || \"DH-1001\" }}' OR o.order_code = REPLACE('{{ $json.body?.order_code || $json.order_code || $json.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Refund\").first()?.json?.order_code || \"DH-1001\" }}', '-', '') LIMIT 1;",
-        "options": {}
+        "query": "SELECT o.id AS order_id, o.order_code, o.customer_id, o.total_amount, o.shipping_fee, o.status AS order_status, o.payment_method, o.ordered_at, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id FROM orders o JOIN customers c ON o.customer_id = c.id WHERE REPLACE(o.order_code, '-', '') = REPLACE('{{ $json.body?.order_code || $json.order_code || $json.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Refund\").first()?.json?.order_code || \"DH-1001\" }}', '-', '') LIMIT 1;",
+        "options": {
+          "alwaysOutputData": true
+        }
       },
       "id": "e0bcfced-ae1c-4515-985e-0c6754377e1a",
       "name": "MySQL - Tra cứu đơn hàng",
@@ -435,7 +437,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').item.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').item.json.approval_level }}', NOW(), '{{ ($('Code - Xác định cấp phê duyệt').item.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').item.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').item.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}', 'APPROVED', {{ $('Code - Xác định cấp phê duyệt').item.json.approved_by_id || \"NULL\" }}, {{ $('Code - Xác định cấp phê duyệt').item.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'APPROVED', approval_level = VALUES(approval_level), amount = VALUES(amount), approved_at = NOW(), updated_at = NOW();",
+        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', NOW(), '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').first()?.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'APPROVED', {{ $('Code - Xác định cấp phê duyệt').first()?.json.approved_by_id || \"NULL\" }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'APPROVED', approval_level = VALUES(approval_level), amount = VALUES(amount), approved_at = NOW(), updated_at = NOW();",
         "options": {}
       },
       "id": "9dbaf05b-4b0f-4cd2-8cd8-75caa83e7c05",
@@ -459,7 +461,7 @@
         "url": "http://172.17.0.1:8080/api/payments/refund",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"refund_code\": \"{{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}\",\n  \"order_id\": {{ $('Code - Xác định cấp phê duyệt').item.json.order_id }},\n  \"amount\": {{ $('Code - Xác định cấp phê duyệt').item.json.final_refund_amount }},\n  \"payment_method\": \"{{ $('Code - Xác định cấp phê duyệt').item.json.payment_method || 'BANK_TRANSFER' }}\"\n}",
+        "jsonBody": "={\n  \"refund_code\": \"{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}\",\n  \"order_id\": {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }},\n  \"amount\": {{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }},\n  \"payment_method\": \"{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_method || 'BANK_TRANSFER' }}\"\n}",
         "options": {
           "timeout": 3000
         }
@@ -477,7 +479,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE refunds SET status = 'PAID', payment_ref = '{{ $('Code - Xác định cấp phê duyệt').item.json.payment_ref }}', paid_at = NOW(), updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}';",
+        "query": "UPDATE refunds SET status = 'PAID', payment_ref = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_ref }}', paid_at = NOW(), updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}';",
         "options": {}
       },
       "id": "58e8d8e8-3591-4d2f-a040-57d4963b0e01",
@@ -498,7 +500,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE orders SET status = 'REFUNDED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').item.json.order_id }};",
+        "query": "UPDATE orders SET status = 'REFUNDED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }};",
         "options": {}
       },
       "id": "4292b6a0-eb0b-45ef-811d-d39b0ce0d7d5",
@@ -520,7 +522,7 @@
       "parameters": {
         "fromEmail": "support@support.local",
         "toEmail": "hoangphuc2855@gmail.com",
-        "subject": "=Xác nhận hoàn tiền thành công - {{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}",
+        "subject": "=Xác nhận hoàn tiền thành công - {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}",
         "options": {}
       },
       "id": "4ab3b409-72ad-480c-a494-f20f8f3ac991",
@@ -543,7 +545,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }};",
+        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};",
         "options": {}
       },
       "id": "80153950-f6d2-4bff-ba2b-e48d052ab45d",
@@ -564,7 +566,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('REFUND_COMPLETED', '{{ $('Code - Xác định cấp phê duyệt').item.json.approval_level }}', JSON_OBJECT('refund_code', '{{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}', 'amount', {{ $('Code - Xác định cấp phê duyệt').item.json.final_refund_amount }}, 'payment_ref', '{{ $('Code - Xác định cấp phê duyệt').item.json.payment_ref }}', 'order_id', {{ $('Code - Xác định cấp phê duyệt').item.json.order_id }}), {{ $('Code - Xác định cấp phê duyệt').item.json.order_id }}, 'refund', 'L09_Refund', NOW(), NOW());",
+        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('REFUND_COMPLETED', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', JSON_OBJECT('refund_code', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'amount', {{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, 'payment_ref', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_ref }}', 'order_id', {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}), {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, 'refund', 'L09_Refund', NOW(), NOW());",
         "options": {}
       },
       "id": "80942e70-263c-407f-8f82-9364fe8532ed",
@@ -584,7 +586,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst data = item.body || item;\n\n// 1. Nhận diện ticket_id kể cả khi có dấu cách \"ticket_id \" từ L02\nconst ticketId = data.ticket_id || data['ticket_id '] || data.id || 1;\n\n// 2. Nhận diện và parse JSON lồng nhau {\"text\":\"...\"} trong \"message \" hoặc message\nconst rawMsg = data.content_original || data.message || data['message '] || data.text || data.reason || \"\";\nlet content = \"\";\nif (typeof rawMsg === 'string') {\n  const trimmed = rawMsg.trim();\n  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {\n    try {\n      const parsed = JSON.parse(trimmed);\n      content = parsed.text || parsed.message || parsed.content || rawMsg;\n    } catch (e) {\n      content = rawMsg;\n    }\n  } else {\n    content = rawMsg;\n  }\n} else if (typeof rawMsg === 'object' && rawMsg !== null) {\n  content = rawMsg.text || rawMsg.message || rawMsg.content || JSON.stringify(rawMsg);\n}\nif (!content) content = \"Yêu cầu hoàn tiền\";\n\n// 3. Tự động bóc tách mã đơn hàng (DH1001, DH-1001,...) từ nội dung tin nhắn\nlet orderCode = (data.order_code || data.orderCode || \"\").trim().toUpperCase();\nif (!orderCode) {\n  const match = content.match(/\\b(DH-?\\d+|ORD-\\d+|#\\w+)\\b/i);\n  if (match) orderCode = match[1].replace('#', '').toUpperCase();\n}\n\n// 4. Tự động bóc tách số tiền đề xuất hoàn (ví dụ: 350000 VNĐ)\nlet amtRequested = Number(data.amount || data.refundAmount || data.amount_requested || 0);\nif (!amtRequested) {\n  const amtMatch = content.match(/(\\d+[\\d.,]*)\\s*(?:vnđ|vnd|đ|đồng)/i);\n  if (amtMatch) amtRequested = Number(amtMatch[1].replace(/[.,]/g, '')) || 0;\n}\n\n// 5. Trích xuất link ảnh bằng chứng nếu có\nconst evidenceUrl = data.evidence_url || data.attachment_url || data.attachmentUrl || data['attachment_url '] || \"\";\n\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    ticket_code: data.ticket_code || \"\",\n    refund_code: data.refund_code || data.refundCode || \"\",\n    customer_id: data.customer_id || null,\n    order_code: orderCode,\n    amount_requested: amtRequested,\n    evidence_url: evidenceUrl,\n    customer_name: data.customer_name || data.name || \"Khách hàng\",\n    customer_email: data.customer_email || data.email || \"nguyenphucphi213@gmail.com\",\n    content_original: content,\n    message: content\n  }\n}];"
+        "jsCode": "const item = $input.first()?.json || {};\nconst data = item.body || item;\n\n// 1. Nhận diện ticket_id kể cả khi có dấu cách \"ticket_id \" từ L02\nconst ticketId = data.ticket_id || data['ticket_id '] || data.ticketId || data.id || 1;\nconst customerId = data.customer_id || data['customer_id '] || data.customerId || null;\n\n// 2. Nhận diện và parse JSON lồng nhau {\"text\":\"...\"} trong \"message \" hoặc message\nconst rawMsg = data.content_original || data.message || data['message '] || data.text || data.reason || \"\";\nlet content = \"\";\nif (typeof rawMsg === 'string') {\n  const trimmed = rawMsg.trim();\n  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {\n    try {\n      const parsed = JSON.parse(trimmed);\n      content = parsed.text || parsed.message || parsed.content || rawMsg;\n    } catch (e) {\n      content = rawMsg;\n    }\n  } else {\n    content = rawMsg;\n  }\n} else if (typeof rawMsg === 'object' && rawMsg !== null) {\n  content = rawMsg.text || rawMsg.message || rawMsg.content || JSON.stringify(rawMsg);\n}\nif (!content) content = \"Yêu cầu hoàn tiền\";\n\n// 3. Tự động bóc tách mã đơn hàng (DH1001, DH-1001, ORD-1001,...) từ nội dung tin nhắn\nlet orderCode = (data.order_code || data['order_code '] || data.orderCode || \"\").trim().toUpperCase();\nif (!orderCode) {\n  const match = content.match(/\\b(DH-?\\d+|ORD-?\\d+|#\\w+)\\b/i);\n  if (match) orderCode = match[1].replace('#', '').toUpperCase();\n}\n\n// 4. Tự động bóc tách số tiền đề xuất hoàn (ví dụ: 350000 VNĐ)\nlet amtRequested = Number(data.amount || data.refundAmount || data.amount_requested || 0);\nif (!amtRequested) {\n  const amtMatch = content.match(/(\\d+[\\d.,]*)\\s*(?:vnđ|vnd|đ|đồng)/i);\n  if (amtMatch) amtRequested = Number(amtMatch[1].replace(/[.,]/g, '')) || 0;\n}\n\n// 5. Trích xuất link ảnh bằng chứng nếu có\nconst evidenceUrl = data.evidence_url || data.attachment_url || data.attachmentUrl || data['attachment_url '] || \"\";\n\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    ticket_code: data.ticket_code || \"\",\n    refund_code: data.refund_code || data.refundCode || \"\",\n    customer_id: customerId,\n    order_code: orderCode,\n    amount_requested: amtRequested,\n    evidence_url: evidenceUrl,\n    customer_name: data.customer_name || data.name || \"Khách hàng\",\n    customer_email: data.customer_email || data.email || \"nguyenphucphi213@gmail.com\",\n    content_original: content,\n    message: content\n  }\n}];",
+        "mode": "runOnceForAllItems"
       },
       "id": "a5b35c9e-21d9-4b47-8b8c-43cd9143bcfb",
       "name": "Code - Chuẩn hóa đầu vào Refund",
@@ -598,7 +601,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').item.json.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').item.json.ticket_id || 1 }}, 'AI', 'WEB', 'Để tiếp tục xử lý hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'Để tiếp tục xử lý hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'vi', 0, NOW(), NOW());",
+        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Để tiến hành hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'Để tiến hành hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'vi', 0, NOW(), NOW());",
         "options": {}
       },
       "id": "a8fa74c4-218f-4160-b101-f921f7b76e3f",
@@ -619,7 +622,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').item.json.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').item.json.ticket_id || 1 }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'vi', 0, NOW(), NOW());",
+        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'vi', 0, NOW(), NOW());",
         "options": {}
       },
       "id": "acff8343-80e5-46a0-abab-0bb429d66ba3",
@@ -640,7 +643,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').item.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').item.json.approval_level }}', NULL, '{{ ($('Code - Xác định cấp phê duyệt').item.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').item.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').item.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}', 'PENDING_APPROVAL', NULL, {{ $('Code - Xác định cấp phê duyệt').item.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'PENDING_APPROVAL', approval_level = VALUES(approval_level), amount = VALUES(amount), evidence_url = VALUES(evidence_url), updated_at = NOW();\nUPDATE tickets SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'vi', 0, NOW(), NOW());",
+        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').first()?.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'PENDING_APPROVAL', NULL, {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'PENDING_APPROVAL', approval_level = VALUES(approval_level), amount = VALUES(amount), evidence_url = VALUES(evidence_url), updated_at = NOW();\nUPDATE tickets SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'vi', 0, NOW(), NOW());",
         "options": {}
       },
       "id": "fe6aa9a6-4ad6-4cbd-9ac7-9b6e0ddc7c5a",
@@ -710,7 +713,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE refunds SET status = 'REJECTED', updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }}';\nUPDATE tickets SET status = 'CLOSED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').item.json.ticket_id }}, 'STAFF', 'WEB', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').item.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'vi', 0, NOW(), NOW());",
+        "query": "UPDATE refunds SET status = 'REJECTED', updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}';\nUPDATE tickets SET status = 'CLOSED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, 'STAFF', 'WEB', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'vi', 0, NOW(), NOW());",
         "options": {}
       },
       "id": "7305fa63-6d4c-47f3-b03c-20a5e3446612",
@@ -1117,16 +1120,8 @@
       ]
     }
   },
-  "pinData": {
-    "Execute Workflow Trigger": [
-      {
-        "ticket_id ": 131,
-        "message ": "{\"text\":\"Tôi yêu cầu hoàn tiền đơn hàng DH-1001, số tiền 3213213 VNĐ. Lý do: DH-1001 sản phẩm bị lỗi, cần hoàn cái mới . Tài khoản thụ hưởng: MBBANK - 00912321\"}",
-        "customer_id": 22
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
-    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"cd
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
   }
 }
