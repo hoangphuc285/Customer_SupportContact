@@ -37,11 +37,15 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         String provided = request.getHeader(HEADER);
-        if (provided != null
-                && MessageDigest.isEqual(provided.getBytes(StandardCharsets.UTF_8), expectedKey)) {
-            var auth = new UsernamePasswordAuthenticationToken(
-                    "n8n-service", null, List.of(new SimpleGrantedAuthority("ROLE_N8N")));
-            SecurityContextHolder.getContext().setAuthentication(auth);
+        if (provided != null) {
+            if (provided.startsWith("=")) {
+                provided = provided.substring(1);
+            }
+            if (MessageDigest.isEqual(provided.getBytes(StandardCharsets.UTF_8), expectedKey)) {
+                var auth = new UsernamePasswordAuthenticationToken(
+                        "n8n-service", null, List.of(new SimpleGrantedAuthority("ROLE_N8N")));
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
         }
         chain.doFilter(request, response);
     }

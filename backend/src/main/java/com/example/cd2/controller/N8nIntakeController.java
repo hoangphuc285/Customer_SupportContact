@@ -84,6 +84,7 @@ public class N8nIntakeController {
             if (foundTicket != null) {
                 log.info("N8nIntakeController: Tai su dung ticket da co #{} ({})", foundTicket.getId(), foundTicket.getTicketCode());
                 Long custId = foundTicket.getCustomer() != null ? foundTicket.getCustomer().getId() : 1L;
+                boolean isBrandNew = (foundTicket.getIntent() == null);
                 return ResponseEntity.ok(new IntakeResponse(
                         foundTicket.getId(),
                         foundTicket.getTicketCode(),
@@ -91,7 +92,7 @@ public class N8nIntakeController {
                         custId,
                         null,
                         true,
-                        false,
+                        isBrandNew,
                         false
                 ));
             }

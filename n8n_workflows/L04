@@ -56,31 +56,31 @@
             {
               "id": "aae70a88-1337-45f2-86c6-4f80d47d9bf6",
               "name": "source_key",
-              "value": "={{ String($json.body.source_key || $json.body.doc_title || $json.body.source_url || '').slice(0, 200) }}",
+              "value": "={{ String($json.body?.source_key || $json.source_key || $json.body?.doc_title || $json.doc_title || $json.body?.source_url || $json.source_url || '').slice(0, 200) }}",
               "type": "string"
             },
             {
               "id": "b53267f6-9a8f-4a30-986e-b30844737b90",
               "name": "doc_title",
-              "value": "={{ $json.body.doc_title || $json.body.source_key || $json.body.source_url }}",
+              "value": "={{ $json.body?.doc_title || $json.doc_title || $json.body?.source_key || $json.source_key || $json.body?.source_url || $json.source_url }}",
               "type": "string"
             },
             {
               "id": "32b9ab23-736e-4512-bb87-682fd0201999",
               "name": "source_url",
-              "value": "={{ $json.body.source_url }}",
+              "value": "={{ $json.body?.source_url || $json.source_url }}",
               "type": "string"
             },
             {
               "id": "3acd67b6-0436-4191-abbd-2773e0e3419a",
               "name": "category",
-              "value": "={{ $json.body.category || 'GENERAL' }}",
+              "value": "={{ $json.body?.category || $json.category || 'GENERAL' }}",
               "type": "string"
             },
             {
               "id": "f6275c9d-1a96-41de-a6d4-43ce3036b86b",
               "name": "language",
-              "value": "={{ $json.body.language || 'vi' }}",
+              "value": "={{ $json.body?.language || $json.language || 'vi' }}",
               "type": "string"
             }
           ]
@@ -303,7 +303,7 @@
                 "conditions": [
                   {
                     "id": "c1312bf8-2540-4ee1-af58-593aec3338a1",
-                    "leftValue": "={{ ($binary.data?.mimeType || '') + ' ' + ($binary.data?.fileExtension || '') }}",
+                    "leftValue": "={{ (($binary.data?.mimeType || \"\") + \" \" + ($binary.data?.fileExtension || \"\") + \" \" + ($binary.data?.fileName || \"\") + \" \" + ($json.source_url || \"\")).toLowerCase() }}",
                     "operator": {
                       "type": "string",
                       "operation": "contains"
@@ -327,21 +327,39 @@
                 "conditions": [
                   {
                     "id": "dd4e748b-a375-4d1f-8715-8fac3632b9ac",
-                    "leftValue": "={{ ($binary.data?.mimeType || '') + ' ' + ($binary.data?.fileExtension || '') }}",
+                    "leftValue": "={{ (($binary.data?.mimeType || \"\") + \" \" + ($binary.data?.fileExtension || \"\") + \" \" + ($binary.data?.fileName || \"\") + \" \" + ($json.source_url || \"\")).toLowerCase() }}",
                     "operator": {
                       "type": "string",
                       "operation": "contains"
                     },
-                    "rightValue": "text/plain"
+                    "rightValue": "text"
                   },
                   {
                     "id": "97f776e7-e7d6-43c0-a68b-2a1a15020199",
-                    "leftValue": "={{ ($binary.data?.mimeType || '') + ' ' + ($binary.data?.fileExtension || '') }}",
+                    "leftValue": "={{ (($binary.data?.mimeType || \"\") + \" \" + ($binary.data?.fileExtension || \"\") + \" \" + ($binary.data?.fileName || \"\") + \" \" + ($json.source_url || \"\")).toLowerCase() }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "rightValue": "txt"
+                  },
+                  {
+                    "id": "a8f776e7-e7d6-43c0-a68b-2a1a15020198",
+                    "leftValue": "={{ (($binary.data?.mimeType || \"\") + \" \" + ($binary.data?.fileExtension || \"\") + \" \" + ($binary.data?.fileName || \"\") + \" \" + ($json.source_url || \"\")).toLowerCase() }}",
                     "operator": {
                       "type": "string",
                       "operation": "contains"
                     },
                     "rightValue": "markdown"
+                  },
+                  {
+                    "id": "b8f776e7-e7d6-43c0-a68b-2a1a15020197",
+                    "leftValue": "={{ (($binary.data?.mimeType || \"\") + \" \" + ($binary.data?.fileExtension || \"\") + \" \" + ($binary.data?.fileName || \"\") + \" \" + ($json.source_url || \"\")).toLowerCase() }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "rightValue": ".md"
                   }
                 ],
                 "combinator": "or"
@@ -671,7 +689,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://qdrant:6333/collections/vku_knowledge/points/delete?wait=true",
+        "url": "http://172.17.0.1:6333/collections/vku_knowledge/points/delete?wait=true",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ filter: { must: [ { key: 'metadata.source_key', match: { value: $json.source_key } } ] } }) }}",
@@ -1100,11 +1118,12 @@
       "position": [
         992,
         1536
-      ]
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3.8-flash",
+        "modelName": "models/gemini-2.5-flash",
         "options": {
           "temperature": 0.1
         }
@@ -1296,7 +1315,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const sum = $('Code - Tổng hợp nạp').first().json;\nconst items = $input.all().map(i => i.json);\nlet warn = sum.failed > 0;\nconst icon = { INGESTED: '✅', SKIPPED: '⏭', FAILED: '❌' };\n\nconst docLines = sum.details.map(d => {\n  if (d.status === 'FAILED') return `${icon.FAILED} ${d.doc_title}: LỖI - ${d.error_message}`;\n  if (d.status === 'SKIPPED') return `${icon.SKIPPED} ${d.doc_title}: không đổi (v${d.version}, ${d.chunk_count} chunk)`;\n  return `${icon.INGESTED} ${d.doc_title}: đã nạp ${d.chunk_count} chunk (v${d.version})`;\n});\n\nlet bench;\nif (items[0] && items[0].benchmark_skipped) {\n  bench = '🧪 Kiểm định: bỏ qua (không có tài liệu mới nạp)';\n} else {\n  const total = items.length;\n  const passed = items.filter(i => i.passed === true).length;\n  const rate = total ? Math.round(passed / total * 100) : 0;\n  if (rate < 80) warn = true;\n  const failedQ = items.filter(i => i.passed !== true).map(i => `   • Câu ${i.test_id}: ${i.question}`);\n  bench = `🧪 Kiểm định tự động: ${passed}/${total} câu đạt (${rate}%)` + (failedQ.length ? '\\n' + failedQ.join('\\n') : '');\n}\n\nconst head = warn ? '⚠️ [CẢNH BÁO - NẠP KHO TRI THỨC L04]' : '📚 [BÁO CÁO NẠP KHO TRI THỨC L04]';\nconst text = [\n  head,\n  `Tổng: ${sum.total} | Đã nạp: ${sum.ingested} | Bỏ qua: ${sum.skipped} | Lỗi: ${sum.failed}`,\n  '',\n  ...docLines,\n  '',\n  bench,\n  `🕒 ${new Date().toISOString()}`\n].join('\\n');\n\nreturn [{ json: { report_text: text, warn } }];"
+        "jsCode": "const sum = $('Code - Tổng hợp nạp').first().json;\nconst items = $input.all().map(i => i.json);\nlet warn = sum.failed > 0;\nconst icon = { INGESTED: '✅', SKIPPED: '⏭', FAILED: '❌' };\n\nconst docLines = sum.details.map(d => {\n  if (d.status === 'FAILED') return `${icon.FAILED} ${d.doc_title}: LỖI - ${d.error_message}`;\n  if (d.status === 'SKIPPED') return `${icon.SKIPPED} ${d.doc_title}: không đổi (v${d.version}, ${d.chunk_count} chunk)`;\n  return `${icon.INGESTED} ${d.doc_title}: đã nạp ${d.chunk_count} chunk (v${d.version})`;\n});\n\nlet bench;\nif (items[0] && items[0].benchmark_skipped) {\n  bench = '🧪 Kiểm định: bỏ qua (không có tài liệu mới nạp)';\n} else {\n  const total = items.length;\n  const passed = items.filter(i => i.passed === true).length;\n  const rate = total ? Math.round(passed / total * 100) : 0;\n  if (rate < 80) warn = true;\n  const failedQ = items.filter(i => i.passed !== true).map(i => `   • Câu ${i.test_id}: ${i.question}`);\n  bench = `🧪 Kiểm định tự động: ${passed}/${total} câu đạt (${rate}%)` + (failedQ.length ? '\\n' + failedQ.join('\\n') : '');\n}\n\nconst head = warn ? '⚠️ CẢNH BÁO - NẠP KHO TRI THỨC L04' : '📚 BÁO CÁO NẠP KHO TRI THỨC L04';\nconst text = [\n  head,\n  `Tổng: ${sum.total} | Đã nạp: ${sum.ingested} | Bỏ qua: ${sum.skipped} | Lỗi: ${sum.failed}`,\n  '',\n  ...docLines,\n  '',\n  bench,\n  `🕒 ${new Date().toISOString()}`\n].join('\\n');\n\nreturn [{ json: { report_text: text, warn } }];"
       },
       "id": "8b95c2b7-5641-47e3-bdc3-20b3c343b05b",
       "name": "Code - Tổng hợp benchmark",
@@ -1329,7 +1348,41 @@
           "id": "0LI2dFdVJM6rrl0k",
           "name": "Telegram account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7c86a1df-b9ee-47fe-bd60-441112223334",
+              "leftValue": "={{ String($json.body?.source_url || $json.source_url || \"\").trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7c86a1df-b9ee-47fe-bd60-441112223334",
+      "name": "IF - Có source_url?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -880,
+        240
+      ]
     }
   ],
   "connections": {
@@ -1348,7 +1401,7 @@
       "main": [
         [
           {
-            "node": "Edit Fields - Webhook",
+            "node": "IF - Có source_url?",
             "type": "main",
             "index": 0
           }
@@ -1906,6 +1959,24 @@
         [
           {
             "node": "Telegram - Báo kết quả nạp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có source_url?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request - Lấy danh sách tài liệu (backend)",
             "type": "main",
             "index": 0
           }
