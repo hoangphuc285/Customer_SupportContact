@@ -173,6 +173,15 @@ public class PortalService {
     }
 
     public List<TicketDto> myTickets(Long customerId) {
+        return myTickets(customerId, null);
+    }
+
+    public List<TicketDto> myTickets(Long customerId, String email) {
+        if (customerId == null && email != null && !email.isBlank()) {
+            customerId = customers.findByEmail(email.trim().toLowerCase())
+                    .map(Customer::getId)
+                    .orElse(null);
+        }
         if (customerId == null) {
             return List.of();
         }

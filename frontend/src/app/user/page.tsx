@@ -68,16 +68,7 @@ export default function UserPortalHomePage() {
         e.preventDefault();
         const q = searchQuery.trim();
         if (!q) return;
-
-        if (q.toUpperCase().startsWith('TK') || q.toUpperCase().startsWith('CHAT')) {
-            router.push(`/user/tickets?q=${encodeURIComponent(q)}`);
-        } else if (q.toUpperCase().startsWith('ORD') || q.toUpperCase().startsWith('DH')) {
-            router.push(`/user/orders?q=${encodeURIComponent(q)}`);
-        } else if (q.toUpperCase().startsWith('SN') || q.toUpperCase().startsWith('WR')) {
-            router.push(`/user/warranty?serial=${encodeURIComponent(q)}`);
-        } else {
-            router.push(`/user/tickets?q=${encodeURIComponent(q)}`);
-        }
+        router.push(`/user/tickets?q=${encodeURIComponent(q)}`);
     };
 
     return (
@@ -106,7 +97,7 @@ export default function UserPortalHomePage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Tra cứu theo mã phiếu (TK-...), mã đơn hoặc từ khóa..."
+                            placeholder="Tra cứu theo mã vé (TK-...) hoặc từ khóa..."
                             className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 text-xs sm:text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm font-medium"
                         />
                     </div>
@@ -153,7 +144,7 @@ export default function UserPortalHomePage() {
                             <ul className="space-y-2 text-xs text-slate-600 pt-2 border-t border-emerald-100">
                                 <li className="flex items-center gap-2">
                                     <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                                    <span>Hỏi đáp chính sách, bảo hành, hoàn tiền tức thì</span>
+                                    <span>Hỏi đáp thông tin chính sách và giải đáp tức thì</span>
                                 </li>
                                 <li className="flex items-center gap-2">
                                     <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />

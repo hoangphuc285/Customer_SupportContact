@@ -41,15 +41,12 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
         }
     };
 
-    // TÊN MENU NGẮN GỌN, CHUẨN MỰC, KHÔNG BỊ XUỐNG DÒNG (100% TRÊN 1 HÀNG)
+    // TÊN MENU NGẮN GỌN, CHUẨN MỰC
     const mainNavLinks = [
         { href: '/user', label: 'Trang Chủ', exact: true },
         { href: '/user/faq', label: 'Trợ Giúp (FAQ)' },
-        { href: '/user/orders', label: 'Tra Cứu Đơn' },
-        { href: '/user/warranty', label: 'Bảo Hành (L10)' },
-        { href: '/user/refund', label: 'Đổi Trả (L09)' },
-        { href: '/user/complaint', label: 'Khiếu Nại (L08)' },
         { href: '/user/tickets', label: 'Vé Hỗ Trợ' },
+        { href: '/user/new', label: 'Gửi Yêu Cầu' },
     ];
 
     return (
@@ -196,10 +193,11 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
                     </div>
 
                     <div className="flex items-center gap-6 text-[13px] font-medium text-slate-600">
-                        <Link href="/user/orders" className="hover:text-blue-600 transition">Đơn Hàng</Link>
-                        <Link href="/user/warranty" className="hover:text-blue-600 transition">Bảo Hành</Link>
-                        <Link href="/user/refund" className="hover:text-blue-600 transition">Đổi Trả 7 Ngày</Link>
-                        <Link href="/user/complaint" className="hover:text-blue-600 transition">Khiếu Nại SLA</Link>
+                        <Link href="/user" className="hover:text-blue-600 transition">Trang Chủ</Link>
+                        <Link href="/user/tickets" className="hover:text-blue-600 transition">Vé Hỗ Trợ</Link>
+                        <Link href="/user/new" className="hover:text-blue-600 transition">Gửi Yêu Cầu</Link>
+                        <Link href="/user/faq" className="hover:text-blue-600 transition">Trợ Giúp (FAQ)</Link>
+                        <Link href="/user/chat" className="hover:text-blue-600 transition">Livechat AI</Link>
                     </div>
 
                     <p className="text-[12px] text-slate-400">
