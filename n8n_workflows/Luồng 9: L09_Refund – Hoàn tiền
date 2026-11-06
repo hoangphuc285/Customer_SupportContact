@@ -2,174 +2,38 @@
   "nodes": [
     {
       "parameters": {
-        "workflowInputs": {
-          "values": [
-            {
-              "name": "ticket_id",
-              "type": "number"
-            },
-            {
-              "name": "message"
-            },
-            {
-              "name": "customer_id",
-              "type": "number"
-            },
-            {
-              "name": "attachment_url"
-            }
-          ]
-        }
-      },
-      "id": "ff13160a-237c-479f-9ce4-88af1d078322",
-      "name": "Execute Workflow Trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        2224,
-        -1040
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "refund-intake",
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (\n  ticket_id, \n  sender_type, \n  channel, \n  content_original, \n  content_translated, \n  language, \n  approved_by_human, \n  created_at, \n  updated_at\n) \nVALUES (\n  {{ $('Code - Xác định cấp phê duyệt').first().json.ticket_id || 1 }},\n  'AI',\n  'WEB',\n  {{ \n    JSON.stringify(\n      `🎉 Chúc mừng Quý khách! Yêu cầu hoàn tiền mã ${$('Code - Xác định cấp phê duyệt').first().json.refund_code || ''} cho đơn hàng ${$('Code - Xác định cấp phê duyệt').first().json.order_code || ''} với số tiền ${Number($('Code - Xác định cấp phê duyệt').first().json.final_refund_amount || 0).toLocaleString('vi-VN')} VNĐ đã được xử lý THÀNH CÔNG.\\n\\nTiền sẽ hoàn về tài khoản gốc trong vòng 24-48 giờ làm việc.`\n    ) \n  }},\n  {{ \n    JSON.stringify(\n      `🎉 Chúc mừng Quý khách! Yêu cầu hoàn tiền mã ${$('Code - Xác định cấp phê duyệt').first().json.refund_code || ''} cho đơn hàng ${$('Code - Xác định cấp phê duyệt').first().json.order_code || ''} với số tiền ${Number($('Code - Xác định cấp phê duyệt').first().json.final_refund_amount || 0).toLocaleString('vi-VN')} VNĐ đã được xử lý THÀNH CÔNG.\\n\\nTiền sẽ hoàn về tài khoản gốc trong vòng 24-48 giờ làm việc.`\n    ) \n  }},\n  'vi',\n  0,\n  NOW(6),\n  NOW(6)\n);",
         "options": {}
       },
-      "id": "037439b9-5747-4e6c-950b-ba38ee26c8d7",
-      "name": "Webhook - Nhận yêu cầu hoàn tiền",
-      "webhookId": "refund-intake-id",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
+      "id": "220937c2-ff7c-4e41-9f1a-4f8f0d0f7cbe",
+      "name": "MySQL - Thông báo hoàn tiền thành công cho khách",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
       "position": [
-        2224,
-        -1200
-      ]
-    },
-    {
-      "parameters": {
-        "modelName": "models/gemini-3.1-flash-lite",
-        "options": {}
-      },
-      "id": "033e17e6-e38f-4ba5-9c9a-3183f1396e58",
-      "name": "Google Gemini Chat Model - Information Extractor",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1.1,
-      "position": [
-        2656,
-        -896
+        7440,
+        -1264
       ],
       "credentials": {
-        "googlePalmApi": {
-          "id": "SJLHvzSS8Ttxpv8k",
-          "name": "Google Gemini(PaLM) Api account"
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
         }
       }
     },
     {
       "parameters": {
-        "text": "={{ $json.content_original || $json.message || $json['message '] || 'Yêu cầu hoàn tiền đơn hàng' }}",
-        "attributes": {
-          "attributes": [
-            {
-              "name": "order_code",
-              "description": "Mã đơn hàng khách muốn hoàn tiền (ví dụ: ORD-xxxx hoặc mã số đơn hàng)"
-            },
-            {
-              "name": "reason",
-              "description": "Lý do hoàn tiền (sản phẩm lỗi, vỡ, giao trễ, không ưng ý, đổi ý...)",
-              "required": true
-            },
-            {
-              "name": "amount_requested",
-              "type": "number",
-              "description": "Số tiền yêu cầu hoàn nếu khách có đề cập cụ thể, ngược lại để 0"
-            },
-            {
-              "name": "needs_evidence",
-              "type": "boolean",
-              "description": "True nếu lý do liên quan đến hỏng hóc vật lý, sai mẫu, rách vỡ cần ảnh chứng minh",
-              "required": true
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "b5ed8478-b36e-458c-b021-f1603f347de2",
-      "name": "Information Extractor",
-      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
-      "typeVersion": 1.2,
-      "position": [
-        2656,
-        -1120
-      ],
-      "retryOnFail": true,
-      "waitBetweenTries": 5000
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ !($('Information Extractor').first()?.json.output?.order_code || $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.order_code) }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              },
-              "id": "cond-missing-order-code"
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "6c99417e-6662-4e2f-ac29-719a2c196ff5",
-      "name": "IF - Thiếu mã đơn?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2944,
-        -1120
-      ]
-    },
-    {
-      "parameters": {
-        "resume": "webhook",
-        "httpMethod": "POST",
-        "options": {}
-      },
-      "id": "6ba4fa93-4f54-4592-9302-25e0efe2a356",
-      "name": "Wait - Chờ khách bổ sung mã đơn",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        3344,
-        -1264
-      ],
-      "webhookId": "4e1a695c-b896-41a7-bb60-a44ed0dcc324"
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT o.id AS order_id, o.order_code, o.customer_id, o.total_amount, o.shipping_fee, o.status AS order_status, o.payment_method, o.ordered_at, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id FROM orders o JOIN customers c ON o.customer_id = c.id WHERE REPLACE(o.order_code, '-', '') = REPLACE('{{ $json.body?.order_code || $json.order_code || $json.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Refund\").first()?.json?.order_code || \"DH-1001\" }}', '-', '') LIMIT 1;",
-        "options": {
-          "alwaysOutputData": true
-        }
+        "query": "UPDATE refunds SET status = 'REJECTED', updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}';\nUPDATE tickets SET status = 'CLOSED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, 'STAFF', 'WEB', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'vi', 0, NOW(), NOW());",
+        "options": {}
       },
-      "id": "e0bcfced-ae1c-4515-985e-0c6754377e1a",
-      "name": "MySQL - Tra cứu đơn hàng",
+      "id": "7305fa63-6d4c-47f3-b03c-20a5e3446612",
+      "name": "MySQL - Cập nhật REJECTED",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        3568,
-        -1104
+        6720,
+        -816
       ],
       "credentials": {
         "mySql": {
@@ -182,93 +46,33 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "caseSensitive": false,
             "leftValue": "",
             "typeValidation": "loose",
             "version": 2
           },
           "conditions": [
             {
-              "leftValue": "={{ !!$json.order_id }}",
-              "rightValue": true,
+              "leftValue": "={{ $json.body?.status || $json.status || 'APPROVED' }}",
+              "rightValue": "APPROVED",
               "operator": {
-                "type": "boolean",
+                "type": "string",
                 "operation": "equals"
               },
-              "id": "cond-order-exists"
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "id": "c7235dec-147a-4754-94f1-353743d8c8f9",
-      "name": "IF - Khớp chủ đơn & Đơn tồn tại?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3808,
-        -1104
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const order = $input.first().json;\nconst isDelivered = order.order_status === 'DELIVERED';\nconst alreadyRefunded = order.order_status === 'REFUNDED' || order.order_status === 'CANCELLED';\n\nlet validStatus = true;\nlet reason = 'Hợp lệ';\n\nif (!isDelivered) {\n  validStatus = false;\n  reason = `Đơn hàng đang ở trạng thái ${order.order_status}, chưa được giao thành công.`;\n} else if (alreadyRefunded) {\n  validStatus = false;\n  reason = `Đơn hàng đã được hoàn tiền hoặc đã hủy trước đó.`;\n}\n\nreturn [{\n  json: {\n    ...order,\n    is_delivered: isDelivered,\n    already_refunded: alreadyRefunded,\n    status_valid: validStatus,\n    status_check_reason: reason\n  }\n}];"
-      },
-      "id": "f5a6fe11-e49b-4524-b2e4-3fd8baf581cf",
-      "name": "Code - Kiểm tra đã giao & chưa hoàn",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4048,
-        -1104
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const data = $input.first().json;\n\nif (!data.delivered_at) {\n  return [{\n    json: {\n      ...data,\n      within_return_window: true,\n      days_since_delivery: 0\n    }\n  }];\n}\n\nconst deliveredDate = new Date(data.delivered_at);\nconst now = new Date();\nconst diffDays = Math.floor((now - deliveredDate) / (1000 * 60 * 60 * 24));\nconst isWithinWindow = diffDays <= 7;\n\nreturn [{\n  json: {\n    ...data,\n    days_since_delivery: diffDays,\n    within_return_window: isWithinWindow,\n    return_window_message: isWithinWindow ? 'Trong thời hạn 7 ngày hợp lệ' : `Đã quá hạn đổi trả (${diffDays} ngày > 7 ngày)`\n  }\n}];"
-      },
-      "id": "bc9395a1-8ff3-4236-a5ac-211948e045b6",
-      "name": "Code - Kiểm tra thời hạn đổi trả (7 ngày)",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4288,
-        -1104
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ !$('Code - Chuẩn hóa đầu vào Refund').first()?.json?.evidence_url && ($('Information Extractor').first()?.json?.output?.needs_evidence !== false) }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              },
-              "id": "cond-needs-evidence"
+              "id": "cond-staff-approved"
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "7d5f89da-9c4a-46a8-907d-ed54f5f5074c",
-      "name": "IF - Lý do cần bằng chứng ảnh?",
+      "id": "46433d03-d9d3-412f-8b6b-fdf1e25ff917",
+      "name": "IF - Staff chấp thuận?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+      "typeVersion": 2,
       "position": [
-        4528,
-        -1104
+        6464,
+        -944
       ]
     },
     {
@@ -277,79 +81,29 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "ff955b56-dc02-4d25-a521-ef13b600b331",
-      "name": "Wait - Yêu cầu ảnh bằng chứng",
+      "id": "80881d80-a9c4-4469-a973-4dc375539b43",
+      "name": "Wait - Chờ nhân viên duyệt hoàn tiền",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        4768,
-        -1360
+        6256,
+        -944
       ],
-      "webhookId": "44c7676f-26a7-42a9-8814-a28f964c3aa6"
-    },
-    {
-      "parameters": {
-        "modelName": "models/gemini-3.1-flash-lite",
-        "options": {}
-      },
-      "id": "92ef16df-333b-41ca-a215-1c4443288ccb",
-      "name": "Google Gemini Chat Model - Đánh giá ảnh lỗi",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1.1,
-      "position": [
-        5008,
-        -1200
-      ],
-      "credentials": {
-        "googlePalmApi": {
-          "id": "SJLHvzSS8Ttxpv8k",
-          "name": "Google Gemini(PaLM) Api account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=Bạn là chuyên gia thẩm định khiếu nại hoàn tiền. Hãy phân tích và đánh giá bằng chứng sau:\n- Lý do khách hàng khai báo: {{ $('Information Extractor').first()?.json?.output?.reason }}\n- Link ảnh/bằng chứng: {{ $('Wait - Yêu cầu ảnh bằng chứng').first()?.json?.body?.evidence_url || $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.evidence_url || \"https://example.com/evidence_sample.jpg\" }}\n\nHãy trả về đánh giá ngắn gọn theo định dạng JSON:\n{\n  \"evidence_verified\": True,\n  \"damage_level\": \"HEAVY\",\n  \"defect_type\": \"SHIPPING_DAMAGE\",\n  \"evaluation_notes\": \"Bao bì móp méo, sản phẩm vỡ theo đúng phản ánh\"\n}",
-        "batching": {}
-      },
-      "id": "8d4f7083-be1d-4f3f-8f0a-aad2054cb38b",
-      "name": "AI (Vision) - Đánh giá sơ bộ ảnh lỗi",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.9,
-      "position": [
-        5008,
-        -1360
-      ],
-      "retryOnFail": true,
-      "waitBetweenTries": 5000
-    },
-    {
-      "parameters": {
-        "jsCode": "const orderData = $('Code - Kiểm tra thời hạn đổi trả (7 ngày)').first().json;\nconst extracted = $('Information Extractor').first().json.output || {};\nconst triggerData = $('Code - Chuẩn hóa đầu vào Refund').first().json;\nconst totalAmount = Number(orderData.total_amount) || 0;\nconst shippingFee = Number(orderData.shipping_fee) || 0;\n\nlet refundAmount = totalAmount;\nconst reasonLower = (extracted.reason || triggerData.message || '').toLowerCase();\n\nif (reasonLower.includes('đổi ý') || reasonLower.includes('không thích') || reasonLower.includes('mua nhầm')) {\n  refundAmount = Math.max(0, totalAmount - shippingFee);\n}\n\nconst reqAmt = extracted.amount_requested || triggerData.amount_requested || 0;\nif (reqAmt > 0 && reqAmt < refundAmount) {\n  refundAmount = reqAmt;\n}\n\nreturn [{\n  json: {\n    ...orderData,\n    final_refund_amount: refundAmount,\n    refund_policy_reason: refundAmount === totalAmount ? 'Hoàn 100% (lỗi kỹ thuật/giao hàng)' : 'Hoàn tiền hàng trừ phí ship (lý do cá nhân)',\n    reason: extracted.reason || triggerData.content_original || 'Khách hàng yêu cầu hoàn tiền'\n  }\n}];"
-      },
-      "id": "dfcda183-b504-4474-a871-cbb3a22d8c0c",
-      "name": "Code - Tính số tiền hoàn",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        5280,
-        -1088
-      ]
+      "webhookId": "698f41c4-e7fe-4b09-b8c9-d0d3d14f1e47"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COUNT(r.id) AS refund_count_90d, COALESCE(SUM(r.amount), 0) AS total_refunded_90d, CASE WHEN COUNT(r.id) >= 2 THEN 1 ELSE 0 END AS fraud_flag FROM refunds r JOIN orders o ON r.order_id = o.id WHERE o.customer_id = {{ $json.customer_id }} AND r.status IN ('APPROVED', 'PAID') AND r.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY);",
+        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').first()?.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'PENDING_APPROVAL', NULL, {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'PENDING_APPROVAL', approval_level = VALUES(approval_level), amount = VALUES(amount), evidence_url = VALUES(evidence_url), updated_at = NOW();\nUPDATE tickets SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'vi', 0, NOW(), NOW());",
         "options": {}
       },
-      "id": "b0a40d39-0d78-4799-a9ce-dd5e1aa61009",
-      "name": "MySQL - Chống gian lận (90 ngày)",
+      "id": "fe6aa9a6-4ad6-4cbd-9ac7-9b6e0ddc7c5a",
+      "name": "MySQL - Lưu đơn chờ Staff duyệt",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        5520,
-        -1088
+        6048,
+        -944
       ],
       "credentials": {
         "mySql": {
@@ -360,16 +114,208 @@
     },
     {
       "parameters": {
-        "jsCode": "const prev = $('Code - Tính số tiền hoàn').first().json;\nconst fraud = $('MySQL - Chống gian lận (90 ngày)').first().json;\nconst triggerData = $('Code - Chuẩn hóa đầu vào Refund').first().json;\n\nlet evidenceUrl = triggerData.evidence_url || '';\ntry {\n  evidenceUrl = $('Wait - Yêu cầu ảnh bằng chứng').first()?.json?.body?.evidence_url || evidenceUrl;\n} catch(e) {}\n\nlet level = 'AUTO';\nlet approverId = null;\nlet approverRole = 'Hệ thống tự động';\n\nif (prev.final_refund_amount <= 500000 && fraud.fraud_flag === 0) {\n  level = 'AUTO';\n  approverId = null;\n  approverRole = 'AUTO';\n} else if (prev.final_refund_amount <= 5000000) {\n  level = 'TEAM_LEAD';\n  approverId = 3;\n  approverRole = 'Trưởng nhóm CSKH';\n} else {\n  level = 'MANAGER';\n  approverId = 2;\n  approverRole = 'Quản lý CSKH';\n}\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst refundCode = triggerData.refund_code || `REF-${dateStr}-${randomCode}`;\nconst paymentRef = `PAY_REF_${Math.floor(Math.random() * 899999 + 100000)}`;\n\nreturn [{\n  json: {\n    ...prev,\n    ...fraud,\n    evidence_url: evidenceUrl,\n    ticket_id: triggerData.ticket_id || 1,\n    ticket_code: triggerData.ticket_code || '',\n    approval_level: level,\n    approved_by_id: approverId,\n    approver_role: approverRole,\n    refund_code: refundCode,\n    payment_ref: paymentRef,\n    customer_name: prev.customer_name || triggerData.customer_name || 'Quý khách',\n    customer_email: prev.customer_email || triggerData.customer_email || 'nguyenphucphi213@gmail.com',\n    customer_telegram_id: prev.customer_telegram_id || triggerData.chat_id || '7919420845'\n  }\n}];"
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'vi', 0, NOW(), NOW());",
+        "options": {}
       },
-      "id": "0ce0526b-fafc-4edb-99c0-3c336a722f72",
-      "name": "Code - Xác định cấp phê duyệt",
+      "id": "acff8343-80e5-46a0-abab-0bb429d66ba3",
+      "name": "MySQL - Yêu cầu khách gửi ảnh bằng chứng",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        4560,
+        -1360
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Để tiến hành hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'Để tiến hành hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'vi', 0, NOW(), NOW());",
+        "options": {}
+      },
+      "id": "a8fa74c4-218f-4160-b101-f921f7b76e3f",
+      "name": "MySQL - Cập nhật chờ bổ sung mã đơn",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        3120,
+        -1264
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first()?.json || {};\nconst data = item.body || item;\n\n// 1. Nhận diện ticket_id kể cả khi có dấu cách \"ticket_id \" từ L02\nconst ticketId = data.ticket_id || data['ticket_id '] || data.ticketId || data.id || 1;\nconst customerId = data.customer_id || data['customer_id '] || data.customerId || null;\n\n// 2. Nhận diện và parse JSON lồng nhau {\"text\":\"...\"} trong \"message \" hoặc message\nconst rawMsg = data.content_original || data.message || data['message '] || data.text || data.reason || \"\";\nlet content = \"\";\nif (typeof rawMsg === 'string') {\n  const trimmed = rawMsg.trim();\n  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {\n    try {\n      const parsed = JSON.parse(trimmed);\n      content = parsed.text || parsed.message || parsed.content || rawMsg;\n    } catch (e) {\n      content = rawMsg;\n    }\n  } else {\n    content = rawMsg;\n  }\n} else if (typeof rawMsg === 'object' && rawMsg !== null) {\n  content = rawMsg.text || rawMsg.message || rawMsg.content || JSON.stringify(rawMsg);\n}\nif (!content) content = \"Yêu cầu hoàn tiền\";\n\n// 3. Tự động bóc tách mã đơn hàng (DH1001, DH-1001, ORD-1001,...) từ nội dung tin nhắn\nlet orderCode = (data.order_code || data['order_code '] || data.orderCode || \"\").trim().toUpperCase();\nif (!orderCode) {\n  const match = content.match(/\\b(DH-?\\d+|ORD-?\\d+|#\\w+)\\b/i);\n  if (match) orderCode = match[1].replace('#', '').toUpperCase();\n}\n\n// 4. Tự động bóc tách số tiền đề xuất hoàn (ví dụ: 350000 VNĐ)\nlet amtRequested = Number(data.amount || data.refundAmount || data.amount_requested || 0);\nif (!amtRequested) {\n  const amtMatch = content.match(/(\\d+[\\d.,]*)\\s*(?:vnđ|vnd|đ|đồng)/i);\n  if (amtMatch) amtRequested = Number(amtMatch[1].replace(/[.,]/g, '')) || 0;\n}\n\n// 5. Trích xuất link ảnh bằng chứng nếu có\nconst evidenceUrl = data.evidence_url || data.attachment_url || data.attachmentUrl || data['attachment_url '] || \"\";\n\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    ticket_code: data.ticket_code || \"\",\n    refund_code: data.refund_code || data.refundCode || \"\",\n    customer_id: customerId,\n    order_code: orderCode,\n    amount_requested: amtRequested,\n    evidence_url: evidenceUrl,\n    customer_name: data.customer_name || data.name || \"Khách hàng\",\n    customer_email: data.customer_email || data.email || \"nguyenphucphi213@gmail.com\",\n    content_original: content,\n    message: content\n  }\n}];"
+      },
+      "id": "a5b35c9e-21d9-4b47-8b8c-43cd9143bcfb",
+      "name": "Code - Chuẩn hóa đầu vào Refund",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5760,
-        -1088
+        2640,
+        -1072
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('REFUND_COMPLETED', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', JSON_OBJECT('refund_code', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'amount', {{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, 'payment_ref', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_ref }}', 'order_id', {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}), {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, 'refund', 'L09_Refund', NOW(), NOW());",
+        "options": {}
+      },
+      "id": "80942e70-263c-407f-8f82-9364fe8532ed",
+      "name": "MySQL - Ghi audit_logs",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        7920,
+        -1120
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};",
+        "options": {}
+      },
+      "id": "80153950-f6d2-4bff-ba2b-e48d052ab45d",
+      "name": "MySQL - Cập nhật ticket",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        7680,
+        -1120
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "hoangphuc2855@gmail.com",
+        "subject": "=Xác nhận hoàn tiền thành công - {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}",
+        "options": {}
+      },
+      "id": "4ab3b409-72ad-480c-a494-f20f8f3ac991",
+      "name": "Gmail / Email - Báo kết quả hoàn tiền",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        7440,
+        -1024
+      ],
+      "webhookId": "42239b6b-151d-46e3-b600-df1883a39ad4",
+      "credentials": {
+        "smtp": {
+          "id": "4pmZoybZrTzFUyeL",
+          "name": "SMTP account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE orders SET status = 'REFUNDED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }};",
+        "options": {}
+      },
+      "id": "4292b6a0-eb0b-45ef-811d-d39b0ce0d7d5",
+      "name": "MySQL - Cập nhật order REFUNDED",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        7200,
+        -1120
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE refunds SET status = 'PAID', payment_ref = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_ref }}', paid_at = NOW(), updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}';",
+        "options": {}
+      },
+      "id": "58e8d8e8-3591-4d2f-a040-57d4963b0e01",
+      "name": "MySQL - Cập nhật trạng thái PAID",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        6960,
+        -1120
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8080/api/payments/refund",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"refund_code\": \"{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}\",\n  \"order_id\": {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }},\n  \"amount\": {{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }},\n  \"payment_method\": \"{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_method || 'BANK_TRANSFER' }}\"\n}",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "babef911-1ae0-4ada-8f5a-f75ec5a6308b",
+      "name": "HTTP Request - Cổng thanh toán hoàn tiền",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6720,
+        -1120
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', NOW(), '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').first()?.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'APPROVED', {{ $('Code - Xác định cấp phê duyệt').first()?.json.approved_by_id || \"NULL\" }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'APPROVED', approval_level = VALUES(approval_level), amount = VALUES(amount), approved_at = NOW(), updated_at = NOW();",
+        "options": {}
+      },
+      "id": "9dbaf05b-4b0f-4cd2-8cd8-75caa83e7c05",
+      "name": "MySQL - Tạo bản ghi refunds",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        6480,
+        -1120
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
     },
     {
       "parameters": {
@@ -436,181 +382,30 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', NOW(), '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').first()?.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'APPROVED', {{ $('Code - Xác định cấp phê duyệt').first()?.json.approved_by_id || \"NULL\" }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'APPROVED', approval_level = VALUES(approval_level), amount = VALUES(amount), approved_at = NOW(), updated_at = NOW();",
-        "options": {}
+        "jsCode": "const prev = $('Code - Tính số tiền hoàn').first().json;\nconst fraud = $('MySQL - Chống gian lận (90 ngày)').first().json;\nconst triggerData = $('Code - Chuẩn hóa đầu vào Refund').first().json;\n\nlet evidenceUrl = triggerData.evidence_url || '';\ntry {\n  evidenceUrl = $('Wait - Yêu cầu ảnh bằng chứng').first()?.json?.body?.evidence_url || evidenceUrl;\n} catch(e) {}\n\nlet level = 'AUTO';\nlet approverId = null;\nlet approverRole = 'Hệ thống tự động';\n\nif (prev.final_refund_amount <= 500000 && fraud.fraud_flag === 0) {\n  level = 'AUTO';\n  approverId = null;\n  approverRole = 'AUTO';\n} else if (prev.final_refund_amount <= 5000000) {\n  level = 'TEAM_LEAD';\n  approverId = 3;\n  approverRole = 'Trưởng nhóm CSKH';\n} else {\n  level = 'MANAGER';\n  approverId = 2;\n  approverRole = 'Quản lý CSKH';\n}\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst refundCode = triggerData.refund_code || `REF-${dateStr}-${randomCode}`;\nconst paymentRef = `PAY_REF_${Math.floor(Math.random() * 899999 + 100000)}`;\n\nreturn [{\n  json: {\n    ...prev,\n    ...fraud,\n    evidence_url: evidenceUrl,\n    ticket_id: triggerData.ticket_id || 1,\n    ticket_code: triggerData.ticket_code || '',\n    approval_level: level,\n    approved_by_id: approverId,\n    approver_role: approverRole,\n    refund_code: refundCode,\n    payment_ref: paymentRef,\n    customer_name: prev.customer_name || triggerData.customer_name || 'Quý khách',\n    customer_email: prev.customer_email || triggerData.customer_email || 'nguyenphucphi213@gmail.com',\n    customer_telegram_id: prev.customer_telegram_id || triggerData.chat_id || '7919420845'\n  }\n}];"
       },
-      "id": "9dbaf05b-4b0f-4cd2-8cd8-75caa83e7c05",
-      "name": "MySQL - Tạo bản ghi refunds",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        6480,
-        -1120
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://172.17.0.1:8080/api/payments/refund",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"refund_code\": \"{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}\",\n  \"order_id\": {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }},\n  \"amount\": {{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }},\n  \"payment_method\": \"{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_method || 'BANK_TRANSFER' }}\"\n}",
-        "options": {
-          "timeout": 3000
-        }
-      },
-      "id": "babef911-1ae0-4ada-8f5a-f75ec5a6308b",
-      "name": "HTTP Request - Cổng thanh toán hoàn tiền",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        6720,
-        -1120
-      ],
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE refunds SET status = 'PAID', payment_ref = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_ref }}', paid_at = NOW(), updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}';",
-        "options": {}
-      },
-      "id": "58e8d8e8-3591-4d2f-a040-57d4963b0e01",
-      "name": "MySQL - Cập nhật trạng thái PAID",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        6960,
-        -1120
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE orders SET status = 'REFUNDED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }};",
-        "options": {}
-      },
-      "id": "4292b6a0-eb0b-45ef-811d-d39b0ce0d7d5",
-      "name": "MySQL - Cập nhật order REFUNDED",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        7200,
-        -1120
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "fromEmail": "support@support.local",
-        "toEmail": "hoangphuc2855@gmail.com",
-        "subject": "=Xác nhận hoàn tiền thành công - {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}",
-        "options": {}
-      },
-      "id": "4ab3b409-72ad-480c-a494-f20f8f3ac991",
-      "name": "Gmail / Email - Báo kết quả hoàn tiền",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        7440,
-        -1024
-      ],
-      "webhookId": "42239b6b-151d-46e3-b600-df1883a39ad4",
-      "credentials": {
-        "smtp": {
-          "id": "4pmZoybZrTzFUyeL",
-          "name": "SMTP account"
-        }
-      },
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};",
-        "options": {}
-      },
-      "id": "80153950-f6d2-4bff-ba2b-e48d052ab45d",
-      "name": "MySQL - Cập nhật ticket",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        7680,
-        -1120
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('REFUND_COMPLETED', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', JSON_OBJECT('refund_code', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'amount', {{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, 'payment_ref', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.payment_ref }}', 'order_id', {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}), {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, 'refund', 'L09_Refund', NOW(), NOW());",
-        "options": {}
-      },
-      "id": "80942e70-263c-407f-8f82-9364fe8532ed",
-      "name": "MySQL - Ghi audit_logs",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        7920,
-        -1120
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const item = $input.first()?.json || {};\nconst data = item.body || item;\n\n// 1. Nhận diện ticket_id kể cả khi có dấu cách \"ticket_id \" từ L02\nconst ticketId = data.ticket_id || data['ticket_id '] || data.ticketId || data.id || 1;\nconst customerId = data.customer_id || data['customer_id '] || data.customerId || null;\n\n// 2. Nhận diện và parse JSON lồng nhau {\"text\":\"...\"} trong \"message \" hoặc message\nconst rawMsg = data.content_original || data.message || data['message '] || data.text || data.reason || \"\";\nlet content = \"\";\nif (typeof rawMsg === 'string') {\n  const trimmed = rawMsg.trim();\n  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {\n    try {\n      const parsed = JSON.parse(trimmed);\n      content = parsed.text || parsed.message || parsed.content || rawMsg;\n    } catch (e) {\n      content = rawMsg;\n    }\n  } else {\n    content = rawMsg;\n  }\n} else if (typeof rawMsg === 'object' && rawMsg !== null) {\n  content = rawMsg.text || rawMsg.message || rawMsg.content || JSON.stringify(rawMsg);\n}\nif (!content) content = \"Yêu cầu hoàn tiền\";\n\n// 3. Tự động bóc tách mã đơn hàng (DH1001, DH-1001, ORD-1001,...) từ nội dung tin nhắn\nlet orderCode = (data.order_code || data['order_code '] || data.orderCode || \"\").trim().toUpperCase();\nif (!orderCode) {\n  const match = content.match(/\\b(DH-?\\d+|ORD-?\\d+|#\\w+)\\b/i);\n  if (match) orderCode = match[1].replace('#', '').toUpperCase();\n}\n\n// 4. Tự động bóc tách số tiền đề xuất hoàn (ví dụ: 350000 VNĐ)\nlet amtRequested = Number(data.amount || data.refundAmount || data.amount_requested || 0);\nif (!amtRequested) {\n  const amtMatch = content.match(/(\\d+[\\d.,]*)\\s*(?:vnđ|vnd|đ|đồng)/i);\n  if (amtMatch) amtRequested = Number(amtMatch[1].replace(/[.,]/g, '')) || 0;\n}\n\n// 5. Trích xuất link ảnh bằng chứng nếu có\nconst evidenceUrl = data.evidence_url || data.attachment_url || data.attachmentUrl || data['attachment_url '] || \"\";\n\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    ticket_code: data.ticket_code || \"\",\n    refund_code: data.refund_code || data.refundCode || \"\",\n    customer_id: customerId,\n    order_code: orderCode,\n    amount_requested: amtRequested,\n    evidence_url: evidenceUrl,\n    customer_name: data.customer_name || data.name || \"Khách hàng\",\n    customer_email: data.customer_email || data.email || \"nguyenphucphi213@gmail.com\",\n    content_original: content,\n    message: content\n  }\n}];",
-        "mode": "runOnceForAllItems"
-      },
-      "id": "a5b35c9e-21d9-4b47-8b8c-43cd9143bcfb",
-      "name": "Code - Chuẩn hóa đầu vào Refund",
+      "id": "0ce0526b-fafc-4edb-99c0-3c336a722f72",
+      "name": "Code - Xác định cấp phê duyệt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
-        -1072
+        5760,
+        -1088
       ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Để tiến hành hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'Để tiến hành hoàn tiền, Quý khách vui lòng cung cấp Mã đơn hàng (ví dụ: DH-1001).', 'vi', 0, NOW(), NOW());",
+        "query": "SELECT COUNT(r.id) AS refund_count_90d, COALESCE(SUM(r.amount), 0) AS total_refunded_90d, CASE WHEN COUNT(r.id) >= 2 THEN 1 ELSE 0 END AS fraud_flag FROM refunds r JOIN orders o ON r.order_id = o.id WHERE o.customer_id = {{ $json.customer_id }} AND r.status IN ('APPROVED', 'PAID') AND r.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY);",
         "options": {}
       },
-      "id": "a8fa74c4-218f-4160-b101-f921f7b76e3f",
-      "name": "MySQL - Cập nhật chờ bổ sung mã đơn",
+      "id": "b0a40d39-0d78-4799-a9ce-dd5e1aa61009",
+      "name": "MySQL - Chống gian lận (90 ngày)",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        3120,
-        -1264
+        5520,
+        -1088
       ],
       "credentials": {
         "mySql": {
@@ -621,38 +416,176 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'PENDING_CUSTOMER', updated_at = NOW() WHERE id = {{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.ticket_id || $('Execute Workflow Trigger').first()?.json?.ticket_id || 1 }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'Yêu cầu hoàn tiền lỗi sản phẩm cần hình ảnh hoặc video bằng chứng. Quý khách vui lòng tải lên hình ảnh sản phẩm để tiếp tục thẩm định.', 'vi', 0, NOW(), NOW());",
-        "options": {}
+        "jsCode": "const orderData = $('Code - Kiểm tra thời hạn đổi trả (7 ngày)').first().json;\nconst extracted = $('Information Extractor').first().json.output || {};\nconst triggerData = $('Code - Chuẩn hóa đầu vào Refund').first().json;\nconst totalAmount = Number(orderData.total_amount) || 0;\nconst shippingFee = Number(orderData.shipping_fee) || 0;\n\nlet refundAmount = totalAmount;\nconst reasonLower = (extracted.reason || triggerData.message || '').toLowerCase();\n\nif (reasonLower.includes('đổi ý') || reasonLower.includes('không thích') || reasonLower.includes('mua nhầm')) {\n  refundAmount = Math.max(0, totalAmount - shippingFee);\n}\n\nconst reqAmt = extracted.amount_requested || triggerData.amount_requested || 0;\nif (reqAmt > 0 && reqAmt < refundAmount) {\n  refundAmount = reqAmt;\n}\n\nreturn [{\n  json: {\n    ...orderData,\n    final_refund_amount: refundAmount,\n    refund_policy_reason: refundAmount === totalAmount ? 'Hoàn 100% (lỗi kỹ thuật/giao hàng)' : 'Hoàn tiền hàng trừ phí ship (lý do cá nhân)',\n    reason: extracted.reason || triggerData.content_original || 'Khách hàng yêu cầu hoàn tiền'\n  }\n}];"
       },
-      "id": "acff8343-80e5-46a0-abab-0bb429d66ba3",
-      "name": "MySQL - Yêu cầu khách gửi ảnh bằng chứng",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
+      "id": "dfcda183-b504-4474-a871-cbb3a22d8c0c",
+      "name": "Code - Tính số tiền hoàn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        4560,
+        5280,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên gia thẩm định khiếu nại hoàn tiền. Hãy phân tích và đánh giá bằng chứng sau:\n- Lý do khách hàng khai báo: {{ $('Information Extractor').first()?.json?.output?.reason }}\n- Link ảnh/bằng chứng: {{ $('Wait - Yêu cầu ảnh bằng chứng').first()?.json?.body?.evidence_url || $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.evidence_url || \"https://example.com/evidence_sample.jpg\" }}\n\nHãy trả về đánh giá ngắn gọn theo định dạng JSON:\n{\n  \"evidence_verified\": True,\n  \"damage_level\": \"HEAVY\",\n  \"defect_type\": \"SHIPPING_DAMAGE\",\n  \"evaluation_notes\": \"Bao bì móp méo, sản phẩm vỡ theo đúng phản ánh\"\n}",
+        "batching": {}
+      },
+      "id": "8d4f7083-be1d-4f3f-8f0a-aad2054cb38b",
+      "name": "AI (Vision) - Đánh giá sơ bộ ảnh lỗi",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        5008,
         -1360
       ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "92ef16df-333b-41ca-a215-1c4443288ccb",
+      "name": "Google Gemini Chat Model - Đánh giá ảnh lỗi",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        5008,
+        -1200
+      ],
       "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
         }
       }
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO refunds (amount, approval_level, approved_at, evidence_url, fraud_flag, paid_at, payment_ref, reason, refund_code, status, approved_by_id, order_id, ticket_id, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.final_refund_amount }}, '{{ $('Code - Xác định cấp phê duyệt').first()?.json.approval_level }}', NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.evidence_url || \"\").replace(/'/g, \"\\\\'\") }}', {{ $('Code - Xác định cấp phê duyệt').first()?.json.fraud_flag ? 1 : 0 }}, NULL, NULL, '{{ ($('Code - Xác định cấp phê duyệt').first()?.json.reason || \"Yêu cầu hoàn tiền\").replace(/'/g, \"\\\\'\") }}', '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}', 'PENDING_APPROVAL', NULL, {{ $('Code - Xác định cấp phê duyệt').first()?.json.order_id }}, {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, NOW(), NOW()) ON DUPLICATE KEY UPDATE status = 'PENDING_APPROVAL', approval_level = VALUES(approval_level), amount = VALUES(amount), evidence_url = VALUES(evidence_url), updated_at = NOW();\nUPDATE tickets SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, 'AI', 'WEB', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'Yêu cầu hoàn tiền đã được chuyển đến Hàng chờ phê duyệt của Nhân viên CSKH.', 'vi', 0, NOW(), NOW());",
+        "resume": "webhook",
+        "httpMethod": "POST",
         "options": {}
       },
-      "id": "fe6aa9a6-4ad6-4cbd-9ac7-9b6e0ddc7c5a",
-      "name": "MySQL - Lưu đơn chờ Staff duyệt",
+      "id": "ff955b56-dc02-4d25-a521-ef13b600b331",
+      "name": "Wait - Yêu cầu ảnh bằng chứng",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4768,
+        -1360
+      ],
+      "webhookId": "44c7676f-26a7-42a9-8814-a28f964c3aa6"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !$('Code - Chuẩn hóa đầu vào Refund').first()?.json?.evidence_url && ($('Information Extractor').first()?.json?.output?.needs_evidence !== false) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-needs-evidence"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7d5f89da-9c4a-46a8-907d-ed54f5f5074c",
+      "name": "IF - Lý do cần bằng chứng ảnh?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4528,
+        -1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nif (!data.delivered_at) {\n  return [{\n    json: {\n      ...data,\n      within_return_window: true,\n      days_since_delivery: 0\n    }\n  }];\n}\n\nconst deliveredDate = new Date(data.delivered_at);\nconst now = new Date();\nconst diffDays = Math.floor((now - deliveredDate) / (1000 * 60 * 60 * 24));\nconst isWithinWindow = diffDays <= 7;\n\nreturn [{\n  json: {\n    ...data,\n    days_since_delivery: diffDays,\n    within_return_window: isWithinWindow,\n    return_window_message: isWithinWindow ? 'Trong thời hạn 7 ngày hợp lệ' : `Đã quá hạn đổi trả (${diffDays} ngày > 7 ngày)`\n  }\n}];"
+      },
+      "id": "bc9395a1-8ff3-4236-a5ac-211948e045b6",
+      "name": "Code - Kiểm tra thời hạn đổi trả (7 ngày)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4288,
+        -1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $input.first().json;\nconst isDelivered = order.order_status === 'DELIVERED';\nconst alreadyRefunded = order.order_status === 'REFUNDED' || order.order_status === 'CANCELLED';\n\nlet validStatus = true;\nlet reason = 'Hợp lệ';\n\nif (!isDelivered) {\n  validStatus = false;\n  reason = `Đơn hàng đang ở trạng thái ${order.order_status}, chưa được giao thành công.`;\n} else if (alreadyRefunded) {\n  validStatus = false;\n  reason = `Đơn hàng đã được hoàn tiền hoặc đã hủy trước đó.`;\n}\n\nreturn [{\n  json: {\n    ...order,\n    is_delivered: isDelivered,\n    already_refunded: alreadyRefunded,\n    status_valid: validStatus,\n    status_check_reason: reason\n  }\n}];"
+      },
+      "id": "f5a6fe11-e49b-4524-b2e4-3fd8baf581cf",
+      "name": "Code - Kiểm tra đã giao & chưa hoàn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4048,
+        -1104
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.order_id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-order-exists"
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c7235dec-147a-4754-94f1-353743d8c8f9",
+      "name": "IF - Khớp chủ đơn & Đơn tồn tại?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3808,
+        -1104
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT o.id AS order_id, o.order_code, o.customer_id, o.total_amount, o.shipping_fee, o.status AS order_status, o.payment_method, o.ordered_at, o.delivered_at, c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.order_code = '{{ $json.body?.order_code || $json.order_code || $json.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Refund\").first()?.json?.order_code || \"DH-1001\" }}' OR o.order_code = REPLACE('{{ $json.body?.order_code || $json.order_code || $json.output?.order_code || $(\"Code - Chuẩn hóa đầu vào Refund\").first()?.json?.order_code || \"DH-1001\" }}', '-', '') LIMIT 1;",
+        "options": {}
+      },
+      "id": "e0bcfced-ae1c-4515-985e-0c6754377e1a",
+      "name": "MySQL - Tra cứu đơn hàng",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        6048,
-        -944
+        3568,
+        -1104
       ],
       "credentials": {
         "mySql": {
@@ -667,288 +600,290 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "80881d80-a9c4-4469-a973-4dc375539b43",
-      "name": "Wait - Chờ nhân viên duyệt hoàn tiền",
+      "id": "6ba4fa93-4f54-4592-9302-25e0efe2a356",
+      "name": "Wait - Chờ khách bổ sung mã đơn",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        6256,
-        -944
+        3344,
+        -1264
       ],
-      "webhookId": "698f41c4-e7fe-4b09-b8c9-d0d3d14f1e47"
+      "webhookId": "4e1a695c-b896-41a7-bb60-a44ed0dcc324"
     },
     {
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": false,
+            "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
+            "typeValidation": "strict",
             "version": 2
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.body?.status || $json.status || 'APPROVED' }}",
-              "rightValue": "APPROVED",
+              "leftValue": "={{ !($('Information Extractor').first()?.json.output?.order_code || $('Code - Chuẩn hóa đầu vào Refund').first()?.json?.order_code) }}",
+              "rightValue": true,
               "operator": {
-                "type": "string",
+                "type": "boolean",
                 "operation": "equals"
               },
-              "id": "cond-staff-approved"
+              "id": "cond-missing-order-code"
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "46433d03-d9d3-412f-8b6b-fdf1e25ff917",
-      "name": "IF - Staff chấp thuận?",
+      "id": "6c99417e-6662-4e2f-ac29-719a2c196ff5",
+      "name": "IF - Thiếu mã đơn?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [
-        6464,
-        -944
+        2944,
+        -1120
       ]
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE refunds SET status = 'REJECTED', updated_at = NOW() WHERE refund_code = '{{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }}';\nUPDATE tickets SET status = 'CLOSED', updated_at = NOW() WHERE id = {{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Xác định cấp phê duyệt').first()?.json.ticket_id }}, 'STAFF', 'WEB', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'Yêu cầu hoàn tiền mã {{ $('Code - Xác định cấp phê duyệt').first()?.json.refund_code }} đã bị Từ chối sau khi thẩm định.', 'vi', 0, NOW(), NOW());",
+        "text": "={{ $json.content_original || $json.message || $json['message '] || 'Yêu cầu hoàn tiền đơn hàng' }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "order_code",
+              "description": "Mã đơn hàng khách muốn hoàn tiền (ví dụ: ORD-xxxx hoặc mã số đơn hàng)"
+            },
+            {
+              "name": "reason",
+              "description": "Lý do hoàn tiền (sản phẩm lỗi, vỡ, giao trễ, không ưng ý, đổi ý...)",
+              "required": true
+            },
+            {
+              "name": "amount_requested",
+              "type": "number",
+              "description": "Số tiền yêu cầu hoàn nếu khách có đề cập cụ thể, ngược lại để 0"
+            },
+            {
+              "name": "needs_evidence",
+              "type": "boolean",
+              "description": "True nếu lý do liên quan đến hỏng hóc vật lý, sai mẫu, rách vỡ cần ảnh chứng minh",
+              "required": true
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "7305fa63-6d4c-47f3-b03c-20a5e3446612",
-      "name": "MySQL - Cập nhật REJECTED",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
+      "id": "b5ed8478-b36e-458c-b021-f1603f347de2",
+      "name": "Information Extractor",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
       "position": [
-        6720,
-        -816
+        2656,
+        -1120
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "033e17e6-e38f-4ba5-9c9a-3183f1396e58",
+      "name": "Google Gemini Chat Model - Information Extractor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2656,
+        -896
       ],
       "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
+        "googlePalmApi": {
+          "id": "SJLHvzSS8Ttxpv8k",
+          "name": "Google Gemini(PaLM) Api account"
         }
       }
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO messages (\n  ticket_id, \n  sender_type, \n  channel, \n  content_original, \n  content_translated, \n  language, \n  approved_by_human, \n  created_at, \n  updated_at\n) \nVALUES (\n  {{ $('Code - Xác định cấp phê duyệt').first().json.ticket_id || 1 }},\n  'AI',\n  'WEB',\n  {{ \n    JSON.stringify(\n      `🎉 Chúc mừng Quý khách! Yêu cầu hoàn tiền mã ${$('Code - Xác định cấp phê duyệt').first().json.refund_code || ''} cho đơn hàng ${$('Code - Xác định cấp phê duyệt').first().json.order_code || ''} với số tiền ${Number($('Code - Xác định cấp phê duyệt').first().json.final_refund_amount || 0).toLocaleString('vi-VN')} VNĐ đã được xử lý THÀNH CÔNG.\\n\\nTiền sẽ hoàn về tài khoản gốc trong vòng 24-48 giờ làm việc.`\n    ) \n  }},\n  {{ \n    JSON.stringify(\n      `🎉 Chúc mừng Quý khách! Yêu cầu hoàn tiền mã ${$('Code - Xác định cấp phê duyệt').first().json.refund_code || ''} cho đơn hàng ${$('Code - Xác định cấp phê duyệt').first().json.order_code || ''} với số tiền ${Number($('Code - Xác định cấp phê duyệt').first().json.final_refund_amount || 0).toLocaleString('vi-VN')} VNĐ đã được xử lý THÀNH CÔNG.\\n\\nTiền sẽ hoàn về tài khoản gốc trong vòng 24-48 giờ làm việc.`\n    ) \n  }},\n  'vi',\n  0,\n  NOW(6),\n  NOW(6)\n);",
+        "httpMethod": "POST",
+        "path": "refund-intake",
         "options": {}
       },
-      "id": "220937c2-ff7c-4e41-9f1a-4f8f0d0f7cbe",
-      "name": "MySQL - Thông báo hoàn tiền thành công cho khách",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
+      "id": "037439b9-5747-4e6c-950b-ba38ee26c8d7",
+      "name": "Webhook - Nhận yêu cầu hoàn tiền",
+      "webhookId": "refund-intake-id",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
       "position": [
-        7440,
-        -1264
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "sRWvZ8HDAQebbIOB",
-          "name": "MySQL account"
+        2224,
+        -1200
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ticket_id ",
+              "type": "number"
+            },
+            {
+              "name": "message "
+            },
+            {
+              "name": "customer_id",
+              "type": "number"
+            },
+            {
+              "name": "attachment_url"
+            }
+          ]
         }
-      }
+      },
+      "id": "ff13160a-237c-479f-9ce4-88af1d078322",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        2224,
+        -1040
+      ]
     }
   ],
   "connections": {
-    "Execute Workflow Trigger": {
+    "MySQL - Thông báo hoàn tiền thành công cho khách": {
       "main": [
         [
           {
-            "node": "Code - Chuẩn hóa đầu vào Refund",
+            "node": "MySQL - Cập nhật ticket",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Webhook - Nhận yêu cầu hoàn tiền": {
+    "IF - Staff chấp thuận?": {
       "main": [
         [
           {
-            "node": "Code - Chuẩn hóa đầu vào Refund",
+            "node": "HTTP Request - Cổng thanh toán hoàn tiền",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Cập nhật REJECTED",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Google Gemini Chat Model - Information Extractor": {
-      "ai_languageModel": [
+    "Wait - Chờ nhân viên duyệt hoàn tiền": {
+      "main": [
+        [
+          {
+            "node": "IF - Staff chấp thuận?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lưu đơn chờ Staff duyệt": {
+      "main": [
+        [
+          {
+            "node": "Wait - Chờ nhân viên duyệt hoàn tiền",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Yêu cầu khách gửi ảnh bằng chứng": {
+      "main": [
+        [
+          {
+            "node": "Wait - Yêu cầu ảnh bằng chứng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Cập nhật chờ bổ sung mã đơn": {
+      "main": [
+        [
+          {
+            "node": "Wait - Chờ khách bổ sung mã đơn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn hóa đầu vào Refund": {
+      "main": [
         [
           {
             "node": "Information Extractor",
-            "type": "ai_languageModel",
+            "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Information Extractor": {
+    "MySQL - Cập nhật ticket": {
       "main": [
         [
           {
-            "node": "IF - Thiếu mã đơn?",
+            "node": "MySQL - Ghi audit_logs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF - Thiếu mã đơn?": {
+    "MySQL - Cập nhật order REFUNDED": {
       "main": [
         [
           {
-            "node": "MySQL - Cập nhật chờ bổ sung mã đơn",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "MySQL - Tra cứu đơn hàng",
+            "node": "MySQL - Thông báo hoàn tiền thành công cho khách",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait - Chờ khách bổ sung mã đơn": {
+    "MySQL - Cập nhật trạng thái PAID": {
       "main": [
         [
           {
-            "node": "MySQL - Tra cứu đơn hàng",
+            "node": "MySQL - Cập nhật order REFUNDED",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL - Tra cứu đơn hàng": {
+    "HTTP Request - Cổng thanh toán hoàn tiền": {
       "main": [
         [
           {
-            "node": "IF - Khớp chủ đơn & Đơn tồn tại?",
+            "node": "MySQL - Cập nhật trạng thái PAID",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF - Khớp chủ đơn & Đơn tồn tại?": {
+    "MySQL - Tạo bản ghi refunds": {
       "main": [
         [
           {
-            "node": "Code - Kiểm tra đã giao & chưa hoàn",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code - Kiểm tra đã giao & chưa hoàn": {
-      "main": [
-        [
-          {
-            "node": "Code - Kiểm tra thời hạn đổi trả (7 ngày)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code - Kiểm tra thời hạn đổi trả (7 ngày)": {
-      "main": [
-        [
-          {
-            "node": "IF - Lý do cần bằng chứng ảnh?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF - Lý do cần bằng chứng ảnh?": {
-      "main": [
-        [
-          {
-            "node": "MySQL - Yêu cầu khách gửi ảnh bằng chứng",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Code - Tính số tiền hoàn",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait - Yêu cầu ảnh bằng chứng": {
-      "main": [
-        [
-          {
-            "node": "AI (Vision) - Đánh giá sơ bộ ảnh lỗi",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Google Gemini Chat Model - Đánh giá ảnh lỗi": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI (Vision) - Đánh giá sơ bộ ảnh lỗi",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "AI (Vision) - Đánh giá sơ bộ ảnh lỗi": {
-      "main": [
-        [
-          {
-            "node": "Code - Tính số tiền hoàn",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code - Tính số tiền hoàn": {
-      "main": [
-        [
-          {
-            "node": "MySQL - Chống gian lận (90 ngày)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MySQL - Chống gian lận (90 ngày)": {
-      "main": [
-        [
-          {
-            "node": "Code - Xác định cấp phê duyệt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code - Xác định cấp phê duyệt": {
-      "main": [
-        [
-          {
-            "node": "Switch - Ngưỡng phê duyệt (<=500k / 5tr / >5tr)",
+            "node": "HTTP Request - Cổng thanh toán hoàn tiền",
             "type": "main",
             "index": 0
           }
@@ -980,139 +915,201 @@
         ]
       ]
     },
-    "MySQL - Tạo bản ghi refunds": {
+    "Code - Xác định cấp phê duyệt": {
       "main": [
         [
           {
-            "node": "HTTP Request - Cổng thanh toán hoàn tiền",
+            "node": "Switch - Ngưỡng phê duyệt (<=500k / 5tr / >5tr)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP Request - Cổng thanh toán hoàn tiền": {
+    "MySQL - Chống gian lận (90 ngày)": {
       "main": [
         [
           {
-            "node": "MySQL - Cập nhật trạng thái PAID",
+            "node": "Code - Xác định cấp phê duyệt",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL - Cập nhật trạng thái PAID": {
+    "Code - Tính số tiền hoàn": {
       "main": [
         [
           {
-            "node": "MySQL - Cập nhật order REFUNDED",
+            "node": "MySQL - Chống gian lận (90 ngày)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL - Cập nhật order REFUNDED": {
+    "AI (Vision) - Đánh giá sơ bộ ảnh lỗi": {
       "main": [
         [
           {
-            "node": "MySQL - Thông báo hoàn tiền thành công cho khách",
+            "node": "Code - Tính số tiền hoàn",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL - Cập nhật ticket": {
+    "Google Gemini Chat Model - Đánh giá ảnh lỗi": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI (Vision) - Đánh giá sơ bộ ảnh lỗi",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait - Yêu cầu ảnh bằng chứng": {
       "main": [
         [
           {
-            "node": "MySQL - Ghi audit_logs",
+            "node": "AI (Vision) - Đánh giá sơ bộ ảnh lỗi",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code - Chuẩn hóa đầu vào Refund": {
+    "IF - Lý do cần bằng chứng ảnh?": {
       "main": [
         [
           {
-            "node": "Information Extractor",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MySQL - Cập nhật chờ bổ sung mã đơn": {
-      "main": [
-        [
-          {
-            "node": "Wait - Chờ khách bổ sung mã đơn",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MySQL - Yêu cầu khách gửi ảnh bằng chứng": {
-      "main": [
-        [
-          {
-            "node": "Wait - Yêu cầu ảnh bằng chứng",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MySQL - Lưu đơn chờ Staff duyệt": {
-      "main": [
-        [
-          {
-            "node": "Wait - Chờ nhân viên duyệt hoàn tiền",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait - Chờ nhân viên duyệt hoàn tiền": {
-      "main": [
-        [
-          {
-            "node": "IF - Staff chấp thuận?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF - Staff chấp thuận?": {
-      "main": [
-        [
-          {
-            "node": "HTTP Request - Cổng thanh toán hoàn tiền",
+            "node": "MySQL - Yêu cầu khách gửi ảnh bằng chứng",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "MySQL - Cập nhật REJECTED",
+            "node": "Code - Tính số tiền hoàn",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "MySQL - Thông báo hoàn tiền thành công cho khách": {
+    "Code - Kiểm tra thời hạn đổi trả (7 ngày)": {
       "main": [
         [
           {
-            "node": "MySQL - Cập nhật ticket",
+            "node": "IF - Lý do cần bằng chứng ảnh?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Kiểm tra đã giao & chưa hoàn": {
+      "main": [
+        [
+          {
+            "node": "Code - Kiểm tra thời hạn đổi trả (7 ngày)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Khớp chủ đơn & Đơn tồn tại?": {
+      "main": [
+        [
+          {
+            "node": "Code - Kiểm tra đã giao & chưa hoàn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tra cứu đơn hàng": {
+      "main": [
+        [
+          {
+            "node": "IF - Khớp chủ đơn & Đơn tồn tại?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait - Chờ khách bổ sung mã đơn": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tra cứu đơn hàng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Thiếu mã đơn?": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Cập nhật chờ bổ sung mã đơn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Tra cứu đơn hàng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "IF - Thiếu mã đơn?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Information Extractor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Nhận yêu cầu hoàn tiền": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa đầu vào Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa đầu vào Refund",
             "type": "main",
             "index": 0
           }

@@ -59,8 +59,18 @@
         "attributes": {
           "attributes": [
             {
+              "name": "complaint_type",
+              "description": "Phân loại khiếu nại: STAFF (về thái độ, tư vấn, phục vụ của nhân viên, nhân viên không hỗ trợ), DELIVERY (về giao hàng, shipper, giao trễ, bể vỡ khi vận chuyển), PRODUCT (về sản phẩm lỗi, hỏng hóc, sai quy cách), PAYMENT (về trừ tiền, thanh toán, hóa đơn), OTHER (khiếu nại khác)",
+              "required": true
+            },
+            {
+              "name": "severity",
+              "description": "Mức độ nghiêm trọng: MINOR (thắc mắc nhỏ, không bức xúc), MAJOR (bức xúc, lỗi dịch vụ/hàng hóa, yêu cầu bồi thường), CRITICAL (dọa kiện, xúc phạm gay gắt, thiệt hại lớn)",
+              "required": true
+            },
+            {
               "name": "complaint_target",
-              "description": "Đối tượng hoặc khâu bị khiếu nại: sản phẩm, shipper, kho đóng gói, nhân viên tư vấn, thanh toán...",
+              "description": "Đối tượng hoặc khâu bị khiếu nại: nhân viên, shipper, sản phẩm, kho đóng gói, thanh toán...",
               "required": true
             },
             {
@@ -69,8 +79,20 @@
             },
             {
               "name": "issue_description",
-              "description": "Tóm tắt chi tiết sự cố và yêu cầu của khách",
+              "description": "Tóm tắt ngắn gọn chi tiết sự cố và yêu cầu của khách",
               "required": true
+            },
+            {
+              "name": "suggested_resolution",
+              "description": "Đề xuất phương án xử lý cụ thể, thỏa đáng nhất cho nhân viên tương ứng với loại khiếu nại"
+            },
+            {
+              "name": "suggested_root_cause",
+              "description": "Đề xuất nguyên nhân gốc rễ ngắn gọn của sự cố"
+            },
+            {
+              "name": "suggested_compensation",
+              "description": "Đề xuất phương án bồi thường / bồi hoàn hoặc mã giảm giá cho khách"
             }
           ]
         },
@@ -85,12 +107,13 @@
         112
       ],
       "retryOnFail": true,
-      "waitBetweenTries": 5000
+      "waitBetweenTries": 5000,
+      "continueOnFail": true
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id AS order_id, order_code, customer_id, total_amount, status AS order_status, ordered_at, delivered_at FROM orders WHERE customer_id = {{ $('Execute Workflow Trigger').item?.json?.customer_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.customer_id || 1 }} OR (order_code IS NOT NULL AND order_code = '{{ $json.output?.order_code || \"\" }}') ORDER BY ordered_at DESC LIMIT 1;",
+        "query": "SELECT id AS order_id, order_code, customer_id, total_amount, status AS order_status, ordered_at, delivered_at FROM orders WHERE customer_id = {{ $('Execute Workflow Trigger').first()?.json?.customer_id || $('Webhook - Nhận khiếu nại').first()?.json?.body?.customer_id || 1 }} OR (order_code IS NOT NULL AND order_code = '{{ $json.output?.order_code || \"\" }}') ORDER BY ordered_at DESC LIMIT 1;",
         "options": {}
       },
       "id": "eedcbabc-9947-4fdd-af4a-bf854a4f65f6",
@@ -112,7 +135,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT c.id AS prev_complaint_id, c.complaint_code, c.type, c.severity, c.status, c.created_at, c.resolution FROM complaints c JOIN tickets t ON c.ticket_id = t.id WHERE t.customer_id = {{ $('Execute Workflow Trigger').item?.json?.customer_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.customer_id || 1 }} AND c.ticket_id != {{ $('Execute Workflow Trigger').item?.json?.ticket_id || $('Webhook - Nhận khiếu nại').item?.json?.body?.ticket_id || 0 }} ORDER BY c.created_at DESC LIMIT 5;",
+        "query": "SELECT c.id AS prev_complaint_id, c.complaint_code, c.type, c.severity, c.status, c.created_at, c.resolution FROM complaints c JOIN tickets t ON c.ticket_id = t.id WHERE t.customer_id = {{ $('Execute Workflow Trigger').first()?.json?.customer_id || $('Webhook - Nhận khiếu nại').first()?.json?.body?.customer_id || 1 }} AND c.ticket_id != {{ $('Execute Workflow Trigger').first()?.json?.ticket_id || $('Webhook - Nhận khiếu nại').first()?.json?.body?.ticket_id || 0 }} ORDER BY c.created_at DESC LIMIT 5;",
         "options": {}
       },
       "id": "3cdde98b-ddef-43f6-bc60-9abac19a1b13",
@@ -133,7 +156,7 @@
     },
     {
       "parameters": {
-        "inputText": "={{ $('Information Extractor').item?.json?.output?.issue_description }}",
+        "inputText": "={{ $('Information Extractor').first()?.json?.output?.issue_description }}",
         "categories": {
           "categories": [
             {
@@ -173,7 +196,7 @@
     },
     {
       "parameters": {
-        "inputText": "={{ $('Information Extractor').item?.json?.output?.issue_description}}",
+        "inputText": "={{ $('Information Extractor').first()?.json?.output?.issue_description}}",
         "categories": {
           "categories": [
             {
@@ -205,7 +228,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Lấy dữ liệu trực tiếp từ Information Extractor\nconst extractorOutput = $('Information Extractor').item?.json?.output || {};\n\nconst complaintType = ($input.item.json.complaint_type || 'OTHER').toUpperCase();\nconst severity = ($input.item.json.severity || 'MINOR').toUpperCase();\nconst target = ($('Information Extractor').item?.json?.output?.complaint_target || '').toLowerCase();\n\nlet deptId = 1;\nlet deptCode = 'SUPPORT';\nlet deptName = 'Chăm sóc khách hàng';\nlet deptEmail = 'support@support.local';\n\nif (complaintType === 'PRODUCT') {\n  if (target.includes('kho') || target.includes('đóng gói') || target.includes('bao bì')) {\n    deptId = 2;\n    deptCode = 'WAREHOUSE';\n    deptName = 'Kho';\n    deptEmail = 'warehouse@support.local';\n  } else {\n    deptId = 4;\n    deptCode = 'TECH';\n    deptName = 'Kỹ thuật';\n    deptEmail = 'tech@support.local';\n  }\n} else if (complaintType === 'DELIVERY') {\n  deptId = 3;\n  deptCode = 'DELIVERY';\n  deptName = 'Giao hàng';\n  deptEmail = 'delivery@support.local';\n} else if (complaintType === 'PAYMENT') {\n  deptId = 5;\n  deptCode = 'ACCOUNTING';\n  deptName = 'Kế toán';\n  deptEmail = 'accounting@support.local';\n} else if (complaintType === 'STAFF') {\n  deptId = 6;\n  deptCode = 'SALES';\n  deptName = 'Kinh doanh';\n  deptEmail = 'sales@support.local';\n}\n\nlet priority = 'P3';\nif (severity === 'CRITICAL') priority = 'P1';\nelse if (severity === 'MAJOR') priority = 'P2';\n\nreturn [{\n  json: {\n    department_id: deptId,\n    department_code: deptCode,\n    department_name: deptName,\n    department_email: deptEmail,\n    complaint_type: complaintType,\n    severity: severity,\n    priority: priority\n  }\n}];"
+        "jsCode": "const extractorOutput = $('Information Extractor').first()?.json?.output || {};\nconst triggerData = $('Execute Workflow Trigger').first()?.json || $('Webhook - Nhận khiếu nại').first()?.json?.body || {};\n\nlet rawContent = (triggerData.content_original || triggerData.message || extractorOutput.issue_description || '').toLowerCase();\n\n// Tự động phân loại chính xác complaintType\nlet complaintType = (extractorOutput.complaint_type || '').toUpperCase();\nif (!complaintType || complaintType === 'OTHER') {\n  if (rawContent.includes('nhân viên') || rawContent.includes('thái độ') || rawContent.includes('tư vấn') || rawContent.includes('phục vụ') || rawContent.includes('chăm sóc')) {\n    complaintType = 'STAFF';\n  } else if (rawContent.includes('giao hàng') || rawContent.includes('shipper') || rawContent.includes('vận chuyển') || rawContent.includes('giao trễ') || rawContent.includes('chậm giao')) {\n    complaintType = 'DELIVERY';\n  } else if (rawContent.includes('sản phẩm') || rawContent.includes('tai nghe') || rawContent.includes('loa') || rawContent.includes('hỏng') || rawContent.includes('lỗi') || rawContent.includes('vỡ') || rawContent.includes('rách')) {\n    complaintType = 'PRODUCT';\n  } else if (rawContent.includes('tiền') || rawContent.includes('thanh toán') || rawContent.includes('trừ tiền') || rawContent.includes('chuyển khoản')) {\n    complaintType = 'PAYMENT';\n  } else {\n    complaintType = 'OTHER';\n  }\n}\n\nlet severity = (extractorOutput.severity || 'MAJOR').toUpperCase();\nif (!['MINOR', 'MAJOR', 'CRITICAL'].includes(severity)) severity = 'MAJOR';\n\nlet deptId = 1;\nlet deptCode = 'SUPPORT';\nlet deptName = 'Chăm sóc khách hàng';\nlet deptEmail = 'support@support.local';\n\nif (complaintType === 'PRODUCT') {\n  deptId = 4;\n  deptCode = 'TECH';\n  deptName = 'Kỹ thuật';\n  deptEmail = 'tech@support.local';\n} else if (complaintType === 'DELIVERY') {\n  deptId = 3;\n  deptCode = 'DELIVERY';\n  deptName = 'Giao hàng';\n  deptEmail = 'delivery@support.local';\n} else if (complaintType === 'PAYMENT') {\n  deptId = 5;\n  deptCode = 'ACCOUNTING';\n  deptName = 'Kế toán';\n  deptEmail = 'accounting@support.local';\n} else if (complaintType === 'STAFF') {\n  deptId = 6;\n  deptCode = 'SALES';\n  deptName = 'Kinh doanh & Quản lý Nhân sự';\n  deptEmail = 'sales@support.local';\n}\n\nlet priority = 'P2';\nif (severity === 'CRITICAL') priority = 'P1';\nelse if (severity === 'MINOR') priority = 'P3';\n\n// Gợi ý phương án giải quyết thông minh theo từng loại khiếu nại\nlet suggestedResolution = extractorOutput.suggested_resolution;\nlet suggestedRootCause = extractorOutput.suggested_root_cause;\nlet suggestedCompensation = extractorOutput.suggested_compensation;\n\nif (!suggestedResolution || suggestedResolution.length < 10) {\n  if (complaintType === 'STAFF') {\n    suggestedResolution = 'Đã kiểm tra camera & lịch sử phục vụ, tiến hành nhắc nhở đào tạo lại nhân sự liên quan và đại diện công ty gửi lời xin lỗi chân thành đến Quý khách.';\n    suggestedRootCause = 'Nhân viên xử lý chưa đúng quy trình và thiếu chuẩn mực giao tiếp với khách hàng.';\n    suggestedCompensation = 'Tặng voucher tri ân 50.000đ & Cam kết nâng cao chất lượng phục vụ.';\n  } else if (complaintType === 'DELIVERY') {\n    suggestedResolution = 'Đã làm việc với đối tác vận chuyển để đẩy nhanh tiến độ và chấn chỉnh nhân viên giao hàng.';\n    suggestedRootCause = 'Đơn vị vận chuyển quá tải hoặc lỗi thao tác của shipper.';\n    suggestedCompensation = 'Miễn phí cước vận chuyển đơn hàng tiếp theo.';\n  } else if (complaintType === 'PRODUCT') {\n    suggestedResolution = 'Đã ghi nhận sự cố sản phẩm, tiến hành thu hồi kiểm định và đổi mới 1-1 miễn phí tận nơi.';\n    suggestedRootCause = 'Lỗi linh kiện từ nhà sản xuất hoặc đóng gói sơ suất.';\n    suggestedCompensation = 'Đổi mới miễn phí + Voucher 50.000đ cho đơn tiếp theo.';\n  } else if (complaintType === 'PAYMENT') {\n    suggestedResolution = 'Đã đối soát cổng thanh toán, hoàn tất hoàn trả số tiền thừa vào tài khoản Quý khách.';\n    suggestedRootCause = 'Chậm trễ trong quá trình đối soát liên ngân hàng/cổng thanh toán.';\n    suggestedCompensation = 'Hoàn tiền 100% số tiền chênh lệch + Voucher tri ân.';\n  } else {\n    suggestedResolution = 'Đã tiếp nhận phản ánh, phối hợp cùng các bộ phận liên quan giải quyết dứt điểm sự cố.';\n    suggestedRootCause = 'Sự cố vận hành hệ thống.';\n    suggestedCompensation = 'Tặng voucher ưu đãi 50.000đ.';\n  }\n}\n\nreturn [{\n  json: {\n    department_id: deptId,\n    department_code: deptCode,\n    department_name: deptName,\n    department_email: deptEmail,\n    complaint_type: complaintType,\n    severity: severity,\n    priority: priority,\n    suggested_resolution: suggestedResolution,\n    suggested_root_cause: suggestedRootCause,\n    suggested_compensation: suggestedCompensation\n  }\n}];"
       },
       "id": "85a67b5b-c553-4153-9e55-0cfb1d2526c5",
       "name": "Xác định phòng ban & Priority",
@@ -239,7 +262,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const deptInfo = $('Xác định phòng ban & Priority').first().json;\nconst slaInfo = $input.first().json;\nconst triggerData = $('Execute Workflow Trigger').first()?.json || $('Webhook - Nhận khiếu nại').first()?.json?.body || {};\nconst orderData = $('Tra cứu đơn hàng và lịch sử').first()?.json || {};\nconst extractorData = $('Information Extractor').first()?.json?.output || {};\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst complaintCode = `CMP-${dateStr}-${randomCode}`;\n\nconst ticketId = triggerData.ticket_id || 1;\nconst orderId = orderData.order_id || null;\nconst issueDesc = (extractorData.issue_description || triggerData.content_original || 'Khiếu nại khách hàng').replace(/'/g, \"\\'\");\n\nlet dueAtStr = slaInfo.calculated_due_at;\nif (!dueAtStr) {\n  const d = new Date(Date.now() + (slaInfo.resolution_minutes || 120) * 60000);\n  dueAtStr = d.toISOString().slice(0, 19).replace('T', ' ');\n}\n\nreturn [{\n  json: {\n    complaint_code: complaintCode,\n    description: issueDesc,\n    due_at: dueAtStr,\n    severity: deptInfo.severity,\n    complaint_type: deptInfo.complaint_type,\n    department_id: deptInfo.department_id,\n    department_name: deptInfo.department_name,\n    department_email: deptInfo.department_email,\n    priority: deptInfo.priority,\n    order_id: orderId,\n    ticket_id: ticketId,\n    customer_telegram_id: triggerData.customer_telegram_id || \"-10022334455\",\n    customer_name: orderData.customer_name || \"Quý khách\"\n  }\n}];"
+        "jsCode": "const deptInfo = $('Xác định phòng ban & Priority').first().json;\nconst slaInfo = $input.first().json;\nconst triggerData = $('Execute Workflow Trigger').first()?.json || $('Webhook - Nhận khiếu nại').first()?.json?.body || {};\nconst orderData = $('Tra cứu đơn hàng và lịch sử').first()?.json || {};\nconst extractorData = $('Information Extractor').first()?.json?.output || {};\n\nconst now = new Date();\nconst dateStr = now.toISOString().slice(0,10).replace(/-/g,'');\nconst randomCode = Math.floor(Math.random() * 8999 + 1000);\nconst complaintCode = `CMP-${dateStr}-${randomCode}`;\n\nconst ticketId = triggerData.ticket_id || 1;\nconst orderId = orderData.order_id || null;\nconst issueDesc = (extractorData.issue_description || triggerData.content_original || 'Khiếu nại khách hàng').replace(/'/g, \"\\\\'\");\n\nlet dueAtStr = slaInfo.calculated_due_at;\nif (!dueAtStr) {\n  const d = new Date(Date.now() + (slaInfo.resolution_minutes || 120) * 60000);\n  dueAtStr = d.toISOString().slice(0, 19).replace('T', ' ');\n}\n\nreturn [{\n  json: {\n    complaint_code: complaintCode,\n    description: issueDesc,\n    due_at: dueAtStr,\n    severity: deptInfo.severity,\n    complaint_type: deptInfo.complaint_type,\n    department_id: deptInfo.department_id,\n    department_name: deptInfo.department_name,\n    department_email: deptInfo.department_email,\n    priority: deptInfo.priority,\n    order_id: orderId,\n    ticket_id: ticketId,\n    customer_telegram_id: triggerData.customer_telegram_id || \"-10022334455\",\n    customer_name: orderData.customer_name || \"Quý khách\",\n    suggested_resolution: deptInfo.suggested_resolution,\n    suggested_root_cause: deptInfo.suggested_root_cause,\n    suggested_compensation: deptInfo.suggested_compensation\n  }\n}];"
       },
       "id": "ad5a709f-4a49-4db0-abca-d6c96ae2b36d",
       "name": "Chuẩn bị dữ liệu Complaint Case",
@@ -253,7 +276,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO complaints (complaint_code, description, due_at, severity, status, type, department_id, order_id, ticket_id, created_at, updated_at) VALUES ('{{ $json.complaint_code }}', '{{ $json.description }}', '{{ $json.due_at }}', '{{ $json.severity }}', 'WAITING_DEPARTMENT', '{{ $json.complaint_type }}', {{ $json.department_id }}, {{ $json.order_id ? $json.order_id : \"NULL\" }}, {{ $json.ticket_id }}, NOW(), NOW());",
+        "query": "INSERT INTO complaints (complaint_code, description, due_at, severity, status, type, department_id, order_id, ticket_id, resolution, root_cause, created_at, updated_at) \nVALUES (\n  '{{ $json.complaint_code }}', \n  '{{ $json.description }}', \n  '{{ $json.due_at }}', \n  '{{ $json.severity }}', \n  'WAITING_DEPARTMENT', \n  '{{ $json.complaint_type }}', \n  {{ $json.department_id }}, \n  {{ $json.order_id ? $json.order_id : \"NULL\" }}, \n  {{ $json.ticket_id }}, \n  '{{ ($json.suggested_resolution || \"\").replace(/'/g, \"\\\\'\") }}', \n  '{{ ($json.suggested_root_cause || \"\").replace(/'/g, \"\\\\'\") }}', \n  NOW(), \n  NOW()\n);\nUPDATE tickets SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE id = {{ $json.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) \nVALUES (\n  {{ $json.ticket_id }},\n  'AI',\n  'WEB',\n  'Khiếu nại của Quý khách đã được hệ thống tiếp nhận chính thức với mã: {{ $json.complaint_code }}. Bộ phận {{ $json.department_name }} đang xử lý sự cố. Thời hạn phản hồi dự kiến: {{ $json.due_at }}. Chúng tôi sẽ sớm cập nhật giải pháp cụ thể đến Quý khách.',\n  'Khiếu nại của Quý khách đã được hệ thống tiếp nhận chính thức với mã: {{ $json.complaint_code }}. Bộ phận {{ $json.department_name }} đang xử lý sự cố. Thời hạn phản hồi dự kiến: {{ $json.due_at }}. Chúng tôi sẽ sớm cập nhật giải pháp cụ thể đến Quý khách.',\n  'vi',\n  0,\n  NOW(),\n  NOW()\n);",
         "options": {}
       },
       "id": "203ddc5e-75e4-4d8c-a707-5cbb01e2a020",
@@ -274,7 +297,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET department_id = {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.department_id }}, due_at = '{{ $('Chuẩn bị dữ liệu Complaint Case').item.json.due_at }}', priority = '{{ $('Chuẩn bị dữ liệu Complaint Case').item.json.priority }}', updated_at = NOW() WHERE id = {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.ticket_id }};",
+        "query": "UPDATE tickets SET department_id = {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.department_id }}, due_at = '{{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.due_at }}', priority = '{{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.priority }}', updated_at = NOW() WHERE id = {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.ticket_id }};",
         "options": {}
       },
       "id": "64de82bd-e775-47bc-b8a6-1c96894ba4c1",
@@ -296,8 +319,8 @@
       "parameters": {
         "fromEmail": "nguyenphucphi2102@gmail.com",
         "toEmail": "=hoangphuc2855@gmail.com",
-        "subject": "=🔔 [KHIẾU NẠI MỚI - {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}] Phòng ban {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.department_name }} cần xử lý",
-        "html": "=<h2>KHIẾU NẠI MỚI CẦN BỘ PHẬN XỬ LÝ</h2>\n<p><b>Mã khiếu nại:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}</p>\n<p><b>Mã Ticket:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.ticket_id }}</p>\n<p><b>Khách hàng:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.customer_name }}</p>\n<p><b>Loại khiếu nại:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_type }}</p>\n<p><b>Mức độ nghiêm trọng:</b> <span style=\"color:red;\">{{ $('Chuẩn bị dữ liệu Complaint Case').item.json.severity }}</span></p>\n<p><b>Thời hạn xử lý (SLA Due At):</b> {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.due_at }}</p>\n<p><b>Nội dung sự cố:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.description }}</p>\n<hr>\n<p><b>Link bằng chứng/tài liệu đính kèm:</b> <a href=\"http://localhost:5678/api/v1/tickets/{{ $('Chuẩn bị dữ liệu Complaint Case').item.json.ticket_id }}/attachments\">Xem bằng chứng đính kèm</a></p>\n<p>Sau khi xử lý, vui lòng gửi phản hồi về webhook giải quyết khiếu nại.</p>",
+        "subject": "=🔔 [KHIẾU NẠI MỚI - {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}] Phòng ban {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.department_name }} cần xử lý",
+        "html": "=<h2>KHIẾU NẠI MỚI CẦN BỘ PHẬN XỬ LÝ</h2>\n<p><b>Mã khiếu nại:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}</p>\n<p><b>Mã Ticket:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.ticket_id }}</p>\n<p><b>Khách hàng:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.customer_name }}</p>\n<p><b>Loại khiếu nại:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_type }}</p>\n<p><b>Mức độ nghiêm trọng:</b> <span style=\"color:red;\">{{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.severity }}</span></p>\n<p><b>Thời hạn xử lý (SLA Due At):</b> {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.due_at }}</p>\n<p><b>Nội dung sự cố:</b> {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.description }}</p>\n<hr>\n<p><b>Link bằng chứng/tài liệu đính kèm:</b> <a href=\"http://localhost:5678/api/v1/tickets/{{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.ticket_id }}/attachments\">Xem bằng chứng đính kèm</a></p>\n<p>Sau khi xử lý, vui lòng gửi phản hồi về webhook giải quyết khiếu nại.</p>",
         "options": {}
       },
       "id": "784f86ec-0b12-4a74-9e12-df171b67652b",
@@ -319,7 +342,7 @@
     {
       "parameters": {
         "chatId": "9274620117",
-        "text": "=Chào Quý khách! Khiếu nại của Quý khách đã được tiếp nhận chính thức với mã: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}.\\n\\nBộ phận {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.department_name }} đang tích cực xử lý. Thời hạn phản hồi dự kiến: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.due_at }}. Trân trọng cảm ơn Quý khách!",
+        "text": "=Chào Quý khách! Khiếu nại của Quý khách đã được tiếp nhận chính thức với mã: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}.\\n\\nBộ phận {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.department_name }} đang tích cực xử lý. Thời hạn phản hồi dự kiến: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.due_at }}. Trân trọng cảm ơn Quý khách!",
         "additionalFields": {}
       },
       "id": "0e277392-4156-43c2-b04e-46e3403dbd87",
@@ -349,7 +372,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $('Chuẩn bị dữ liệu Complaint Case').item.json.severity }}",
+              "leftValue": "={{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.severity }}",
               "rightValue": "CRITICAL",
               "operator": {
                 "type": "string",
@@ -384,7 +407,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "need_human_review": false,
-            "ticket_id": "={{ $('Execute Workflow Trigger').item.json.ticket_id }}",
+            "ticket_id": "={{ $('Execute Workflow Trigger').first()?.json.ticket_id }}",
             "sentiment": "={{ $json.sentiment }}",
             "urgency": "={{ $json.urgency }}"
           },
@@ -460,7 +483,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Bạn là chuyên viên chăm sóc khách hàng cao cấp. Hãy soạn một thông báo/thư phản hồi gửi khách hàng giải quyết khiếu nại sau đây:\n- Mã khiếu nại: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}\n- Khách hàng: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.customer_name || \"Quý khách\" }}\n- Nội dung phản ánh ban đầu: {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.description }}\n- Kết quả giải quyết từ bộ phận chuyên trách: {{ $json.body?.resolution || $json.resolution || \"Đã kiểm tra và xử lý thỏa đáng sự cố.\" }}\n- Hướng khắc phục/bồi thường (nếu có): {{ $json.body?.compensation || $json.compensation || \"Gửi tặng mã giảm giá và cam kết cải thiện chất lượng dịch vụ.\" }}\n\nYêu cầu văn phong: Chân thành, đồng cảm, chuyên nghiệp, rõ ràng và lịch sự.",
+        "text": "=Bạn là chuyên viên chăm sóc khách hàng cao cấp. Hãy soạn một thông báo/thư phản hồi gửi khách hàng giải quyết khiếu nại sau đây:\n- Mã khiếu nại: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}\n- Khách hàng: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.customer_name || \"Quý khách\" }}\n- Nội dung phản ánh ban đầu: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.description }}\n- Kết quả giải quyết từ bộ phận chuyên trách: {{ $json.body?.resolution || $json.resolution || \"Đã kiểm tra và xử lý thỏa đáng sự cố.\" }}\n- Hướng khắc phục/bồi thường (nếu có): {{ $json.body?.compensation || $json.compensation || \"Gửi tặng mã giảm giá và cam kết cải thiện chất lượng dịch vụ.\" }}\n\nYêu cầu văn phong: Chân thành, đồng cảm, chuyên nghiệp, rõ ràng và lịch sự.",
         "batching": {}
       },
       "id": "a03dc748-064b-44da-9321-b0152b09fcfc",
@@ -477,7 +500,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE complaints SET status = 'RESOLVED', resolution = '{{ ($('Wait - Chờ phản hồi phòng ban').item?.json?.body?.resolution || $('Basic LLM Chain - Soạn giải pháp gửi khách').item?.json?.text || \"Đã giải quyết theo quy trình\").replace(/'/g, \"\\\\'\") }}', root_cause = '{{ ($('Wait - Chờ phản hồi phòng ban').item?.json?.body?.root_cause || $('Information Extractor').item?.json?.output?.complaint_target || \"Nguyên nhân kỹ thuật/vận hành\").replace(/'/g, \"\\\\'\") }}', resolved_at = NOW(), updated_at = NOW() WHERE complaint_code = '{{ $('Chuẩn bị dữ liệu Complaint Case').item.json.complaint_code }}';",
+        "query": "UPDATE complaints SET status = 'RESOLVED', resolution = '{{ ($('Wait - Chờ phản hồi phòng ban').first()?.json?.body?.resolution || $('Basic LLM Chain - Soạn giải pháp gửi khách').first()?.json?.text || \"Đã giải quyết theo quy trình\").replace(/'/g, \"\\\\'\") }}', root_cause = '{{ ($('Wait - Chờ phản hồi phòng ban').first()?.json?.body?.root_cause || $('Information Extractor').first()?.json?.output?.complaint_target || \"Nguyên nhân kỹ thuật/vận hành\").replace(/'/g, \"\\\\'\") }}', resolved_at = NOW(), updated_at = NOW() WHERE complaint_code = '{{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}';",
         "options": {}
       },
       "id": "c79d0ab0-d77b-44ba-a16b-4da9f8805477",
@@ -498,7 +521,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Chuẩn bị dữ liệu Complaint Case').item.json.ticket_id }};",
+        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json?.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) \nVALUES (\n  {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json?.ticket_id }},\n  'STAFF',\n  'WEB',\n  {{ JSON.stringify($('Basic LLM Chain - Soạn giải pháp gửi khách').first()?.json?.text || \"Khiếu nại của Quý khách đã được xử lý thỏa đáng.\") }},\n  {{ JSON.stringify($('Basic LLM Chain - Soạn giải pháp gửi khách').first()?.json?.text || \"Khiếu nại của Quý khách đã được xử lý thỏa đáng.\") }},\n  'vi',\n  1,\n  NOW(6),\n  NOW(6)\n);",
         "options": {}
       },
       "id": "85e17fb1-2568-497a-a2b6-271feed31604",
@@ -675,7 +698,7 @@
       "main": [
         [
           {
-            "node": "Text Classifier - Loại khiếu nại",
+            "node": "Xác định phòng ban & Priority",
             "type": "main",
             "index": 0
           }

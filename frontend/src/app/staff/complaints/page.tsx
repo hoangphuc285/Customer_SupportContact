@@ -50,6 +50,58 @@ export default function StaffComplaintsPage() {
         fetchComplaints();
     }, []);
 
+    // GIẢI PHÁP 3: Gợi ý giải pháp thông minh theo loại khiếu nại (STAFF / DELIVERY / PRODUCT / PAYMENT / OTHER)
+    const getSuggestedDefaults = (complaint: any) => {
+        const type = (complaint.type || '').toUpperCase();
+        const desc = (complaint.description || '').toLowerCase();
+
+        if (complaint.resolution && !complaint.resolution.startsWith('Đã kiểm tra sự cố "')) {
+            return {
+                res: complaint.resolution,
+                cause: complaint.rootCause || 'Xác nhận phản ánh hợp lệ từ khách hàng',
+                comp: 'Tặng voucher 50.000đ & Thư xin lỗi từ LotusCare'
+            };
+        }
+
+        if (type === 'STAFF' || desc.includes('nhân viên') || desc.includes('thái độ') || desc.includes('tư vấn') || desc.includes('phục vụ') || desc.includes('chăm sóc')) {
+            return {
+                res: 'Đã kiểm tra camera & lịch sử phục vụ, tiến hành nhắc nhở chấn chỉnh nhân sự phụ trách và đào tạo lại quy chuẩn phục vụ khách hàng.',
+                cause: 'Nhân viên trực ca chưa thực hiện đúng quy trình và thiếu chuẩn mực giao tiếp với khách hàng.',
+                comp: 'Đại diện công ty gửi lời xin lỗi chân thành + Tặng voucher tri ân 50.000đ.'
+            };
+        }
+
+        if (type === 'DELIVERY' || desc.includes('giao hàng') || desc.includes('shipper') || desc.includes('vận chuyển') || desc.includes('giao trễ') || desc.includes('chậm giao')) {
+            return {
+                res: 'Đã làm việc với đơn vị vận chuyển đối tác, yêu cầu kiểm điểm shipper và cam kết giao hàng ưu tiên sớm nhất.',
+                cause: 'Đơn vị vận chuyển quá tải hoặc shipper vi phạm thời gian giao nhận.',
+                comp: 'Miễn phí cước giao hàng đơn kế tiếp + Tặng voucher 50.000đ.'
+            };
+        }
+
+        if (type === 'PRODUCT' || desc.includes('sản phẩm') || desc.includes('tai nghe') || desc.includes('loa') || desc.includes('hỏng') || desc.includes('lỗi') || desc.includes('vỡ')) {
+            return {
+                res: 'Đã tiếp nhận phản ánh sản phẩm lỗi, tiến hành thu hồi kiểm định và đổi mới thiết bị 1-1 miễn phí tận nhà.',
+                cause: 'Lỗi linh kiện từ nhà sản xuất hoặc đóng gói bảo quản sơ suất.',
+                comp: 'Đổi mới 1-1 miễn phí + Tặng voucher 50.000đ cho đơn hàng tiếp theo.'
+            };
+        }
+
+        if (type === 'PAYMENT' || desc.includes('tiền') || desc.includes('thanh toán') || desc.includes('trừ tiền') || desc.includes('chuyển khoản')) {
+            return {
+                res: 'Đã đối soát cổng thanh toán, hoàn tất hoàn trả số tiền thừa vào tài khoản ngân hàng của Quý khách.',
+                cause: 'Chậm trễ trong quá trình đối soát liên ngân hàng / cổng thanh toán.',
+                comp: 'Hoàn trả 100% số tiền chênh lệch + Voucher tri ân 50.000đ.'
+            };
+        }
+
+        return {
+            res: 'Đã tiếp nhận phản ánh, phối hợp cùng các bộ phận chuyên trách xử lý dứt điểm sự cố.',
+            cause: 'Sự cố phát sinh trong quá trình vận hành dịch vụ.',
+            comp: 'Tặng voucher ưu đãi 50.000đ & Thư xin lỗi từ LotusCare.'
+        };
+    };
+
     // GIẢI PHÁP 3: Gọi endpoint resolve để update DB và wake-up n8n Wait Node
     const handleConfirmResolve = async () => {
         if (!selectedComplaint) return;
@@ -234,7 +286,10 @@ export default function StaffComplaintsPage() {
                                                     <button
                                                         onClick={() => {
                                                             setSelectedComplaint(c);
-                                                            setResolution(`Đã kiểm tra sự cố "${c.description?.slice(0, 50)}...". Xác định lỗi vận hành và tiến hành bồi thường.`);
+                                                            const defaults = getSuggestedDefaults(c);
+                                                            setResolution(defaults.res);
+                                                            setRootCause(defaults.cause);
+                                                            setCompensation(defaults.comp);
                                                         }}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors shadow"
                                                     >
