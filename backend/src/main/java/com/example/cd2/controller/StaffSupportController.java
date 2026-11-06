@@ -79,7 +79,7 @@ public class StaffSupportController {
         return ResponseEntity.ok(service.getConversations());
     }
 
-    @GetMapping("/chat/history/{convId}")
+    @GetMapping("/chat/staff/history/{convId}")
     public ResponseEntity<List<Map<String, Object>>> getConversationHistory(@PathVariable String convId) {
         return ResponseEntity.ok(service.getConversationHistory(convId));
     }
