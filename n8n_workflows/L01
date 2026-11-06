@@ -566,6 +566,16 @@
                 "operation": "false",
                 "singleValue": true
               }
+            },
+            {
+              "id": "check-is-new-ticket",
+              "leftValue": "={{ $json.newTicket }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -724,6 +734,79 @@
       ],
       "id": "71a05960-24ad-447f-902b-5ed25bf487f4",
       "name": "Call 'My Sub-Workflow 1'"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets \nSET status = IF(status = 'PENDING_CUSTOMER', 'OPEN', status), \n    updated_at = NOW() \nWHERE id = {{ $json.ticketId }};\n\nINSERT INTO audit_logs (\n  created_at, updated_at, action, actor,\n  entity_type, entity_id, workflow, detail\n)\nVALUES (\n  NOW(), NOW(),\n  'MESSAGE_APPENDED', 'SYSTEM',\n  'TICKET',\n  {{ $json.ticketId }},\n  'L01_Intake',\n  '{{ JSON.stringify({ ticket_code: $json.ticketCode, channel: $(\"Set Header\").first().json.channel, sender_id: $(\"Set Header\").first().json.sender_id }) }}'\n);"
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        2464,
+        260
+      ],
+      "id": "e1f2a3b4-5678-4c90-9abc-def123456789",
+      "name": "Cập nhật Ticket & Ghi nhận bổ sung",
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "JhubOjn6p7V4rMnf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/JhubOjn6p7V4rMnf",
+          "cachedResultName": "L06_Escalation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $('HTTP Request1').first()?.json?.ticketId }}",
+            "urgency": "MEDIUM",
+            "sentiment": "NEUTRAL",
+            "need_human_review": false
+          },
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "type": "number"
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "type": "string"
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "type": "string"
+            },
+            {
+              "id": "need_human_review",
+              "displayName": "need_human_review",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2650,
+        260
+      ],
+      "id": "f2a3b4c5-6789-4d01-abcd-ef1234567890",
+      "name": "Call L06_Escalation (Kiểm tra rủi ro)"
     }
   ],
   "connections": {
@@ -910,6 +993,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Cập nhật Ticket & Ghi nhận bổ sung",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -925,6 +1015,28 @@
       ]
     },
     "Call 'My Sub-Workflow 1'": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cập nhật Ticket & Ghi nhận bổ sung": {
+      "main": [
+        [
+          {
+            "node": "Call L06_Escalation (Kiểm tra rủi ro)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call L06_Escalation (Kiểm tra rủi ro)": {
       "main": [
         [
           {

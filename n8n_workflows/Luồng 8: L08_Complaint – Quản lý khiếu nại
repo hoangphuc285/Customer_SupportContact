@@ -483,7 +483,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Bạn là chuyên viên chăm sóc khách hàng cao cấp. Hãy soạn một thông báo/thư phản hồi gửi khách hàng giải quyết khiếu nại sau đây:\n- Mã khiếu nại: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}\n- Khách hàng: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.customer_name || \"Quý khách\" }}\n- Nội dung phản ánh ban đầu: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.description }}\n- Kết quả giải quyết từ bộ phận chuyên trách: {{ $json.body?.resolution || $json.resolution || \"Đã kiểm tra và xử lý thỏa đáng sự cố.\" }}\n- Hướng khắc phục/bồi thường (nếu có): {{ $json.body?.compensation || $json.compensation || \"Gửi tặng mã giảm giá và cam kết cải thiện chất lượng dịch vụ.\" }}\n\nYêu cầu văn phong: Chân thành, đồng cảm, chuyên nghiệp, rõ ràng và lịch sự.",
+        "text": "=Bạn là chuyên viên chăm sóc khách hàng LotusCare. Hãy viết thông báo gửi khách hàng thông báo kết quả giải quyết khiếu nại:\n- Mã khiếu nại: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.complaint_code }}\n- Khách hàng: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.customer_name || 'Quý khách' }}\n- Sự cố: {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json.description }}\n- Phương án giải quyết: {{ $json.body?.resolution || $json.resolution || 'Đã kiểm tra và xử lý thỏa đáng sự cố.' }}\n- Bồi thường/khắc phục: {{ $json.body?.compensation || $json.compensation || 'Gửi tặng voucher ưu đãi và nâng cao chất lượng dịch vụ.' }}\n\nQUY TẮC BẮT BUỘC:\n- CHỈ trả về đúng nội dung bức thư/thông báo gửi tới khách hàng.\n- TUYỆT ĐỐI KHÔNG có lời chào hỏi/mở đầu với người hỏi (như: 'Chào bạn, đây là mẫu...', 'Tôi xin gợi ý...').\n- TUYỆT ĐỐI KHÔNG thêm phần ghi chú, dặn dò, lưu ý nhỏ hay hướng dẫn nhân viên ở cuối thư.\n- TUYỆT ĐỐI KHÔNG để các trường giữ chỗ trong ngoặc vuông như [Tên của bạn], [Tên công ty], [Số điện thoại]. Hãy sử dụng trực tiếp thương hiệu LotusCare và Hotline 1900 1234.",
         "batching": {}
       },
       "id": "a03dc748-064b-44da-9321-b0152b09fcfc",
@@ -521,7 +521,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json?.ticket_id }};\nINSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) \nVALUES (\n  {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json?.ticket_id }},\n  'STAFF',\n  'WEB',\n  {{ JSON.stringify($('Basic LLM Chain - Soạn giải pháp gửi khách').first()?.json?.text || \"Khiếu nại của Quý khách đã được xử lý thỏa đáng.\") }},\n  {{ JSON.stringify($('Basic LLM Chain - Soạn giải pháp gửi khách').first()?.json?.text || \"Khiếu nại của Quý khách đã được xử lý thỏa đáng.\") }},\n  'vi',\n  1,\n  NOW(6),\n  NOW(6)\n);",
+        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Chuẩn bị dữ liệu Complaint Case').first()?.json?.ticket_id }};",
         "options": {}
       },
       "id": "85e17fb1-2568-497a-a2b6-271feed31604",

@@ -626,20 +626,6 @@ public class PortalService {
 
         n8nService.resumeWaitingWebhook(null, resumeData);
 
-        // Đồng thời kích hoạt luồng L01 Intake
-        Map<String, Object> intakeData = new HashMap<>();
-        intakeData.put("channel", "WEB");
-        Map<String, Object> senderMap = new HashMap<>();
-        senderMap.put("id", "cust_" + (t.getCustomer() != null && t.getCustomer().getId() != null ? t.getCustomer().getId() : "web"));
-        senderMap.put("name", t.getCustomer() != null && t.getCustomer().getFullName() != null ? t.getCustomer().getFullName() : "Khách hàng");
-        intakeData.put("sender", senderMap);
-        intakeData.put("email", t.getCustomer() != null && t.getCustomer().getEmail() != null ? t.getCustomer().getEmail() : "");
-        intakeData.put("phone", t.getCustomer() != null && t.getCustomer().getPhone() != null ? t.getCustomer().getPhone() : "0901234567");
-        intakeData.put("message", Map.of("text", messageText));
-        intakeData.put("ticket_id", t.getId());
-        intakeData.put("ticket_code", t.getTicketCode());
-        n8nService.triggerIntakeOmnichannel(intakeData);
-
         return Map.of(
                 "status", "SUCCESS",
                 "message", "Đã gửi phản hồi bổ sung và kích hoạt n8n xử lý tiếp",
