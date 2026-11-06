@@ -292,7 +292,7 @@ export default function ProcessTicketDetailPage() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div>{m.contentOriginal}</div>
+                                                <div>{m.contentOriginal || m.content || m.message}</div>
                                             )}
                                         </div>
                                     </div>

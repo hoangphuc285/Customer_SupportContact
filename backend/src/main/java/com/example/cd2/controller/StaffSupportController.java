@@ -80,7 +80,6 @@ public class StaffSupportController {
         return ResponseEntity.ok(service.getConversations());
     }
 
-    // Lịch sử chat GET /api/chat/history/{convId} được xử lý tập trung tại ChatController
 
     @PostMapping("/chat/message")
     public ResponseEntity<Map<String, Object>> sendChatMessage(@RequestBody Map<String, String> body) {

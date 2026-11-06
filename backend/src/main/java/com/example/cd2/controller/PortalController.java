@@ -131,7 +131,7 @@ public class PortalController {
         return portal.assignedTo(p != null ? p.getStaffId() : 1L);
     }
 
-    @GetMapping("/staff/tickets")
+    @GetMapping("/portal/staff/tickets-legacy")
     public List<TicketDto> staffTickets(
             @RequestParam(required = false) String channel,
             @RequestParam(required = false) String intent,
@@ -140,7 +140,7 @@ public class PortalController {
         return portal.getAllStaffTickets(channel, intent, priority, needHumanReview);
     }
 
-    @GetMapping("/staff/tickets/{id}")
+    @GetMapping("/portal/staff/tickets-legacy/{id}")
     public Map<String, Object> staffTicketDetail(@PathVariable Long id) {
         return portal.getStaffTicketDetail(id);
     }
