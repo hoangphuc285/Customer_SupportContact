@@ -650,6 +650,29 @@ public class PortalService {
             t.setStatus(TicketStatus.RESOLVED);
             t.setResolvedAt(Instant.now());
             tickets.save(t);
+
+            // Tự động tạo tin nhắn phản hồi chính thức cho khách hàng trên Ticket
+            Message m = new Message();
+            m.setTicket(t);
+            m.setSenderType(SenderType.STAFF);
+            m.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);
+            m.setApprovedByHuman(true);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("Kính gửi Quý khách, khiếu nại của Quý khách (Mã: ").append(c.getComplaintCode()).append(") đã được xử lý:\n\n");
+            sb.append("• Phương án giải quyết: ").append(resolution).append("\n");
+            if (rootCause != null && !rootCause.isBlank()) {
+                sb.append("• Nguyên nhân sự cố: ").append(rootCause).append("\n");
+            }
+            if (compensation != null && !compensation.isBlank()) {
+                sb.append("• Hướng khắc phục / Bồi thường: ").append(compensation).append("\n");
+            }
+            sb.append("\nChúng tôi chân thành xin lỗi vì sự bất tiện này và trân trọng cảm ơn Quý khách đã phản hồi giúp LotusCare nâng cao chất lượng dịch vụ!");
+
+            m.setContentOriginal(sb.toString());
+            m.setContentTranslated(sb.toString());
+            m.setLanguage("vi");
+            messages.save(m);
         }
 
         // Kích hoạt đánh thức n8n Wait node nếu đang chờ (Webhook L08) - GIẢI PHÁP 3
