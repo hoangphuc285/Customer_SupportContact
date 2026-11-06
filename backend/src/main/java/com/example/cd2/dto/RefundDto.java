@@ -11,5 +11,8 @@ public record RefundDto(
         String reason,
         String status,
         String approvalLevel,
+        String evidenceUrl,
+        String ticketCode,
+        Long ticketId,
         Instant createdAt) {
 }

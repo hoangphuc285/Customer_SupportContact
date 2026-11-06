@@ -51,6 +51,21 @@ public class PortalController {
         return portal.myRefunds(customerId);
     }
 
+    @GetMapping("/portal/refunds/{code}")
+    public Map<String, Object> getRefundDetail(@PathVariable String code) {
+        return portal.getRefundDetail(code);
+    }
+
+    @PostMapping("/portal/refunds/{code}/provide-order")
+    public Map<String, Object> provideRefundOrderCode(@PathVariable String code, @RequestBody Map<String, Object> body) {
+        return portal.provideRefundOrderCode(code, body);
+    }
+
+    @PostMapping("/portal/refunds/{code}/provide-evidence")
+    public Map<String, Object> provideRefundEvidence(@PathVariable String code, @RequestBody Map<String, Object> body) {
+        return portal.provideRefundEvidence(code, body);
+    }
+
     @PostMapping("/portal/refunds")
     public RefundDto createRefund(@AuthenticationPrincipal AccountPrincipal p,
                                   @RequestBody Map<String, Object> req) {
@@ -86,6 +101,12 @@ public class PortalController {
                                   @RequestBody Map<String, Object> req) {
         Long customerId = (p != null) ? p.getCustomerId() : 2L;
         return portal.createTicket(req, customerId);
+    }
+
+    @PostMapping("/portal/tickets/{id}/reply")
+    public Map<String, Object> replyTicket(@PathVariable Long id, @RequestBody Map<String, Object> req) {
+        String msg = (String) req.getOrDefault("message", "");
+        return portal.replyTicket(id, msg);
     }
 
     @GetMapping("/portal/tickets/{id}/messages")
