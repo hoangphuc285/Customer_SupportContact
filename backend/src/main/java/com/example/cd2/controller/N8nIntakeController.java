@@ -3,7 +3,9 @@ package com.example.cd2.controller;
 import com.example.cd2.dto.AttachmentInput;
 import com.example.cd2.dto.IntakeRequest;
 import com.example.cd2.dto.IntakeResponse;
+import com.example.cd2.entity.Ticket;
 import com.example.cd2.enums.Channel;
+import com.example.cd2.repository.TicketRepository;
 import com.example.cd2.service.IntakeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +24,11 @@ public class N8nIntakeController {
 
     private static final Logger log = LoggerFactory.getLogger(N8nIntakeController.class);
     private final IntakeService intake;
+    private final TicketRepository ticketRepository;
 
-    public N8nIntakeController(IntakeService intake) {
+    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository) {
         this.intake = intake;
+        this.ticketRepository = ticketRepository;
     }
 
     /** Kiem tra ket noi / API key tu n8n. */
@@ -40,6 +44,49 @@ public class N8nIntakeController {
     @PostMapping("/tickets")
     public ResponseEntity<IntakeResponse> intakeFlexible(@RequestBody Map<String, Object> body) {
         log.info("N8nIntakeController received payload: {}", body);
+
+        // 0. Kiem tra xem da co ticket_id hoac ticket_code san tu Frontend/Portal chua de tranh tao trung
+        Long existingTicketId = null;
+        if (body.get("ticket_id") != null && !body.get("ticket_id").toString().isBlank()) {
+            try {
+                existingTicketId = Long.parseLong(body.get("ticket_id").toString().trim());
+            } catch (Exception ignored) {}
+        } else if (body.get("ticketId") != null && !body.get("ticketId").toString().isBlank()) {
+            try {
+                existingTicketId = Long.parseLong(body.get("ticketId").toString().trim());
+            } catch (Exception ignored) {}
+        }
+
+        String existingTicketCode = null;
+        if (body.get("ticket_code") != null && !body.get("ticket_code").toString().isBlank()) {
+            existingTicketCode = body.get("ticket_code").toString().trim();
+        } else if (body.get("ticketCode") != null && !body.get("ticketCode").toString().isBlank()) {
+            existingTicketCode = body.get("ticketCode").toString().trim();
+        }
+
+        if (existingTicketId != null || existingTicketCode != null) {
+            Ticket foundTicket = null;
+            if (existingTicketId != null) {
+                foundTicket = ticketRepository.findById(existingTicketId).orElse(null);
+            }
+            if (foundTicket == null && existingTicketCode != null) {
+                foundTicket = ticketRepository.findByTicketCode(existingTicketCode).orElse(null);
+            }
+            if (foundTicket != null) {
+                log.info("N8nIntakeController: Tai su dung ticket da co #{} ({})", foundTicket.getId(), foundTicket.getTicketCode());
+                Long custId = foundTicket.getCustomer() != null ? foundTicket.getCustomer().getId() : 1L;
+                return ResponseEntity.ok(new IntakeResponse(
+                        foundTicket.getId(),
+                        foundTicket.getTicketCode(),
+                        foundTicket.getStatus().name(),
+                        custId,
+                        null,
+                        true,
+                        false,
+                        false
+                ));
+            }
+        }
 
         // 1. Channel
         String rawChannel = body.get("channel") != null ? body.get("channel").toString().trim().toUpperCase() : "WEB";

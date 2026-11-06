@@ -95,6 +95,18 @@
               "name": "attachment_url",
               "value": "={{ $json.body.attachment_url || $json.body.attachments?.[0]?.url || $json.body.attachments?.[0]?.payload?.url || null }}",
               "type": "string"
+            },
+            {
+              "id": "ticket-id-field-id",
+              "name": "ticket_id",
+              "value": "={{ $json.body.ticket_id || null }}",
+              "type": "number"
+            },
+            {
+              "id": "ticket-code-field-id",
+              "name": "ticket_code",
+              "value": "={{ $json.body.ticket_code || null }}",
+              "type": "string"
             }
           ]
         },
@@ -523,7 +535,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    \"channel\": $('Set Header').first().json.channel ? $('Set Header').first().json.channel.toUpperCase() : null,\n    \"senderId\": $('Set Header').first().json.sender_id ? $('Set Header').first().json.sender_id.toString() : null,\n    \"hasAttachment\": $('Set Header').first().json.has_attachment ?? false,\n    \"text\": $('Set Header').first().json.text ?? \"\"\n  }\n}}",
+        "jsonBody": "={{\n  {\n    \"channel\": $('Set Header').first().json.channel ? $('Set Header').first().json.channel.toUpperCase() : null,\n    \"senderId\": $('Set Header').first().json.sender_id ? $('Set Header').first().json.sender_id.toString() : null,\n    \"name\": $('Set Header').first().json.sender_name ?? null,\n    \"email\": $('Set Header').first().json.email ?? null,\n    \"phone\": $('Set Header').first().json.phone ?? null,\n    \"hasAttachment\": $('Set Header').first().json.has_attachment ?? false,\n    \"text\": $('Set Header').first().json.text ?? $('Set Header').first().json.message ?? \"\",\n    \"ticket_id\": $('Set Header').first().json.ticket_id ?? null,\n    \"ticket_code\": $('Set Header').first().json.ticket_code ?? null\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

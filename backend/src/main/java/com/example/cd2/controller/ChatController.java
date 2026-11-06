@@ -77,18 +77,65 @@ public class ChatController {
         ));
     }
 
+    @GetMapping("/sessions")
+    public List<Map<String, Object>> getSessions(@RequestParam(required = false) Long customerId,
+                                                 @RequestParam(required = false) String email) {
+        List<Ticket> list;
+        if (customerId != null) {
+            list = ticketRepo.findByCustomerIdOrderByCreatedAtDesc(customerId);
+        } else if (email != null && !email.isBlank()) {
+            list = ticketRepo.findAllByOrderByCreatedAtDesc().stream()
+                    .filter(t -> t.getCustomer() != null && email.equalsIgnoreCase(t.getCustomer().getEmail()))
+                    .toList();
+        } else {
+            list = ticketRepo.findAllByOrderByCreatedAtDesc();
+        }
+
+        return list.stream()
+                .filter(t -> t.getChannel() == Channel.LIVECHAT || (t.getTicketCode() != null && t.getTicketCode().startsWith("CHAT-")))
+                .map(t -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("conversationId", t.getTicketCode());
+                    map.put("ticketId", t.getId());
+                    map.put("ticketCode", t.getTicketCode());
+                    map.put("subject", t.getSubject());
+                    map.put("status", t.getStatus() != null ? t.getStatus().name() : "OPEN");
+                    map.put("channel", t.getChannel() != null ? t.getChannel().name() : "LIVECHAT");
+                    map.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : "");
+                    return map;
+                }).toList();
+    }
+
     @GetMapping("/history/{convId}")
     public List<Map<String, Object>> getHistory(@PathVariable String convId) {
+        if (convId == null || convId.isBlank()) return List.of();
+
+        // 1. Tìm theo ticketCode (dành cho User Chat: CHAT-..., TK-...)
         Optional<Ticket> ticketOpt = ticketRepo.findByTicketCode(convId);
+
+        // 2. Nếu không tìm thấy, thử tìm theo Ticket ID (dành cho Staff Chat: CONV-1, 1...)
+        if (ticketOpt.isEmpty()) {
+            String clean = convId.trim();
+            if (clean.startsWith("CONV-")) {
+                clean = clean.substring(5);
+            }
+            try {
+                Long id = Long.parseLong(clean);
+                ticketOpt = ticketRepo.findById(id);
+            } catch (NumberFormatException ignored) {}
+        }
+
         if (ticketOpt.isEmpty()) return List.of();
 
         List<Message> msgs = messageRepo.findByTicketIdOrderByCreatedAtAsc(ticketOpt.get().getId());
         return msgs.stream().map(m -> {
-            Map<String, Object> map = new HashMap<>();
+            Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", m.getId());
-            map.put("senderType", m.getSenderType().name());
+            map.put("senderType", m.getSenderType() != null ? m.getSenderType().name() : "CUSTOMER");
             map.put("contentOriginal", m.getContentOriginal());
-            map.put("createdAt", m.getCreatedAt().toString());
+            map.put("content", m.getContentOriginal());
+            map.put("message", m.getContentOriginal());
+            map.put("createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : Instant.now().toString());
             return map;
         }).toList();
     }
@@ -137,6 +184,8 @@ public class ChatController {
         intakePayload.put("email", customer.getEmail() != null ? customer.getEmail() : "nguyenphucphi213@gmail.com");
         intakePayload.put("phone", customer.getPhone() != null ? customer.getPhone() : "0901234567");
         intakePayload.put("message", Map.of("text", userText));
+        intakePayload.put("ticket_id", ticket.getId());
+        intakePayload.put("ticket_code", ticket.getTicketCode());
         n8nService.triggerIntakeOmnichannel(intakePayload);
 
         Map<String, Object> n8nPayload = new HashMap<>();

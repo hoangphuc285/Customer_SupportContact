@@ -5,6 +5,8 @@ import com.example.cd2.entity.*;
 import com.example.cd2.enums.*;
 import com.example.cd2.exception.ApiException;
 import com.example.cd2.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,8 @@ import java.util.UUID;
 @Service
 @Transactional(readOnly = true)
 public class PortalService {
+
+    private static final Logger log = LoggerFactory.getLogger(PortalService.class);
 
     private final CustomerOrderRepository orders;
     private final OrderItemRepository orderItems;
@@ -126,6 +130,9 @@ public class PortalService {
                 r.getReason(),
                 r.getStatus().name(),
                 r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "AUTO",
+                r.getEvidenceUrl(),
+                r.getTicket() != null ? r.getTicket().getTicketCode() : null,
+                r.getTicket() != null ? r.getTicket().getId() : null,
                 r.getCreatedAt()
         )).toList();
     }
@@ -182,42 +189,81 @@ public class PortalService {
         String reason = (String) req.getOrDefault("reason", "Yêu cầu hoàn tiền");
         String evidenceUrl = (String) req.getOrDefault("evidenceUrl", "");
 
-        CustomerOrder order = orders.findByOrderCode(orderCode)
-                .or(() -> orders.findByOrderCode(orderCode.replaceFirst("(?i)DH", "DH-")))
-                .or(() -> orders.findByOrderCode(orderCode.replaceFirst("(?i)DH-", "DH")))
-                .orElseGet(() -> {
-                    List<CustomerOrder> all = orders.findAll();
-                    return all.isEmpty() ? null : all.get(0);
-                });
+        CustomerOrder order = null;
+        if (orderCode != null && !orderCode.isBlank()) {
+            order = orders.findByOrderCode(orderCode)
+                    .or(() -> orders.findByOrderCode(orderCode.replaceFirst("(?i)DH", "DH-")))
+                    .or(() -> orders.findByOrderCode(orderCode.replaceFirst("(?i)DH-", "DH")))
+                    .orElse(null);
+        }
+        if (order == null) {
+            List<CustomerOrder> all = orders.findAll();
+            order = all.isEmpty() ? null : all.get(0);
+        }
+
+        Customer customer = (customerId != null) ? customers.findById(customerId).orElse(null) : null;
+        if (customer == null && order != null && order.getCustomer() != null) {
+            customer = order.getCustomer();
+        }
+        if (customer == null) {
+            customer = customers.findById(2L).orElseGet(() -> {
+                List<Customer> all = customers.findAll();
+                return all.isEmpty() ? null : all.get(0);
+            });
+        }
+
+        // Tạo Ticket thực tế để lưu trữ và liên kết với Refund, cho phép khách hàng tra cứu tiến độ trên Cổng Hỗ Trợ
+        Ticket ticket = new Ticket();
+        ticket.setTicketCode("TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        ticket.setCustomer(customer);
+        ticket.setSubject("Yêu cầu hoàn tiền đơn hàng #" + (order != null ? order.getOrderCode() : (orderCode != null ? orderCode : "DH1024")));
+        ticket.setIntent(Intent.REFUND);
+        ticket.setChannel(Channel.WEB);
+        ticket.setStatus(TicketStatus.OPEN);
+        ticket.setPriority(Priority.P2);
+        ticket.setNeedHumanReview(false);
+        Ticket savedTicket = tickets.save(ticket);
+
+        // Lưu tin nhắn yêu cầu của khách hàng
+        Message msg = new Message();
+        msg.setTicket(savedTicket);
+        msg.setSenderType(SenderType.CUSTOMER);
+        msg.setChannel(Channel.WEB);
+        msg.setContentOriginal(reason + (evidenceUrl != null && !evidenceUrl.isBlank() ? " | Link bằng chứng: " + evidenceUrl : ""));
+        msg.setContentTranslated(msg.getContentOriginal());
+        msg.setLanguage("vi");
+        msg.setApprovedByHuman(false);
+        messages.save(msg);
 
         ApprovalLevel level = ApprovalLevel.AUTO;
-        RefundStatus status = RefundStatus.APPROVED;
         if (amount.compareTo(BigDecimal.valueOf(500000)) <= 0) {
             level = ApprovalLevel.AUTO;
-            status = RefundStatus.APPROVED;
         } else if (amount.compareTo(BigDecimal.valueOf(5000000)) <= 0) {
             level = ApprovalLevel.TEAM_LEAD;
-            status = RefundStatus.PENDING_INFO;
         } else {
             level = ApprovalLevel.MANAGER;
-            status = RefundStatus.PENDING_INFO;
         }
 
         Refund r = new Refund();
         r.setRefundCode("REF-" + System.currentTimeMillis() % 1000000);
         r.setOrder(order);
+        r.setTicket(savedTicket);
         r.setAmount(amount);
         r.setReason(reason);
         r.setEvidenceUrl(evidenceUrl);
-        r.setStatus(status);
+        r.setStatus(RefundStatus.PENDING_INFO); // Ban đầu ở trạng thái thẩm định tự động qua L09
         r.setApprovalLevel(level);
         Refund saved = refunds.save(r);
 
-        // Kích hoạt webhook n8n Luồng L09_Refund
+        // Kích hoạt webhook n8n Luồng L09_Refund với đầy đủ ticket_id và ticket_code
         Map<String, Object> n8nData = new HashMap<>();
         n8nData.put("refund_code", saved.getRefundCode());
-        n8nData.put("order_code", orderCode);
-        n8nData.put("customer_id", customerId != null ? customerId : 2L);
+        n8nData.put("ticket_id", savedTicket.getId());
+        n8nData.put("ticket_code", savedTicket.getTicketCode());
+        n8nData.put("order_code", order != null ? order.getOrderCode() : (orderCode != null ? orderCode : "DH1024"));
+        n8nData.put("customer_id", customer != null ? customer.getId() : 2L);
+        n8nData.put("customer_name", customer != null ? customer.getFullName() : "Khách hàng");
+        n8nData.put("customer_email", customer != null ? customer.getEmail() : "nguyenphucphi213@gmail.com");
         n8nData.put("amount", amount);
         n8nData.put("reason", reason);
         n8nData.put("evidence_url", evidenceUrl);
@@ -231,6 +277,9 @@ public class PortalService {
                 saved.getReason(),
                 saved.getStatus().name(),
                 saved.getApprovalLevel().name(),
+                saved.getEvidenceUrl(),
+                savedTicket.getTicketCode(),
+                savedTicket.getId(),
                 saved.getCreatedAt()
         );
     }
@@ -329,40 +378,132 @@ public class PortalService {
     public TicketDto createTicket(Map<String, Object> req, Long customerId) {
         String subject = (String) req.getOrDefault("subject", "Yêu cầu hỗ trợ");
         String content = (String) req.getOrDefault("content", "Nội dung cần hỗ trợ");
+        String customerName = (String) req.get("customerName");
+        String customerEmail = (String) req.get("customerEmail");
+        String phone = (String) req.get("phone");
+        String attachmentUrl = (String) req.get("attachmentUrl");
 
-        Customer c = customerId != null ? customers.findById(customerId).orElse(null) : null;
+        Customer c = (customerId != null) ? customers.findById(customerId).orElse(null) : null;
+        if (c == null && customerEmail != null && !customerEmail.isBlank()) {
+            c = customers.findByEmail(customerEmail.trim()).orElse(null);
+            if (c == null) {
+                c = new Customer();
+                c.setFullName(customerName != null && !customerName.isBlank() ? customerName.trim() : "Khách hàng Web");
+                c.setEmail(customerEmail.trim());
+                c.setPhone(phone != null ? phone.trim() : "0901234567");
+                c = customers.save(c);
+            }
+        }
         if (c == null) {
-            c = customers.findAll().get(0);
+            List<Customer> all = customers.findAll();
+            c = all.isEmpty() ? null : all.get(0);
         }
 
         Ticket t = new Ticket();
         t.setTicketCode("TK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         t.setSubject(subject);
         t.setCustomer(c);
-        t.setStatus(TicketStatus.NEW);
-        t.setPriority(Priority.P3);
-        t.setChannel(Channel.LIVECHAT);
+        t.setStatus(TicketStatus.OPEN);
+        t.setPriority(Priority.P2);
+        t.setChannel(Channel.WEB);
         Ticket saved = tickets.save(t);
 
         Message m = new Message();
         m.setTicket(saved);
         m.setSenderType(SenderType.CUSTOMER);
-        m.setContentOriginal(content);
-        m.setContentTranslated(content);
-        m.setChannel(Channel.LIVECHAT);
+        m.setContentOriginal(content + (attachmentUrl != null && !attachmentUrl.isBlank() ? " | Link đính kèm: " + attachmentUrl : ""));
+        m.setContentTranslated(m.getContentOriginal());
+        m.setChannel(Channel.WEB);
+        m.setApprovedByHuman(false);
         messages.save(m);
 
-        // Kích hoạt webhook n8n Luồng L01_Intake
+        // Kích hoạt webhook n8n Luồng L01_Intake theo đúng chuẩn L01 Webhook
         Map<String, Object> n8nData = new HashMap<>();
-        n8nData.put("sender_id", "cust_" + c.getId());
         n8nData.put("channel", "WEB");
-        n8nData.put("customer_name", c.getFullName());
-        n8nData.put("customer_email", c.getEmail());
-        n8nData.put("text", content);
+        Map<String, Object> senderMap = new HashMap<>();
+        senderMap.put("id", "cust_" + (c != null ? c.getId() : "web"));
+        senderMap.put("name", c != null ? c.getFullName() : (customerName != null ? customerName : "Khách hàng Web"));
+        n8nData.put("sender", senderMap);
+        n8nData.put("email", c != null ? c.getEmail() : customerEmail);
+        n8nData.put("phone", c != null && c.getPhone() != null ? c.getPhone() : (phone != null ? phone : "0901234567"));
+        n8nData.put("message", Map.of("text", subject + ": " + content));
         n8nData.put("ticket_id", saved.getId());
+        n8nData.put("ticket_code", saved.getTicketCode());
+        if (attachmentUrl != null && !attachmentUrl.isBlank()) {
+            n8nData.put("attachment_url", attachmentUrl);
+            n8nData.put("has_attachment", true);
+        }
         n8nService.triggerIntakeOmnichannel(n8nData);
 
         return toDto(saved);
+    }
+
+    @Transactional
+    public Map<String, Object> replyTicket(Long ticketId, String messageText) {
+        Ticket t = tickets.findById(ticketId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy ticket: " + ticketId));
+
+        if (messageText == null || messageText.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Nội dung phản hồi không được để trống");
+        }
+
+        // 1. Lưu tin nhắn của khách vào MySQL
+        Message msg = new Message();
+        msg.setTicket(t);
+        msg.setSenderType(SenderType.CUSTOMER);
+        msg.setContentOriginal(messageText.trim());
+        msg.setContentTranslated(messageText.trim());
+        msg.setChannel(t.getChannel() != null ? t.getChannel() : Channel.WEB);
+        msg.setApprovedByHuman(false);
+        messages.save(msg);
+
+        // 2. Chuyển trạng thái ticket về OPEN
+        t.setStatus(TicketStatus.OPEN);
+        tickets.save(t);
+
+        // 3. Trích xuất mã đơn hàng hoặc số serial nếu có
+        String orderCode = null;
+        String serialNumber = null;
+        java.util.regex.Matcher mOrder = java.util.regex.Pattern.compile("(?:ORD-|DH-?)\\d{3,6}", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(messageText);
+        if (mOrder.find()) {
+            orderCode = mOrder.group(0).toUpperCase();
+        }
+        java.util.regex.Matcher mSerial = java.util.regex.Pattern.compile("SN-[A-Z0-9-]+", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(messageText);
+        if (mSerial.find()) {
+            serialNumber = mSerial.group(0).toUpperCase();
+        }
+
+        // 4. Đánh thức n8n nếu có execution đang chờ (L09 Wait mã đơn hoặc L10 Wait serial)
+        Map<String, Object> resumeData = new HashMap<>();
+        resumeData.put("ticket_id", t.getId());
+        resumeData.put("ticket_code", t.getTicketCode());
+        resumeData.put("message", messageText);
+        if (orderCode != null) resumeData.put("order_code", orderCode);
+        if (serialNumber != null) resumeData.put("serial_number", serialNumber);
+
+        n8nService.resumeWaitingWebhook(null, resumeData);
+
+        // Đồng thời kích hoạt luồng L01 Intake
+        Map<String, Object> intakeData = new HashMap<>();
+        intakeData.put("channel", "WEB");
+        Map<String, Object> senderMap = new HashMap<>();
+        senderMap.put("id", "cust_" + (t.getCustomer() != null && t.getCustomer().getId() != null ? t.getCustomer().getId() : "web"));
+        senderMap.put("name", t.getCustomer() != null && t.getCustomer().getFullName() != null ? t.getCustomer().getFullName() : "Khách hàng");
+        intakeData.put("sender", senderMap);
+        intakeData.put("email", t.getCustomer() != null && t.getCustomer().getEmail() != null ? t.getCustomer().getEmail() : "");
+        intakeData.put("phone", t.getCustomer() != null && t.getCustomer().getPhone() != null ? t.getCustomer().getPhone() : "0901234567");
+        intakeData.put("message", Map.of("text", messageText));
+        intakeData.put("ticket_id", t.getId());
+        intakeData.put("ticket_code", t.getTicketCode());
+        n8nService.triggerIntakeOmnichannel(intakeData);
+
+        return Map.of(
+                "status", "SUCCESS",
+                "message", "Đã gửi phản hồi bổ sung và kích hoạt n8n xử lý tiếp",
+                "ticketId", t.getId(),
+                "orderCode", orderCode != null ? orderCode : "",
+                "serialNumber", serialNumber != null ? serialNumber : ""
+        );
     }
 
     // ---- Nhan vien ----
@@ -532,12 +673,23 @@ public class PortalService {
         );
     }
 
-    // Phê duyệt hoàn tiền (L09)
+    // Phê duyệt hoàn tiền (L09) - Đánh thức n8n Wait Node
     @Transactional
     public Map<String, Object> approveRefund(Long id, Map<String, Object> body) {
         Refund r = refunds.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hoàn tiền #" + id));
         r.setStatus(RefundStatus.APPROVED);
         refunds.save(r);
+
+        try {
+            Map<String, Object> resumePayload = new HashMap<>();
+            resumePayload.put("refund_code", r.getRefundCode());
+            resumePayload.put("status", "APPROVED");
+            resumePayload.put("refund_id", id);
+            n8nService.resumeWaitingWebhook("698f41c4-e7fe-4b09-b8c9-d0d3d14f1e47", resumePayload);
+        } catch (Exception ex) {
+            log.warn("Lỗi đánh thức n8n duyệt hoàn tiền L09: {}", ex.getMessage());
+        }
+
         return Map.of("status", "APPROVED", "refundCode", r.getRefundCode());
     }
 
@@ -546,7 +698,100 @@ public class PortalService {
         Refund r = refunds.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hoàn tiền #" + id));
         r.setStatus(RefundStatus.REJECTED);
         refunds.save(r);
+
+        try {
+            Map<String, Object> resumePayload = new HashMap<>();
+            resumePayload.put("refund_code", r.getRefundCode());
+            resumePayload.put("status", "REJECTED");
+            resumePayload.put("refund_id", id);
+            n8nService.resumeWaitingWebhook("698f41c4-e7fe-4b09-b8c9-d0d3d14f1e47", resumePayload);
+        } catch (Exception ex) {
+            log.warn("Lỗi đánh thức n8n từ chối hoàn tiền L09: {}", ex.getMessage());
+        }
+
         return Map.of("status", "REJECTED", "refundCode", r.getRefundCode());
+    }
+
+    // Khách hàng bổ sung mã đơn hàng khi Luồng 9 rơi vào Wait Node (L09)
+    @Transactional
+    public Map<String, Object> provideRefundOrderCode(String refundCode, Map<String, Object> body) {
+        String rawCode = (String) body.get("orderCode");
+        if (rawCode == null || rawCode.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng nhập mã đơn hàng hợp lệ");
+        }
+        final String orderCode = rawCode.trim().toUpperCase();
+
+        Optional<Refund> rOpt = refunds.findByRefundCode(refundCode);
+        if (rOpt.isPresent()) {
+            Refund r = rOpt.get();
+            CustomerOrder o = orders.findByOrderCode(orderCode)
+                    .or(() -> orders.findByOrderCode(orderCode.replace("-", "")))
+                    .orElse(null);
+            if (o != null) {
+                r.setOrder(o);
+                refunds.save(r);
+            }
+        }
+
+        try {
+            Map<String, Object> resumePayload = new HashMap<>();
+            resumePayload.put("order_code", orderCode);
+            resumePayload.put("refund_code", refundCode);
+            n8nService.resumeWaitingWebhook("4e1a695c-b896-41a7-bb60-a44ed0dcc324", resumePayload);
+        } catch (Exception ex) {
+            log.warn("Lỗi đánh thức n8n Wait bổ sung mã đơn L09: {}", ex.getMessage());
+        }
+
+        return Map.of("status", "SUCCESS", "message", "Đã cập nhật mã đơn hàng và gửi tiếp tục xử lý", "orderCode", orderCode);
+    }
+
+    // Khách hàng tải lên ảnh/bằng chứng khi Luồng 9 rơi vào Wait Node (L09)
+    @Transactional
+    public Map<String, Object> provideRefundEvidence(String refundCode, Map<String, Object> body) {
+        String evidenceUrl = (String) body.get("evidenceUrl");
+        if (evidenceUrl == null || evidenceUrl.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp link hình ảnh/video bằng chứng");
+        }
+
+        Optional<Refund> rOpt = refunds.findByRefundCode(refundCode);
+        if (rOpt.isPresent()) {
+            Refund r = rOpt.get();
+            r.setEvidenceUrl(evidenceUrl);
+            refunds.save(r);
+        }
+
+        try {
+            Map<String, Object> resumePayload = new HashMap<>();
+            resumePayload.put("evidence_url", evidenceUrl);
+            resumePayload.put("refund_code", refundCode);
+            n8nService.resumeWaitingWebhook("44c7676f-26a7-42a9-8814-a28f964c3aa6", resumePayload);
+        } catch (Exception ex) {
+            log.warn("Lỗi đánh thức n8n Wait bổ sung ảnh L09: {}", ex.getMessage());
+        }
+
+        return Map.of("status", "SUCCESS", "message", "Đã tiếp nhận bằng chứng ảnh và chuyển AI Vision thẩm định", "evidenceUrl", evidenceUrl);
+    }
+
+    // Xem chi tiết đơn hoàn tiền theo refundCode
+    public Map<String, Object> getRefundDetail(String refundCode) {
+        Refund r = refunds.findByRefundCode(refundCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền #" + refundCode));
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("id", r.getId());
+        res.put("refundCode", r.getRefundCode());
+        res.put("orderCode", r.getOrder() != null ? r.getOrder().getOrderCode() : "N/A");
+        res.put("amount", r.getAmount());
+        res.put("reason", r.getReason());
+        res.put("evidenceUrl", r.getEvidenceUrl());
+        res.put("status", r.getStatus() != null ? r.getStatus().name() : "PENDING_INFO");
+        res.put("approvalLevel", r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "AUTO");
+        res.put("paymentRef", r.getPaymentRef());
+        res.put("ticketCode", r.getTicket() != null ? r.getTicket().getTicketCode() : null);
+        res.put("ticketId", r.getTicket() != null ? r.getTicket().getId() : null);
+        res.put("ticketStatus", r.getTicket() != null ? r.getTicket().getStatus().name() : null);
+        res.put("createdAt", r.getCreatedAt() != null ? r.getCreatedAt().toString() : "");
+        return res;
     }
 
     // Danh sách chờ duyệt (L05, L09, L03 - Thay cho Telegram Send and Wait)
@@ -562,6 +807,9 @@ public class PortalService {
                 r.getReason(),
                 r.getStatus().name(),
                 r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "TEAM_LEAD",
+                r.getEvidenceUrl(),
+                r.getTicket() != null ? r.getTicket().getTicketCode() : null,
+                r.getTicket() != null ? r.getTicket().getId() : null,
                 r.getCreatedAt()
         )).toList();
 
@@ -635,6 +883,9 @@ public class PortalService {
                 r.getReason(),
                 r.getStatus().name(),
                 r.getApprovalLevel() != null ? r.getApprovalLevel().name() : "TEAM_LEAD",
+                r.getEvidenceUrl(),
+                r.getTicket() != null ? r.getTicket().getTicketCode() : null,
+                r.getTicket() != null ? r.getTicket().getId() : null,
                 r.getCreatedAt()
         )).toList();
     }

@@ -12,7 +12,8 @@ import {
     RotateCcw as RefundIcon, 
     AlertTriangle,
     ShieldAlert,
-    ExternalLink
+    ExternalLink,
+    Image as ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -270,6 +271,21 @@ export default function StaffApprovalsPage() {
                                         <p className="text-xs text-slate-300">
                                             <strong className="text-slate-400">Lý do:</strong> {r.reason || 'Sản phẩm lỗi hoặc không đúng mô tả'}
                                         </p>
+
+                                        {r.evidenceUrl && (
+                                            <div className="flex items-center gap-2 pt-1">
+                                                <span className="text-xs text-slate-400 font-semibold">Bằng chứng:</span>
+                                                <a 
+                                                    href={r.evidenceUrl} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 text-indigo-400 hover:text-indigo-300 text-xs font-bold border border-slate-700 transition"
+                                                >
+                                                    <ImageIcon size={13} />
+                                                    <span>Xem ảnh lỗi</span>
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Action Buttons */}
