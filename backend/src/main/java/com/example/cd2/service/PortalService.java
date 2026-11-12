@@ -41,6 +41,8 @@ public class PortalService {
     private final KbDocumentRepository kbDocuments;
     private final QaService qaService;
     private final KnowledgeGapRepository knowledgeGaps;
+    private final QaScoreRepository qaScores;
+    private final ReportingService reportingService;
     private final AuditLogRepository auditLogs;
     private final StaffRepository staffRepo;
 
@@ -59,6 +61,8 @@ public class PortalService {
             KbDocumentRepository kbDocuments,
             QaService qaService,
             KnowledgeGapRepository knowledgeGaps,
+            QaScoreRepository qaScores,
+            ReportingService reportingService,
             AuditLogRepository auditLogs,
             StaffRepository staffRepo) {
         this.orders = orders;
@@ -75,6 +79,8 @@ public class PortalService {
         this.kbDocuments = kbDocuments;
         this.qaService = qaService;
         this.knowledgeGaps = knowledgeGaps;
+        this.qaScores = qaScores;
+        this.reportingService = reportingService;
         this.auditLogs = auditLogs;
         this.staffRepo = staffRepo;
     }
@@ -817,7 +823,9 @@ public class PortalService {
                 t.getSentiment() != null ? t.getSentiment().name() : "NEUTRAL",
                 t.getUrgency() != null ? t.getUrgency().name() : "MEDIUM",
                 t.getCustomer() != null ? t.getCustomer().getFullName() : "Khách hàng",
-                t.getCustomer() != null ? t.getCustomer().getEmail() : null
+                t.getCustomer() != null ? t.getCustomer().getEmail() : null,
+                t.isSlaBreached(),
+                t.getLastAlertLevel()
         );
     }
 
@@ -847,7 +855,7 @@ public class PortalService {
             map.put("contentTranslated", m.getContentTranslated() != null ? m.getContentTranslated() : m.getContentOriginal());
             map.put("language", m.getLanguage() != null ? m.getLanguage() : "vi");
             map.put("channel", m.getChannel().name());
-            map.put("createdAt", m.getCreatedAt().toString());
+            map.put("createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : "");
             return map;
         }).toList();
 
@@ -1453,52 +1461,7 @@ public class PortalService {
 
     // Báo cáo (L12)
     public Map<String, Object> getStaffReports() {
-        List<Ticket> all = tickets.findAll();
-        long total = all.size();
-
-        Map<String, Long> byChannel = new HashMap<>();
-        Map<String, Long> byIntent = new HashMap<>();
-        long breachedCount = 0;
-        double csatSum = 0;
-        long csatCount = 0;
-
-        for (Ticket t : all) {
-            String ch = t.getChannel() != null ? t.getChannel().name() : "OTHER";
-            byChannel.put(ch, byChannel.getOrDefault(ch, 0L) + 1);
-
-            String it = t.getIntent() != null ? t.getIntent().name() : "OTHER";
-            byIntent.put(it, byIntent.getOrDefault(it, 0L) + 1);
-
-            if (t.isSlaBreached()) breachedCount++;
-            if (t.getCsatScore() != null) {
-                csatSum += t.getCsatScore();
-                csatCount++;
-            }
-        }
-
-        double breachRate = total > 0 ? (double) breachedCount * 100.0 / total : 0.0;
-        double avgCsat = csatCount > 0 ? csatSum / csatCount : 4.6;
-
-        List<Map<String, Object>> gaps = knowledgeGaps.findAllByOrderByCreatedAtDesc().stream().map(g -> {
-            Map<String, Object> gm = new HashMap<>();
-            gm.put("id", g.getId());
-            gm.put("question", g.getQuestion());
-            gm.put("status", g.getStatus().name());
-            gm.put("createdAt", g.getCreatedAt() != null ? g.getCreatedAt().toString() : null);
-            return gm;
-        }).toList();
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("totalTickets", total);
-        res.put("ticketsByChannel", byChannel);
-        res.put("ticketsByIntent", byIntent);
-        res.put("avgResponseTimeMinutes", 12.4);
-        res.put("aiResolutionRate", 76.5);
-        res.put("csatAverage", Math.round(avgCsat * 10.0) / 10.0);
-        res.put("slaBreachRate", Math.round(breachRate * 10.0) / 10.0);
-        res.put("noAnswerGaps", gaps);
-
-        return res;
+        return reportingService.getStaffReports();
     }
 
     // Kích hoạt đánh giá QA (L11)
@@ -1510,59 +1473,18 @@ public class PortalService {
     // Kích hoạt báo cáo vận hành & lỗ hổng tri thức (L12)
     @Transactional
     public Map<String, Object> triggerReporting(Map<String, Object> req) {
-        String actor = (req != null && req.get("actor") != null) ? req.get("actor").toString() : "STAFF_PORTAL";
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("timestamp", Instant.now().toString());
-        payload.put("triggeredBy", actor);
-        if (req != null) {
-            payload.putAll(req);
-        }
-
-        n8nService.triggerReporting(payload);
-
-        AuditLog audit = new AuditLog();
-        audit.setWorkflow("L12_Reporting");
-        audit.setEntityType("reporting");
-        audit.setAction("TRIGGER_REPORTING");
-        audit.setActor(actor);
-        audit.setDetail(Map.of("message", "Đã gửi yêu cầu kích hoạt tổng hợp báo cáo tới n8n webhook /webhook/reporting"));
-        auditLogs.save(audit);
-
-        return Map.of(
-                "success", true,
-                "message", "Đã kích hoạt tạo báo cáo điều hành qua luồng n8n L12_Reporting",
-                "triggeredAt", Instant.now().toString(),
-                "workflow", "L12_Reporting"
-        );
+        return reportingService.triggerReporting(req);
     }
 
     // Tiếp nhận Task Cải tiến tạo từ L12
     @Transactional
     public Map<String, Object> handleImprovementTask(Map<String, Object> req) {
-        String title = (req != null && req.get("title") != null) ? req.get("title").toString() : "Nhiệm vụ cải tiến từ Báo cáo L12";
-        String description = (req != null && req.get("description") != null) ? req.get("description").toString() : "";
-        String gapQuestion = (req != null && req.get("gapQuestion") != null) ? req.get("gapQuestion").toString() : title;
+        return reportingService.handleImprovementTask(req);
+    }
 
-        // Lưu hoặc cập nhật lỗ hổng tri thức
-        KnowledgeGap gap = new KnowledgeGap();
-        gap.setQuestion(gapQuestion + (description.isBlank() ? "" : " - " + description));
-        gap.setStatus(GapStatus.NEW);
-        KnowledgeGap savedGap = knowledgeGaps.save(gap);
-
-        AuditLog audit = new AuditLog();
-        audit.setWorkflow("L12_Reporting");
-        audit.setEntityType("improvement_task");
-        audit.setEntityId(savedGap.getId());
-        audit.setAction("CREATE_IMPROVEMENT_TASK");
-        audit.setActor("N8N_L12");
-        audit.setDetail(req != null ? req : Map.of());
-        auditLogs.save(audit);
-
-        return Map.of(
-                "success", true,
-                "message", "Đã tiếp nhận và tạo task cải tiến thành công trong hệ thống",
-                "taskId", savedGap.getId(),
-                "title", title
-        );
+    // Ghi nhận đánh giá CSAT từ cổng khách hàng (L12)
+    @Transactional
+    public Map<String, Object> submitCustomerFeedback(String ticketIdOrCode, Map<String, Object> req) {
+        return reportingService.submitCustomerCsat(ticketIdOrCode, req);
     }
 }

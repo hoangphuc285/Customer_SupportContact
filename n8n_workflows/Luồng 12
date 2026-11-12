@@ -11,9 +11,9 @@
         }
       },
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.4,
+      "typeVersion": 1.2,
       "position": [
-        0,
+        -224,
         0
       ],
       "id": "3c365ca4-86c2-447b-8f8b-b56abee99582",
@@ -21,18 +21,35 @@
     },
     {
       "parameters": {
+        "httpMethod": "POST",
+        "path": "reporting",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        160
+      ],
+      "id": "l12-webhook-reporting",
+      "name": "Webhook - Kích hoạt Báo cáo L12",
+      "webhookId": "l12-reporting-webhook-id"
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n    t.id, \n    t.ticket_code, \n    t.customer_id, \n    c.email, \n    c.name AS customer_name\nFROM tickets t\nJOIN customers c ON t.customer_id = c.id\nWHERE t.status = 'CLOSED' \n  AND (t.csat_sent = FALSE OR t.csat_sent IS NULL)\nLIMIT 10;",
+        "query": "SELECT\n    t.id,\n    t.ticket_code,\n    t.customer_id,\n    c.email,\n    COALESCE(c.full_name, 'Quý khách') AS customer_name\nFROM tickets t\nJOIN customers c ON t.customer_id = c.id\nWHERE t.status IN ('CLOSED', 'RESOLVED')\n  AND (t.csat_sent = 0 OR t.csat_sent IS NULL)\n  AND c.email IS NOT NULL\n  AND c.email <> ''\nORDER BY t.updated_at DESC\nLIMIT 10;",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
-        224,
-        0
+        32,
+        80
       ],
       "id": "d5437e1d-0ccb-4f41-a14c-6e89290345a8",
       "name": "MySQL_Get_Closed_Tickets",
+      "alwaysOutputData": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
@@ -42,12 +59,45 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-has-csat-tickets"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        80
+      ],
+      "id": "l12-if-has-tickets",
+      "name": "IF - Có ticket cần gửi khảo sát CSAT?"
+    },
+    {
+      "parameters": {
         "options": {}
       },
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        448,
+        480,
         0
       ],
       "id": "26e608e1-aaf8-4db2-92ab-f09e22aba081",
@@ -55,10 +105,10 @@
     },
     {
       "parameters": {
-        "fromEmail": "tiennamx15@gmail.com",
+        "fromEmail": "support@support.local",
         "toEmail": "={{ $json.email }}",
         "subject": "=[Khảo sát] Đánh giá dịch vụ hỗ trợ cho yêu cầu #{{ $json.ticket_code }}",
-        "html": "=<div style=\"font-family: Arial, sans-serif; max-width: 520px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;\">\n  <h3 style=\"color: #0b57d0;\">Đánh giá chất lượng hỗ trợ</h3>\n  <p>Xin chào <b>{{ $json.customer_name }}</b>,</p>\n  <p>Yêu cầu hỗ trợ <b>#{{ $json.ticket_code }}</b> của bạn đã được xử lý hoàn tất. Xin bạn vui lòng dành chút thời gian đánh giá mức độ hài lòng:</p>\n\n  <div style=\"text-align: center; margin: 25px 0;\">\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=1\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#d93025; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">1 ⭐ Rất tệ</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=2\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#ea8600; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">2 ⭐ Chưa tốt</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=3\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#f9ab00; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">3 ⭐ Bình thường</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=4\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#1e8e3e; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">4 ⭐ Hài lòng</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=5\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#137333; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">5 ⭐ Rất tốt</a>\n  </div>\n\n  <p style=\"font-size: 12px; color: #666;\">Cảm ơn bạn đã đồng hành cùng VKU Support!</p>\n</div>",
+        "html": "=<div style=\"font-family: Arial, sans-serif; max-width: 520px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;\">\n  <h3 style=\"color: #0b57d0;\">Đánh giá chất lượng hỗ trợ</h3>\n  <p>Xin chào <b>{{ $json.customer_name || 'Quý khách' }}</b>,</p>\n  <p>Yêu cầu hỗ trợ <b>#{{ $json.ticket_code }}</b> của bạn đã được xử lý hoàn tất. Xin bạn vui lòng dành chút thời gian đánh giá mức độ hài lòng:</p>\n\n  <div style=\"text-align: center; margin: 25px 0;\">\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=1\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#d93025; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">1 ⭐ Rất tệ</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=2\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#ea8600; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">2 ⭐ Chưa tốt</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=3\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#f9ab00; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">3 ⭐ Bình thường</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=4\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#1e8e3e; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">4 ⭐ Hài lòng</a>\n    <a href=\"http://localhost:5678/webhook/csat-submit?ticket_id={{ $json.id }}&rating=5\" style=\"display:inline-block; margin:3px; padding:8px 12px; background:#137333; color:#fff; text-decoration:none; border-radius:4px; font-weight:bold;\">5 ⭐ Rất tốt</a>\n  </div>\n\n  <p style=\"font-size: 13px;\">Hoặc gửi nhận xét chi tiết tại: <a href=\"http://localhost:3000/user/feedback?ticketId={{ $json.id }}&customerId={{ $json.customer_id }}\">Trang đánh giá CSAT</a></p>\n  <p style=\"font-size: 12px; color: #666;\">Cảm ơn bạn đã đồng hành cùng đội ngũ CSKH!</p>\n</div>",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
@@ -70,6 +120,7 @@
       "id": "7ddd7c2d-035b-478b-b9b0-f16612f12e66",
       "name": "Send an Email",
       "webhookId": "61e43859-3e00-4cee-bfd0-e909012dbd9b",
+      "continueOnFail": true,
       "credentials": {
         "smtp": {
           "id": "4pmZoybZrTzFUyeL",
@@ -80,17 +131,18 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET csat_sent = TRUE, csat_sent_at = NOW() \nWHERE id = {{ $('Loop Over Items').item.json.id }};",
+        "query": "UPDATE tickets\nSET csat_sent = 1, csat_sent_at = NOW()\nWHERE id = {{ $('Loop Over Items').last()?.json?.id }};",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
         928,
         16
       ],
       "id": "3de476d5-1667-41a2-a6dc-4c0721e0d4a7",
       "name": "MySQL_Mark_CSAT_Sent",
+      "continueOnFail": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
@@ -99,37 +151,108 @@
       }
     },
     {
-      "parameters": {},
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "csat-submit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.2,
+      "typeVersion": 2,
       "position": [
-        0,
-        320
+        -224,
+        368
       ],
       "id": "a9aa68c5-0fb5-4e31-bb5a-0aaa3d9510c5",
-      "name": "Webhook",
+      "name": "Webhook - Nhận đánh giá CSAT",
       "webhookId": "8e863c1c-01eb-4310-8f4c-ef0f4e5a1b89"
     },
     {
       "parameters": {
+        "jsCode": "const q = $input.first()?.json?.query || $input.first()?.json || {};\nconst ticketId = parseInt(q.ticket_id ?? q.ticketId, 10);\nconst rating = parseInt(q.rating ?? q.csat_score, 10);\nconst valid = Number.isInteger(ticketId) && ticketId > 0 && Number.isInteger(rating) && rating >= 1 && rating <= 5;\nreturn [{ json: { valid, ticket_id: valid ? ticketId : 0, rating: valid ? rating : 5 } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        368
+      ],
+      "id": "l12-code-validate-csat",
+      "name": "Code - Kiểm tra dữ liệu CSAT"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.valid) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-csat-valid"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        368
+      ],
+      "id": "l12-if-csat-valid",
+      "name": "IF - Dữ liệu CSAT hợp lệ?"
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO csat_surveys (ticket_id, rating, submitted_at)\nVALUES (\n  {{ $json.query.ticket_id }},\n  {{ $json.query.rating }},\n  NOW()\n);",
+        "query": "INSERT INTO csat_surveys (ticket_id, rating, submitted_at)\nVALUES ({{ $json.ticket_id }}, {{ $json.rating }}, NOW());\nUPDATE tickets SET csat_score = {{ $json.rating }}, updated_at = NOW() WHERE id = {{ $json.ticket_id }};",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
-        224,
+        432,
         320
       ],
       "id": "e6a23612-af8d-44ce-926d-bbea49edd5e1",
       "name": "MySQL_Save_CSAT",
+      "continueOnFail": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/staff/reports/csat-events",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ticketId: $('Code - Kiểm tra dữ liệu CSAT').last()?.json?.ticket_id, rating: $('Code - Kiểm tra dữ liệu CSAT').last()?.json?.rating }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        656,
+        320
+      ],
+      "id": "l12-backend-csat-sync",
+      "name": "HTTP Request - Đồng bộ CSAT về Backend",
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -138,13 +261,28 @@
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
+      "typeVersion": 1.1,
       "position": [
-        448,
+        880,
         320
       ],
       "id": "f2d87406-264b-40dc-b235-54455ffebb37",
       "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<div style=\"font-family: Arial, sans-serif; text-align: center; margin-top: 50px;\">\n  <h2 style=\"color: #d93025;\">Liên kết khảo sát không hợp lệ</h2>\n  <p>Vui lòng kiểm tra lại mã yêu cầu hỗ trợ hoặc điểm đánh giá (1–5 sao).</p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        432,
+        496
+      ],
+      "id": "l12-respond-invalid",
+      "name": "Respond to Webhook - Dữ liệu không hợp lệ"
     }
   ],
   "connections": {
@@ -159,7 +297,29 @@
         ]
       ]
     },
+    "Webhook - Kích hoạt Báo cáo L12": {
+      "main": [
+        [
+          {
+            "node": "MySQL_Get_Closed_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "MySQL_Get_Closed_Tickets": {
+      "main": [
+        [
+          {
+            "node": "IF - Có ticket cần gửi khảo sát CSAT?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có ticket cần gửi khảo sát CSAT?": {
       "main": [
         [
           {
@@ -167,7 +327,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Loop Over Items": {
@@ -204,7 +365,58 @@
         ]
       ]
     },
+    "Webhook - Nhận đánh giá CSAT": {
+      "main": [
+        [
+          {
+            "node": "Code - Kiểm tra dữ liệu CSAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Kiểm tra dữ liệu CSAT": {
+      "main": [
+        [
+          {
+            "node": "IF - Dữ liệu CSAT hợp lệ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Dữ liệu CSAT hợp lệ?": {
+      "main": [
+        [
+          {
+            "node": "MySQL_Save_CSAT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook - Dữ liệu không hợp lệ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "MySQL_Save_CSAT": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Đồng bộ CSAT về Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Đồng bộ CSAT về Backend": {
       "main": [
         [
           {
