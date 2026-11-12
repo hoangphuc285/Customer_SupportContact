@@ -38,9 +38,48 @@ export default function AdminDashboardPage() {
         totalTickets: 5,
     });
     const [departments, setDepartments] = useState<any[]>([]);
+    const [slaOverview, setSlaOverview] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [triggeringSla, setTriggeringSla] = useState(false);
     const [slaNotice, setSlaNotice] = useState<string | null>(null);
+
+    const getAuthHeaders = (withJson = false): Record<string, string> => {
+        const headers: Record<string, string> = {};
+        if (withJson) headers['Content-Type'] = 'application/json';
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    };
+
+    const fetchAdminData = async () => {
+        try {
+            const headers = getAuthHeaders();
+            const [resStats, resDepts, resSla] = await Promise.all([
+                fetch('http://localhost:8080/api/admin/stats', { headers }),
+                fetch('http://localhost:8080/api/admin/departments', { headers }),
+                fetch('http://localhost:8080/api/sla/overview', { headers }),
+            ]);
+
+            if (resStats.ok) {
+                const st = await resStats.json();
+                setStats(st);
+            }
+            if (resDepts.ok) {
+                const dp = await resDepts.json();
+                setDepartments(Array.isArray(dp) ? dp : []);
+            }
+            if (resSla.ok) {
+                const sla = await resSla.json();
+                setSlaOverview(sla);
+            }
+        } catch (err) {
+            console.error('Lỗi tải dữ liệu admin:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleTriggerSla = async () => {
         setTriggeringSla(true);
@@ -48,46 +87,31 @@ export default function AdminDashboardPage() {
         try {
             const res = await fetch('http://localhost:8080/api/sla/trigger', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify({ actor: 'ADMIN_CONSOLE', reason: 'Kích hoạt từ giao diện Quản trị' })
             });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                setSlaNotice('✅ Đã kích hoạt quét giám sát SLA qua luồng n8n L07 thành công! Hệ thống đang tự động kiểm tra và phân bổ ticket.');
+            const data = await res.json().catch(() => null);
+            if (res.ok && data?.success) {
+                setSlaNotice(`✅ ${data.message || 'Đã kích hoạt quét giám sát SLA L07 thành công!'}`);
+                if (data.overview) {
+                    setSlaOverview(data.overview);
+                }
+                await fetchAdminData();
+                if (data.mode === 'N8N_WORKFLOW') {
+                    setTimeout(() => { fetchAdminData(); }, 2500);
+                }
             } else {
-                setSlaNotice('⚠️ Lỗi: ' + (data.message || 'Không thể kích hoạt SLA'));
+                setSlaNotice('⚠️ Lỗi: ' + (data?.error || data?.message || `HTTP ${res.status}`));
             }
         } catch (err: any) {
-            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + err.message);
+            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + (err?.message || 'Unknown error'));
         } finally {
             setTriggeringSla(false);
-            setTimeout(() => setSlaNotice(null), 6000);
+            setTimeout(() => setSlaNotice(null), 7000);
         }
     };
 
     useEffect(() => {
-        const fetchAdminData = async () => {
-            try {
-                const [resStats, resDepts] = await Promise.all([
-                    fetch('http://localhost:8080/api/admin/stats'),
-                    fetch('http://localhost:8080/api/admin/departments')
-                ]);
-
-                if (resStats.ok) {
-                    const st = await resStats.json();
-                    setStats(st);
-                }
-                if (resDepts.ok) {
-                    const dp = await resDepts.json();
-                    setDepartments(Array.isArray(dp) ? dp : []);
-                }
-            } catch (err) {
-                console.error('Lỗi tải dữ liệu admin:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchAdminData();
     }, []);
 
@@ -277,6 +301,102 @@ export default function AdminDashboardPage() {
                                     </td>
                                 </tr>
                             ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* SLA LIVE MONITORING OVERVIEW (LUỒNG L07) */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                    <div>
+                        <h2 className="text-base font-bold text-white flex items-center gap-2">
+                            <Activity size={18} className="text-amber-400" />
+                            <span>Giám Sát SLA Thời Gian Thực (Luồng L07)</span>
+                        </h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Theo dõi tiến độ SLA của toàn bộ ticket chưa đóng, cảnh báo 80% / 100% / &gt;150% và tự động phân công
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            Tuân thủ SLA: {slaOverview?.slaComplianceRate ?? 100}%
+                        </span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 font-semibold block">An toàn (&lt;80%)</span>
+                        <span className="text-xl font-black text-emerald-400 font-mono">{slaOverview?.safeCount ?? 0}</span>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-amber-500/20">
+                        <span className="text-[11px] text-amber-400 font-semibold block">Cảnh báo (80–100%)</span>
+                        <span className="text-xl font-black text-amber-400 font-mono">{slaOverview?.warning80Count ?? 0}</span>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-orange-500/20">
+                        <span className="text-[11px] text-orange-400 font-semibold block">Quá hạn (100–150%)</span>
+                        <span className="text-xl font-black text-orange-400 font-mono">{slaOverview?.breached100Count ?? 0}</span>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-rose-500/20">
+                        <span className="text-[11px] text-rose-400 font-semibold block">Nghiêm trọng (&gt;150%)</span>
+                        <span className="text-xl font-black text-rose-400 font-mono">{slaOverview?.critical150Count ?? 0}</span>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-800 text-[11px] text-slate-400 font-bold uppercase tracking-wider bg-slate-950/60">
+                                <th className="p-3 pl-4">Ticket</th>
+                                <th className="p-3">Ưu tiên / Phân loại</th>
+                                <th className="p-3">Tiến độ SLA</th>
+                                <th className="p-3">Mức cảnh báo</th>
+                                <th className="p-3">Phụ trách</th>
+                                <th className="p-3 text-right pr-4">Mở</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60 font-medium">
+                            {!slaOverview?.details || slaOverview.details.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="p-6 text-center text-slate-400">
+                                        Không có ticket nào đang mở cần giám sát SLA.
+                                    </td>
+                                </tr>
+                            ) : (
+                                slaOverview.details.map((item: any) => (
+                                    <tr key={item.ticketId} className="hover:bg-slate-800/30 transition">
+                                        <td className="p-3 pl-4">
+                                            <div className="font-mono font-bold text-indigo-400">#{item.ticketCode}</div>
+                                            <div className="text-[11px] text-slate-400 truncate max-w-[220px]">{item.subject || item.customer}</div>
+                                        </td>
+                                        <td className="p-3 font-mono text-slate-300">
+                                            {item.priority} &bull; {item.category}
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="font-mono font-bold text-white">
+                                                {item.percentUsed}% <span className="text-[11px] font-normal text-slate-400">({item.elapsedMinutes}/{item.slaResolutionMinutes}p)</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-3">
+                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                                                item.alertLevel >= 4 ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
+                                                item.alertLevel === 3 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                                                item.alertLevel === 2 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                                'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                            }`}>
+                                                {item.alertLevelName}
+                                            </span>
+                                        </td>
+                                        <td className="p-3 text-slate-300">{item.assignee}</td>
+                                        <td className="p-3 text-right pr-4">
+                                            <Link href={`/staff/tickets/${item.ticketId}`} className="text-indigo-400 hover:underline font-bold">
+                                                Chi tiết
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

@@ -27,10 +27,21 @@ export default function ProcessTicketDetailPage() {
 
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [replyText, setReplyText] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
     const [showTranslated, setShowTranslated] = useState(true);
     const [togglingAi, setTogglingAi] = useState(false);
+
+    const getAuthHeaders = (withJson = false): Record<string, string> => {
+        const headers: Record<string, string> = {};
+        if (withJson) headers['Content-Type'] = 'application/json';
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    };
 
     useEffect(() => {
         if (!ticketId) return;
@@ -39,14 +50,21 @@ export default function ProcessTicketDetailPage() {
 
     const fetchDetail = async () => {
         setLoading(true);
+        setErrorMsg(null);
         try {
-            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}`);
+            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}`, {
+                headers: getAuthHeaders()
+            });
             if (res.ok) {
                 const json = await res.json();
                 setData(json);
+            } else {
+                const err = await res.json().catch(() => null);
+                setErrorMsg(err?.error || err?.message || `Không tải được ticket #${ticketId} (HTTP ${res.status})`);
             }
         } catch (err) {
             console.error('Lỗi khi tải chi tiết ticket:', err);
+            setErrorMsg('Không thể kết nối máy chủ Backend.');
         } finally {
             setLoading(false);
         }
@@ -57,7 +75,8 @@ export default function ProcessTicketDetailPage() {
         setTogglingAi(true);
         try {
             const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/toggle-ai`, {
-                method: 'PATCH'
+                method: 'PATCH',
+                headers: getAuthHeaders()
             });
             if (res.ok) {
                 const updatedTicket = await res.json();
@@ -81,7 +100,7 @@ export default function ProcessTicketDetailPage() {
         try {
             const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/reply`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify({ message: replyText.trim() })
             });
             if (res.ok) {
@@ -105,6 +124,20 @@ export default function ProcessTicketDetailPage() {
                 <div className="p-8 text-center text-slate-400">
                     <RotateCcw className="animate-spin inline-block mb-3" size={24} />
                     <p>Đang tải hội thoại ticket #{ticketId}...</p>
+                </div>
+            </ProtectedRoute>
+        );
+    }
+
+    if (errorMsg || !data?.ticket) {
+        return (
+            <ProtectedRoute>
+                <div className="p-8 max-w-2xl mx-auto text-center space-y-4 text-slate-200">
+                    <AlertTriangle className="mx-auto text-rose-400" size={32} />
+                    <p className="font-bold">{errorMsg || `Không tìm thấy ticket #${ticketId}`}</p>
+                    <Link href="/staff/tickets" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold">
+                        <ArrowLeft size={14} /> Quay lại danh sách Ticket
+                    </Link>
                 </div>
             </ProtectedRoute>
         );
@@ -148,7 +181,7 @@ export default function ProcessTicketDetailPage() {
                                 </h1>
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5">
-                                Kênh: <strong className="text-slate-200">{ticket.channel}</strong> | Khách hàng: <strong className="text-slate-200">{ticket.customerName || 'Vãng lai'}</strong>
+                                Kênh: <strong className="text-slate-200">{ticket.channel}</strong> | Khách hàng: <strong className="text-slate-200">{ticket.customerName || 'Vãng lai'}</strong> | Phụ trách: <strong className="text-slate-200">{ticket.assignee || 'Chưa phân công'}</strong> | SLA: <strong className={ticket.slaBreached ? 'text-rose-400' : 'text-emerald-400'}>{ticket.slaBreached ? 'Vi phạm SLA' : 'Đang theo dõi'}</strong>
                             </p>
                         </div>
                     </div>
