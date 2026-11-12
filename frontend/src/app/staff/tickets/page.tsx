@@ -21,7 +21,9 @@ import {
 
 export default function StaffTicketListPage() {
     const [tickets, setTickets] = useState<any[]>([]);
+    const [slaOverview, setSlaOverview] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [triggeringSla, setTriggeringSla] = useState(false);
     const [slaNotice, setSlaNotice] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -32,8 +34,30 @@ export default function StaffTicketListPage() {
     const [urgencyFilter, setUrgencyFilter] = useState('');
     const [needHumanReviewFilter, setNeedHumanReviewFilter] = useState<boolean | null>(null);
 
+    const getAuthHeaders = (withJson = false): Record<string, string> => {
+        const headers: Record<string, string> = {};
+        if (withJson) headers['Content-Type'] = 'application/json';
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    };
+
+    const fetchSlaOverview = async () => {
+        try {
+            const res = await fetch('http://localhost:8080/api/sla/overview', { headers: getAuthHeaders() });
+            if (res.ok) {
+                setSlaOverview(await res.json());
+            }
+        } catch (err) {
+            console.error('Lỗi tải SLA overview:', err);
+        }
+    };
+
     const fetchTickets = async () => {
         setLoading(true);
+        setErrorMsg(null);
         try {
             const params = new URLSearchParams();
             if (channelFilter) params.append('channel', channelFilter);
@@ -41,13 +65,19 @@ export default function StaffTicketListPage() {
             if (urgencyFilter) params.append('priority', urgencyFilter);
             if (needHumanReviewFilter !== null) params.append('needHumanReview', String(needHumanReviewFilter));
 
-            const res = await fetch(`http://localhost:8080/api/staff/tickets?${params.toString()}`);
+            const res = await fetch(`http://localhost:8080/api/staff/tickets?${params.toString()}`, {
+                headers: getAuthHeaders()
+            });
             if (res.ok) {
                 const data = await res.json();
                 setTickets(Array.isArray(data) ? data : []);
+            } else {
+                const errData = await res.json().catch(() => null);
+                setErrorMsg(errData?.error || errData?.message || `Không thể tải danh sách ticket (HTTP ${res.status})`);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Lỗi khi tải danh sách ticket từ DB:', err);
+            setErrorMsg('Không thể kết nối máy chủ Backend để tải danh sách ticket.');
         } finally {
             setLoading(false);
         }
@@ -59,26 +89,36 @@ export default function StaffTicketListPage() {
         try {
             const res = await fetch('http://localhost:8080/api/sla/trigger', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify({ actor: 'TICKET_INBOX', reason: 'Quét SLA từ danh sách Ticket' })
             });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                setSlaNotice('✅ Đã kích hoạt quét giám sát SLA qua luồng n8n L07! Đang cập nhật trạng thái...');
-                setTimeout(() => fetchTickets(), 3000);
+            const data = await res.json().catch(() => null);
+            if (res.ok && data?.success) {
+                setSlaNotice(`✅ ${data.message || 'Đã kích hoạt quét giám sát SLA L07!'}`);
+                if (data.overview) {
+                    setSlaOverview(data.overview);
+                }
+                await Promise.all([fetchTickets(), fetchSlaOverview()]);
+                if (data.mode === 'N8N_WORKFLOW') {
+                    setTimeout(() => {
+                        fetchTickets();
+                        fetchSlaOverview();
+                    }, 2500);
+                }
             } else {
-                setSlaNotice('⚠️ Lỗi: ' + (data.message || 'Không thể kích hoạt SLA'));
+                setSlaNotice('⚠️ Lỗi: ' + (data?.error || data?.message || `HTTP ${res.status}`));
             }
         } catch (err: any) {
-            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + err.message);
+            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + (err?.message || 'Unknown error'));
         } finally {
             setTriggeringSla(false);
-            setTimeout(() => setSlaNotice(null), 5000);
+            setTimeout(() => setSlaNotice(null), 7000);
         }
     };
 
     useEffect(() => {
         fetchTickets();
+        fetchSlaOverview();
     }, [channelFilter, intentFilter, urgencyFilter, needHumanReviewFilter]);
 
     const filteredTickets = tickets.filter((t) => {
@@ -92,6 +132,14 @@ export default function StaffTicketListPage() {
     });
 
     const getSlaBadge = (ticket: any) => {
+        if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                    <CheckCircle2 size={12} className="text-emerald-400" />
+                    Đã hoàn tất{ticket.slaBreached ? ' (Trễ SLA)' : ''}
+                </span>
+            );
+        }
         if (ticket.slaBreached) {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
@@ -196,6 +244,39 @@ export default function StaffTicketListPage() {
                     <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
                         <Zap size={15} className="text-amber-400 shrink-0" />
                         <span>{slaNotice}</span>
+                    </div>
+                )}
+
+                {errorMsg && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                        <AlertTriangle size={15} className="text-rose-400 shrink-0" />
+                        <span>{errorMsg}</span>
+                    </div>
+                )}
+
+                {/* SLA OVERVIEW STRIP (L07) */}
+                {slaOverview && (
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-[11px] text-slate-400 font-semibold block">Tuân thủ SLA</span>
+                            <span className="text-lg font-black text-emerald-400 font-mono">{slaOverview.slaComplianceRate ?? 100}%</span>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-[11px] text-slate-400 font-semibold block">An toàn (&lt;80%)</span>
+                            <span className="text-lg font-black text-white font-mono">{slaOverview.safeCount ?? 0}</span>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-950 border border-amber-500/20">
+                            <span className="text-[11px] text-amber-400 font-semibold block">Cảnh báo (80-100%)</span>
+                            <span className="text-lg font-black text-amber-400 font-mono">{slaOverview.warning80Count ?? 0}</span>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-950 border border-orange-500/20">
+                            <span className="text-[11px] text-orange-400 font-semibold block">Quá hạn (100-150%)</span>
+                            <span className="text-lg font-black text-orange-400 font-mono">{slaOverview.breached100Count ?? 0}</span>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-950 border border-rose-500/20 col-span-2 sm:col-span-1">
+                            <span className="text-[11px] text-rose-400 font-semibold block">Nghiêm trọng (&gt;150%)</span>
+                            <span className="text-lg font-black text-rose-400 font-mono">{slaOverview.critical150Count ?? 0}</span>
+                        </div>
                     </div>
                 )}
 
@@ -310,7 +391,7 @@ export default function StaffTicketListPage() {
                                     <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400 text-xs uppercase tracking-wider font-semibold">
                                         <th className="py-3.5 px-4">Ticket</th>
                                         <th className="py-3.5 px-4">Khách hàng / Kênh</th>
-                                        <th className="py-3.5 px-4">Ý định (Intent)</th>
+                                        <th className="py-3.5 px-4">Ý định / Phụ trách</th>
                                         <th className="py-3.5 px-4">Cờ Review</th>
                                         <th className="py-3.5 px-4">SLA (L07)</th>
                                         <th className="py-3.5 px-4">Rủi ro (L06)</th>
@@ -342,6 +423,9 @@ export default function StaffTicketListPage() {
                                                 <span className="px-2 py-1 rounded text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800">
                                                     {t.intent || 'CHỜ PHÂN LOẠI'}
                                                 </span>
+                                                <div className="text-[11px] text-slate-400 mt-1">
+                                                    {t.assignee ? `👤 ${t.assignee}` : '⏳ Chưa phân công'} &bull; {t.status}
+                                                </div>
                                             </td>
 
                                             <td className="py-3.5 px-4">

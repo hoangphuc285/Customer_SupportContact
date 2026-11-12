@@ -124,12 +124,12 @@ public class StaffSupportService {
         m.put("aiLocked", t.isAiLocked());
         m.put("slaBreached", t.isSlaBreached());
         boolean isOverdue = t.isSlaBreached() || (t.getDueAt() != null && t.getDueAt().isBefore(Instant.now()) && t.getStatus() != TicketStatus.RESOLVED && t.getStatus() != TicketStatus.CLOSED);
-        long remainingMinutes = 0;
+        Long remainingMinutes = null;
         if (t.getDueAt() != null) {
             remainingMinutes = java.time.Duration.between(Instant.now(), t.getDueAt()).toMinutes();
         }
         m.put("isSlaOverdue", isOverdue);
-        m.put("slaRemainingMinutes", Math.abs(remainingMinutes) > 0 ? remainingMinutes : 45);
+        m.put("slaRemainingMinutes", remainingMinutes);
         m.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : Instant.now().toString());
         m.put("dueAt", t.getDueAt() != null ? t.getDueAt().toString() : null);
 

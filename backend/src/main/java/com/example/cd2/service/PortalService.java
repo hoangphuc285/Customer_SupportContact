@@ -702,7 +702,9 @@ public class PortalService {
                 t.getSentiment() != null ? t.getSentiment().name() : "NEUTRAL",
                 t.getUrgency() != null ? t.getUrgency().name() : "MEDIUM",
                 t.getCustomer() != null ? t.getCustomer().getFullName() : "Khách hàng",
-                t.getCustomer() != null ? t.getCustomer().getEmail() : null
+                t.getCustomer() != null ? t.getCustomer().getEmail() : null,
+                t.isSlaBreached(),
+                t.getLastAlertLevel()
         );
     }
 
@@ -732,7 +734,7 @@ public class PortalService {
             map.put("contentTranslated", m.getContentTranslated() != null ? m.getContentTranslated() : m.getContentOriginal());
             map.put("language", m.getLanguage() != null ? m.getLanguage() : "vi");
             map.put("channel", m.getChannel().name());
-            map.put("createdAt", m.getCreatedAt().toString());
+            map.put("createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : "");
             return map;
         }).toList();
 

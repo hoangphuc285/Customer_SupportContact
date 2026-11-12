@@ -4,7 +4,10 @@
       "parameters": {
         "rule": {
           "interval": [
-            {}
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
           ]
         }
       },
@@ -49,7 +52,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  t.id AS ticket_id,\n  t.ticket_code,\n  t.status,\n  t.priority,\n  COALESCE(t.category, t.intent, 'DEFAULT') AS category,\n  t.due_at,\n  t.created_at,\n  t.updated_at,\n  t.first_response_at,\n  t.assignee_id,\n  t.customer_id,\n  t.department_id,\n  COALESCE(t.last_alert_level, 0) AS last_alert_level,\n  t.sla_breached,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  COALESCE(c.telegram_id, '7919420845') AS customer_telegram_id,\n  s.full_name AS assignee_name,\n  s.email AS assignee_email,\n  COALESCE(s.telegram_chat_id, '7919420845') AS assignee_telegram_id,\n  s.current_load AS assignee_current_load,\n  COALESCE(sr.resolution_minutes, sr_def.resolution_minutes, 1440) AS sla_resolution_minutes,\n  COALESCE(sr.first_response_minutes, sr_def.first_response_minutes, 60) AS sla_first_response_minutes,\n  COALESCE(sr.category, sr_def.category, 'DEFAULT') AS matched_sla_category\nFROM tickets t\nLEFT JOIN customers c ON t.customer_id = c.id\nLEFT JOIN staff s ON t.assignee_id = s.id\nLEFT JOIN sla_rules sr ON (sr.category = COALESCE(t.category, t.intent) AND sr.priority = t.priority)\nLEFT JOIN sla_rules sr_def ON (sr_def.category = 'DEFAULT' AND sr_def.priority = t.priority)\nWHERE t.status NOT IN ('CLOSED', 'RESOLVED')\nORDER BY t.created_at ASC;",
+        "query": "SELECT \n  t.id AS ticket_id,\n  t.ticket_code,\n  t.status,\n  t.priority,\n  COALESCE(t.category, t.intent, 'DEFAULT') AS category,\n  t.due_at,\n  t.created_at,\n  t.updated_at,\n  t.first_response_at,\n  t.assignee_id,\n  t.customer_id,\n  t.department_id,\n  COALESCE(t.last_alert_level, 0) AS last_alert_level,\n  t.sla_breached,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  c.telegram_id AS customer_telegram_id,\n  s.full_name AS assignee_name,\n  s.email AS assignee_email,\n  s.telegram_chat_id AS assignee_telegram_id,\n  s.current_load AS assignee_current_load,\n  COALESCE(sr.resolution_minutes, sr_def.resolution_minutes, 1440) AS sla_resolution_minutes,\n  COALESCE(sr.first_response_minutes, sr_def.first_response_minutes, 60) AS sla_first_response_minutes,\n  COALESCE(sr.category, sr_def.category, 'DEFAULT') AS matched_sla_category\nFROM tickets t\nLEFT JOIN customers c ON t.customer_id = c.id\nLEFT JOIN staff s ON t.assignee_id = s.id\nLEFT JOIN sla_rules sr ON (sr.category = COALESCE(t.category, t.intent) AND sr.priority = t.priority)\nLEFT JOIN sla_rules sr_def ON (sr_def.category = 'DEFAULT' AND sr_def.priority = t.priority)\nWHERE t.status NOT IN ('CLOSED', 'RESOLVED')\nORDER BY t.created_at ASC;",
         "options": {}
       },
       "id": "bf2997e9-fdf4-4965-af5b-29d182ccaf37",
@@ -82,7 +85,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ticket = $input.first().json;\nconst now = new Date();\nconst created = new Date(ticket.created_at);\n\nconst totalElapsedMinutes = Math.max(1, Math.floor((now - created) / 60000));\n\nlet businessMinutes = 0;\nlet cur = new Date(created.getTime());\nwhile (cur < now) {\n  const day = cur.getDay();\n  const hour = cur.getHours();\n  if (day >= 1 && day <= 5 && hour >= 8 && hour < 18) {\n    businessMinutes += 1;\n  }\n  cur = new Date(cur.getTime() + 60000);\n}\nif (businessMinutes === 0) businessMinutes = totalElapsedMinutes;\n\nconst slaMinutes = ticket.sla_resolution_minutes || 1440;\nconst percentUsed = Math.round((totalElapsedMinutes / slaMinutes) * 100);\n\nlet alertLevel = 0;\nlet alertLevelName = 'AN TOÀN (<50%)';\n\nif (percentUsed > 150) {\n  alertLevel = 4;\n  alertLevelName = 'NGHIÊM TRỌNG (>150%)';\n} else if (percentUsed >= 100) {\n  alertLevel = 3;\n  alertLevelName = 'QUÁ HẠN (100-150%)';\n} else if (percentUsed >= 80) {\n  alertLevel = 2;\n  alertLevelName = 'CẢNH BÁO CAO (80-100%)';\n} else if (percentUsed >= 50) {\n  alertLevel = 1;\n  alertLevelName = 'THEO DÕI (50-80%)';\n}\n\nconst lastLevel = ticket.last_alert_level || 0;\nconst shouldAlert = alertLevel >= 2 && alertLevel > lastLevel;\n\nconst newPromisedDate = new Date(now.getTime() + 4 * 3600000);\nconst newPromisedStr = newPromisedDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ngày ' + newPromisedDate.toLocaleDateString('vi-VN');\n\nreturn [{\n  json: {\n    ...ticket,\n    elapsed_minutes: totalElapsedMinutes,\n    business_minutes: businessMinutes,\n    percent_used: percentUsed,\n    current_alert_level: alertLevel,\n    alert_level_name: alertLevelName,\n    should_alert: shouldAlert,\n    new_promised_at: newPromisedStr\n  }\n}];"
+        "jsCode": "const ticket = $input.first().json;\nconst now = new Date();\nconst created = ticket.created_at ? new Date(ticket.created_at) : now;\nconst due = ticket.due_at ? new Date(ticket.due_at) : null;\n\nconst totalElapsedMinutes = Math.max(1, Math.floor((now.getTime() - created.getTime()) / 60000));\n\n// Tinh so phut gio hanh chinh (T2-T6, 08:00-18:00) theo tung ngay de khong bi treo vong lap voi ticket cu\nfunction calcBusinessMinutes(startDate, endDate) {\n  if (endDate <= startDate) return 0;\n  const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / 86400000);\n  if (diffDays > 30) {\n    // Uoc luong nhanh cho ticket qua lau (>30 ngay)\n    return Math.round(((endDate.getTime() - startDate.getTime()) / 60000) * (50 / 168));\n  }\n  let total = 0;\n  const dayStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());\n  const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());\n  for (let d = new Date(dayStart); d <= endDay; d.setDate(d.getDate() + 1)) {\n    const dow = d.getDay();\n    if (dow === 0 || dow === 6) continue;\n    const workStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 0, 0).getTime();\n    const workEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 18, 0, 0).getTime();\n    const overlapStart = Math.max(workStart, startDate.getTime());\n    const overlapEnd = Math.min(workEnd, endDate.getTime());\n    if (overlapEnd > overlapStart) {\n      total += Math.floor((overlapEnd - overlapStart) / 60000);\n    }\n  }\n  return total;\n}\n\nlet businessMinutes = calcBusinessMinutes(created, now);\nif (businessMinutes === 0) businessMinutes = totalElapsedMinutes;\n\nconst slaMinutes = (due && due.getTime() > created.getTime())\n  ? Math.max(1, Math.round((due.getTime() - created.getTime()) / 60000))\n  : (Number(ticket.sla_resolution_minutes) || 1440);\n\nlet percentUsed = Math.round((totalElapsedMinutes / slaMinutes) * 100);\nif (due && due.getTime() < now.getTime() && percentUsed < 100) {\n  percentUsed = 100;\n}\n\nlet alertLevel = 0;\nlet alertLevelName = 'AN TOÀN (<50%)';\n\nif (percentUsed > 150) {\n  alertLevel = 4;\n  alertLevelName = 'NGHIÊM TRỌNG (>150%)';\n} else if (percentUsed >= 100) {\n  alertLevel = 3;\n  alertLevelName = 'QUÁ HẠN (100-150%)';\n} else if (percentUsed >= 80) {\n  alertLevel = 2;\n  alertLevelName = 'CẢNH BÁO CAO (80-100%)';\n} else if (percentUsed >= 50) {\n  alertLevel = 1;\n  alertLevelName = 'THEO DÕI (50-80%)';\n}\n\nconst lastLevel = Number(ticket.last_alert_level || 0);\nconst wasBreached = Array.isArray(ticket.sla_breached?.data)\n  ? Boolean(ticket.sla_breached.data[0])\n  : Boolean(ticket.sla_breached);\nconst isBreached = wasBreached || percentUsed >= 100 || (due !== null && due.getTime() < now.getTime());\nconst shouldAlert = alertLevel >= 2 && alertLevel > lastLevel;\nconst needsSync = shouldAlert || (isBreached && !wasBreached);\n\nconst newPromisedDate = new Date(now.getTime() + 4 * 3600000);\nconst newPromisedStr = newPromisedDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ngày ' + newPromisedDate.toLocaleDateString('vi-VN');\n\nreturn [{\n  json: {\n    ...ticket,\n    elapsed_minutes: totalElapsedMinutes,\n    business_minutes: businessMinutes,\n    sla_resolution_minutes: slaMinutes,\n    percent_used: percentUsed,\n    current_alert_level: alertLevel,\n    alert_level_name: alertLevelName,\n    is_breached: isBreached,\n    should_alert: shouldAlert,\n    needs_sync: needsSync,\n    new_promised_at: newPromisedStr\n  }\n}];"
       },
       "id": "64439b53-fc30-4029-a41f-8b0a6e2b2980",
       "name": "Code - Tính % SLA và giờ làm việc",
@@ -90,6 +93,39 @@
       "typeVersion": 2,
       "position": [
         -800,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($('Code - Tính % SLA và giờ làm việc').last()?.json.should_alert) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-should-alert"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "l07-if-should-alert",
+      "name": "IF - Có cần gửi cảnh báo mới?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -680,
         128
       ]
     },
@@ -107,7 +143,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.current_alert_level }}",
+                    "leftValue": "={{ $('Code - Tính % SLA và giờ làm việc').last()?.json.current_alert_level }}",
                     "rightValue": 2,
                     "operator": {
                       "type": "number",
@@ -129,7 +165,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.current_alert_level }}",
+                    "leftValue": "={{ $('Code - Tính % SLA và giờ làm việc').last()?.json.current_alert_level }}",
                     "rightValue": 3,
                     "operator": {
                       "type": "number",
@@ -151,7 +187,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.current_alert_level }}",
+                    "leftValue": "={{ $('Code - Tính % SLA và giờ làm việc').last()?.json.current_alert_level }}",
                     "rightValue": 4,
                     "operator": {
                       "type": "number",
@@ -174,14 +210,14 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -560,
-        128
+        -520,
+        -20
       ]
     },
     {
       "parameters": {
-        "chatId": "={{ $json.assignee_telegram_id || 7919420845 }}",
-        "text": "=⚠️ [CẢNH BÁO SLA 80%]\\n- Ticket: {{ $json.ticket_code }}\\n- Ưu tiên: {{ $json.priority }}\\n- Thời gian SLA đã dùng: {{ $json.percent_used }}%\\n- Người phụ trách: {{ $json.assignee_name || 'Chưa gán' }}\\n\\nTicket sắp chạm trần SLA. Vui lòng khẩn trương kiểm tra và phản hồi khách hàng!",
+        "chatId": "={{ $('Code - Tính % SLA và giờ làm việc').last()?.json.assignee_telegram_id || '' }}",
+        "text": "=⚠️ [CẢNH BÁO SLA 80%]\\n- Ticket: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code }}\\n- Ưu tiên: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.priority }}\\n- Thời gian SLA đã dùng: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.percent_used }}%\\n- Người phụ trách: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.assignee_name || 'Chưa gán' }}\\n\\nTicket sắp chạm trần SLA. Vui lòng khẩn trương kiểm tra và phản hồi khách hàng!",
         "additionalFields": {}
       },
       "id": "13fda74b-03cf-442a-adc3-1c6bd621a4a4",
@@ -190,7 +226,7 @@
       "typeVersion": 1.2,
       "position": [
         -304,
-        -64
+        -120
       ],
       "webhookId": "af29e67a-9eca-4777-a217-c5fd492ae9b1",
       "credentials": {
@@ -205,7 +241,8 @@
       "parameters": {
         "fromEmail": "support@support.local",
         "toEmail": "teamlead@support.local",
-        "subject": "=[SLA BREACH 100%] Cảnh báo quá hạn Ticket {{ $json.ticket_code }}",
+        "subject": "=[SLA BREACH 100%] Cảnh báo quá hạn Ticket {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code }}",
+        "html": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6;\">\n  <h3 style=\"color: #d97706;\">[CẢNH BÁO QUÁ HẠN SLA 100%]</h3>\n  <p><b>Ticket:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code }}</p>\n  <p><b>Ưu tiên:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.priority }}</p>\n  <p><b>Mức sử dụng SLA:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.percent_used }}%</p>\n  <p><b>Người phụ trách:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.assignee_name || 'Chưa gán' }}</p>\n  <p>Vui lòng kiểm tra và điều phối xử lý khẩn cấp.</p>\n</div>",
         "options": {}
       },
       "id": "bb2896d5-6fd5-420e-b945-8b787b177bfa",
@@ -214,7 +251,7 @@
       "typeVersion": 2.1,
       "position": [
         -304,
-        64
+        16
       ],
       "webhookId": "716e0791-5db1-4ecc-a0dc-b726fb0fff0c",
       "credentials": {
@@ -229,7 +266,8 @@
       "parameters": {
         "fromEmail": "support@support.local",
         "toEmail": "manager@support.local",
-        "subject": "=[SLA CRITICAL >150%] Vi phạm nghiêm trọng Ticket {{ $json.ticket_code }}",
+        "subject": "=[SLA CRITICAL >150%] Vi phạm nghiêm trọng Ticket {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code }}",
+        "html": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6;\">\n  <h3 style=\"color: #dc2626;\">[VI PHẠM SLA NGHIÊM TRỌNG &gt;150%]</h3>\n  <p><b>Ticket:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code }}</p>\n  <p><b>Ưu tiên:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.priority }}</p>\n  <p><b>Mức sử dụng SLA:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.percent_used }}%</p>\n  <p><b>Khách hàng:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.customer_name || 'Khách hàng' }}</p>\n  <p><b>Người phụ trách:</b> {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.assignee_name || 'Chưa gán' }}</p>\n  <p>Ticket đã vượt ngưỡng 150% SLA. Đề nghị Ban Quản lý can thiệp ngay.</p>\n</div>",
         "options": {}
       },
       "id": "674b1ffd-88d9-4987-ba5f-439466f6c5e6",
@@ -238,7 +276,7 @@
       "typeVersion": 2.1,
       "position": [
         -304,
-        208
+        160
       ],
       "webhookId": "52837795-b576-4343-a819-68b0fc05fe62",
       "credentials": {
@@ -260,7 +298,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ !($('Code - Tính % SLA và giờ làm việc').first()?.json.assignee_id) }}",
+              "leftValue": "={{ !($('Code - Tính % SLA và giờ làm việc').last()?.json.assignee_id) }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -293,9 +331,10 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        208,
+        160,
         16
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
@@ -305,8 +344,41 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.new_assignee_id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-has-agent"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "l07-if-has-agent",
+      "name": "IF - Có nhân viên khả dụng?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        320,
+        16
+      ]
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET assignee_id = {{ $json.new_assignee_id }}, updated_at = NOW() WHERE id = {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.ticket_id }};",
+        "query": "UPDATE tickets SET assignee_id = {{ $('MySQL - Lấy nhân viên tải thấp nhất').last()?.json.new_assignee_id }}, status = CASE WHEN status = 'NEW' THEN 'OPEN' ELSE status END, updated_at = NOW() WHERE id = {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_id }};",
         "options": {}
       },
       "id": "ec4fbbd5-cb08-4d7d-b627-4244c765c641",
@@ -314,8 +386,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        416,
-        16
+        512,
+        -32
       ],
       "credentials": {
         "mySql": {
@@ -327,7 +399,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE staff SET current_load = current_load + 1, updated_at = NOW() WHERE id = {{ $('MySQL - Lấy nhân viên tải thấp nhất').first()?.json.new_assignee_id }};",
+        "query": "UPDATE staff SET current_load = current_load + 1, updated_at = NOW() WHERE id = {{ $('MySQL - Lấy nhân viên tải thấp nhất').last()?.json.new_assignee_id }};",
         "options": {}
       },
       "id": "bb645b17-5379-4ab5-9043-9ba4713a8433",
@@ -335,8 +407,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        640,
-        16
+        704,
+        -32
       ],
       "credentials": {
         "mySql": {
@@ -356,7 +428,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ Number($('Code - Tính % SLA và giờ làm việc').first()?.json.percent_used) >= 100 }}",
+              "leftValue": "={{ Number($('Code - Tính % SLA và giờ làm việc').last()?.json.percent_used) >= 100 && Boolean($('Code - Tính % SLA và giờ làm việc').last()?.json.should_alert) }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -374,7 +446,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        880,
+        912,
         128
       ]
     },
@@ -401,7 +473,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Bạn là đại diện chăm sóc khách hàng. Hãy soạn tin nhắn gửi khách hàng với nội dung lịch sự, chân thành xin lỗi vì sự chậm trễ trong việc phản hồi/giải quyết yêu cầu của họ:\n- Mã ticket: {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.ticket_code }}\n- Khách hàng: {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.customer_name || 'Quý khách' }}\n- Thời hạn hoàn thành cam kết mới: {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.new_promised_at }}\n\nYêu cầu: Đồng cảm, thể hiện tinh thần trách nhiệm, ngắn gọn, súc tích (dưới 80 từ).",
+        "text": "=Bạn là đại diện chăm sóc khách hàng. Hãy soạn tin nhắn gửi khách hàng với nội dung lịch sự, chân thành xin lỗi vì sự chậm trễ trong việc phản hồi/giải quyết yêu cầu của họ:\n- Mã ticket: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code }}\n- Khách hàng: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.customer_name || 'Quý khách' }}\n- Thời hạn hoàn thành cam kết mới: {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.new_promised_at }}\n\nYêu cầu: Đồng cảm, thể hiện tinh thần trách nhiệm, ngắn gọn, súc tích (dưới 80 từ).",
         "batching": {}
       },
       "id": "9e5067a9-01be-44e7-b594-8cec1f4f4401",
@@ -416,8 +488,8 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $('Code - Tính % SLA và giờ làm việc').first()?.json.customer_telegram_id || 7919420845 }}",
-        "text": "={{ $json.text || 'Chào Quý khách, chúng tôi rất tiếc vì sự chậm trễ trong việc xử lý yêu cầu của Quý khách. Đội ngũ chuyên môn đang ưu tiên xử lý khẩn cấp và sẽ hoàn tất trước ' + $('Code - Tính % SLA và giờ làm việc').first()?.json.new_promised_at + '. Trân trọng cảm ơn sự thông cảm của Quý khách!' }}",
+        "chatId": "={{ $('Code - Tính % SLA và giờ làm việc').last()?.json.customer_telegram_id || '' }}",
+        "text": "={{ $json.text || 'Chào Quý khách, chúng tôi rất tiếc vì sự chậm trễ trong việc xử lý yêu cầu #' + ($('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_code || '') + '. Đội ngũ chuyên môn đang ưu tiên xử lý khẩn cấp và sẽ hoàn tất trước ' + ($('Code - Tính % SLA và giờ làm việc').last()?.json.new_promised_at || 'thời gian sớm nhất') + '. Trân trọng cảm ơn sự thông cảm của Quý khách!' }}",
         "additionalFields": {}
       },
       "id": "9e83ccf9-a452-41b0-8753-75aa981444b0",
@@ -439,8 +511,41 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($('Code - Tính % SLA và giờ làm việc').last()?.json.needs_sync) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-needs-sync"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "l07-if-needs-sync",
+      "name": "IF - Có cần đồng bộ SLA về Backend?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        128
+      ]
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets SET sla_breached = {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.percent_used >= 100 ? 1 : 0 }}, last_alert_level = {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.current_alert_level }}, updated_at = NOW() WHERE id = {{ $('Code - Tính % SLA và giờ làm việc').first()?.json.ticket_id }};",
+        "query": "UPDATE tickets SET sla_breached = {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.is_breached ? 1 : 0 }}, last_alert_level = GREATEST(COALESCE(last_alert_level, 0), {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.current_alert_level }}), updated_at = NOW() WHERE id = {{ $('Code - Tính % SLA và giờ làm việc').last()?.json.ticket_id }};",
         "options": {}
       },
       "id": "04457281-de71-4a45-94ac-ab055c254db3",
@@ -448,8 +553,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
       "position": [
-        1600,
-        128
+        1744,
+        16
       ],
       "credentials": {
         "mySql": {
@@ -460,7 +565,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const allTickets = $('MySQL - Lấy ticket chưa đóng & luật SLA').all().map(i => i.json);\n\nlet total = allTickets.length;\nlet safeCount = 0;\nlet warning80 = 0;\nlet breached100 = 0;\nlet critical150 = 0;\nlet details = [];\n\nconst now = new Date();\n\nallTickets.forEach(t => {\n  const elapsed = Math.max(1, Math.floor((now - new Date(t.created_at)) / 60000));\n  const sla = t.sla_resolution_minutes || 1440;\n  const pct = Math.round((elapsed / sla) * 100);\n  \n  if (pct > 150) critical150++;\n  else if (pct >= 100) breached100++;\n  else if (pct >= 80) warning80++;\n  else safeCount++;\n\n  details.push({\n    ticket_code: t.ticket_code,\n    priority: t.priority,\n    percent_used: pct + '%',\n    assignee: t.assignee_name || 'Chưa gán',\n    status: t.status\n  });\n});\n\nreturn [{\n  json: {\n    total_tickets: total,\n    safe_count: safeCount,\n    warning_80_count: warning80,\n    breached_100_count: breached100,\n    critical_150_count: critical150,\n    sla_compliance_rate: total > 0 ? Math.round(((total - (breached100 + critical150)) / total) * 100) : 100,\n    details: details\n  }\n}];"
+        "jsCode": "const allTickets = $('MySQL - Lấy ticket chưa đóng & luật SLA').all().map(i => i.json);\n\nlet total = allTickets.length;\nlet safeCount = 0;\nlet warning80 = 0;\nlet breached100 = 0;\nlet critical150 = 0;\nlet details = [];\n\nconst now = new Date();\n\nallTickets.forEach(t => {\n  const created = t.created_at ? new Date(t.created_at) : now;\n  const due = t.due_at ? new Date(t.due_at) : null;\n  const elapsed = Math.max(1, Math.floor((now.getTime() - created.getTime()) / 60000));\n  const sla = (due && due.getTime() > created.getTime())\n    ? Math.max(1, Math.round((due.getTime() - created.getTime()) / 60000))\n    : (Number(t.sla_resolution_minutes) || 1440);\n  let pct = Math.round((elapsed / sla) * 100);\n  if (due && due.getTime() < now.getTime() && pct < 100) pct = 100;\n\n  if (pct > 150) critical150++;\n  else if (pct >= 100) breached100++;\n  else if (pct >= 80) warning80++;\n  else safeCount++;\n\n  details.push({\n    ticket_code: t.ticket_code,\n    priority: t.priority,\n    percent_used: pct + '%',\n    assignee: t.assignee_name || 'Chưa gán',\n    status: t.status\n  });\n});\n\nreturn [{\n  json: {\n    total_tickets: total,\n    safe_count: safeCount,\n    warning_80_count: warning80,\n    breached_100_count: breached100,\n    critical_150_count: critical150,\n    sla_compliance_rate: total > 0 ? Math.round(((total - (breached100 + critical150)) / total) * 100) : 100,\n    details: details\n  }\n}];"
       },
       "id": "b7ca234b-b623-485d-9f5a-fe42a898914a",
       "name": "Code - Tổng hợp số liệu giám sát SLA",
@@ -512,6 +617,7 @@
         "fromEmail": "support@support.local",
         "toEmail": "manager@support.local",
         "subject": "=[BÁO CÁO GIÁM SÁT SLA] Tổng kết tình hình xử lý Ticket",
+        "html": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6;\">\n  <h2>Báo Cáo Giám Sát SLA (Luồng L07)</h2>\n  <p><b>Tổng số ticket đang xử lý:</b> {{ $('Code - Tổng hợp số liệu giám sát SLA').last()?.json.total_tickets ?? 0 }}</p>\n  <p><b>Tỷ lệ tuân thủ SLA:</b> {{ $('Code - Tổng hợp số liệu giám sát SLA').last()?.json.sla_compliance_rate ?? 100 }}%</p>\n  <hr>\n  <pre style=\"white-space: pre-wrap; font-family: inherit;\">{{ $json.text || 'Hệ thống đã hoàn tất quét SLA định kỳ.' }}</pre>\n</div>",
         "options": {}
       },
       "id": "42f2f252-7993-470c-941f-6038bb7e9ffe",
@@ -537,7 +643,7 @@
         "url": "http://host.docker.internal:8080/api/sla/events",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"ticketId\": {{ $('Code - Tính % SLA và giờ làm việc').first()?.json?.ticket_id }},\n  \"ticketCode\": \"{{ $('Code - Tính % SLA và giờ làm việc').first()?.json?.ticket_code }}\",\n  \"alertLevel\": {{ $('Code - Tính % SLA và giờ làm việc').first()?.json?.current_alert_level }},\n  \"percentUsed\": {{ $('Code - Tính % SLA và giờ làm việc').first()?.json?.percent_used }},\n  \"summary\": \"Cảnh báo SLA mức {{ $('Code - Tính % SLA và giờ làm việc').first()?.json?.current_alert_level }} (Đã dùng {{ $('Code - Tính % SLA và giờ làm việc').first()?.json?.percent_used }}% SLA)\"\n}",
+        "jsonBody": "={{ JSON.stringify({ ticketId: $('Code - Tính % SLA và giờ làm việc').last()?.json?.ticket_id, ticketCode: $('Code - Tính % SLA và giờ làm việc').last()?.json?.ticket_code, alertLevel: $('Code - Tính % SLA và giờ làm việc').last()?.json?.current_alert_level, percentUsed: $('Code - Tính % SLA và giờ làm việc').last()?.json?.percent_used, slaBreached: Boolean($('Code - Tính % SLA và giờ làm việc').last()?.json?.is_breached), summary: 'Cảnh báo SLA mức ' + ($('Code - Tính % SLA và giờ làm việc').last()?.json?.current_alert_level ?? 0) + ' (Đã dùng ' + ($('Code - Tính % SLA và giờ làm việc').last()?.json?.percent_used ?? 0) + '% SLA)' }) }}",
         "options": {}
       },
       "id": "l07-backend-sla-event",
@@ -545,8 +651,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2144,
-        240
+        1984,
+        16
       ],
       "continueOnFail": true
     }
@@ -618,7 +724,25 @@
       "main": [
         [
           {
+            "node": "IF - Có cần gửi cảnh báo mới?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có cần gửi cảnh báo mới?": {
+      "main": [
+        [
+          {
             "node": "Switch - Phân loại mức cảnh báo SLA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Ticket chưa có người nhận?",
             "type": "main",
             "index": 0
           }
@@ -712,7 +836,25 @@
       "main": [
         [
           {
+            "node": "IF - Có nhân viên khả dụng?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có nhân viên khả dụng?": {
+      "main": [
+        [
+          {
             "node": "MySQL - Tự gán ticket cho nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Có vi phạm SLA (>=100%)?",
             "type": "main",
             "index": 0
           }
@@ -752,7 +894,7 @@
         ],
         [
           {
-            "node": "MySQL - Đánh dấu sla_breached và last_alert_level",
+            "node": "IF - Có cần đồng bộ SLA về Backend?",
             "type": "main",
             "index": 0
           }
@@ -785,7 +927,25 @@
       "main": [
         [
           {
+            "node": "IF - Có cần đồng bộ SLA về Backend?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có cần đồng bộ SLA về Backend?": {
+      "main": [
+        [
+          {
             "node": "MySQL - Đánh dấu sla_breached và last_alert_level",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
@@ -797,6 +957,17 @@
         [
           {
             "node": "HTTP Request - Gửi sự kiện SLA về Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Gửi sự kiện SLA về Backend": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
@@ -830,17 +1001,6 @@
         [
           {
             "node": "Gmail / Email - Báo cáo tổng hợp SLA cho Supervisor",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "HTTP Request - Gửi sự kiện SLA về Backend": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
             "type": "main",
             "index": 0
           }
