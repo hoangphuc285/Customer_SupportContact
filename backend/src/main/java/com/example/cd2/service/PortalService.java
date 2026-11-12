@@ -39,6 +39,8 @@ public class PortalService {
     private final DepartmentRepository departments;
     private final N8nClientService n8nService;
     private final KbDocumentRepository kbDocuments;
+    private final QaService qaService;
+    private final KnowledgeGapRepository knowledgeGaps;
     private final QaScoreRepository qaScores;
     private final ReportingService reportingService;
     private final AuditLogRepository auditLogs;
@@ -57,6 +59,8 @@ public class PortalService {
             DepartmentRepository departments,
             N8nClientService n8nService,
             KbDocumentRepository kbDocuments,
+            QaService qaService,
+            KnowledgeGapRepository knowledgeGaps,
             QaScoreRepository qaScores,
             ReportingService reportingService,
             AuditLogRepository auditLogs,
@@ -73,6 +77,8 @@ public class PortalService {
         this.departments = departments;
         this.n8nService = n8nService;
         this.kbDocuments = kbDocuments;
+        this.qaService = qaService;
+        this.knowledgeGaps = knowledgeGaps;
         this.qaScores = qaScores;
         this.reportingService = reportingService;
         this.auditLogs = auditLogs;
@@ -1450,21 +1456,7 @@ public class PortalService {
 
     // QA (L11)
     public List<Map<String, Object>> getAllQaScores() {
-        return qaScores.findAllByOrderByCreatedAtDesc().stream().map(q -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", q.getId());
-            m.put("ticketId", q.getTicket().getId());
-            m.put("ticketCode", q.getTicket().getTicketCode());
-            m.put("totalScore", q.getTotalScore());
-            m.put("grade", q.getGrade().name());
-            m.put("criticalViolation", q.isCriticalViolation());
-            m.put("scores", q.getScores());
-            m.put("violations", q.getViolations());
-            m.put("summary", q.getSummary());
-            m.put("coachingTip", q.getCoachingTip());
-            m.put("createdAt", q.getCreatedAt() != null ? q.getCreatedAt().toString() : null);
-            return m;
-        }).toList();
+        return qaService.getAllQaScores();
     }
 
     // Báo cáo (L12)
@@ -1475,30 +1467,7 @@ public class PortalService {
     // Kích hoạt đánh giá QA (L11)
     @Transactional
     public Map<String, Object> triggerQaEvaluation(Map<String, Object> req) {
-        String actor = (req != null && req.get("actor") != null) ? req.get("actor").toString() : "STAFF_PORTAL";
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("timestamp", Instant.now().toString());
-        payload.put("triggeredBy", actor);
-        if (req != null) {
-            payload.putAll(req);
-        }
-
-        n8nService.triggerSupportQa(payload);
-
-        AuditLog audit = new AuditLog();
-        audit.setWorkflow("L11_Support_QA");
-        audit.setEntityType("qa_evaluation");
-        audit.setAction("TRIGGER_QA_EVALUATION");
-        audit.setActor(actor);
-        audit.setDetail(Map.of("message", "Đã gửi yêu cầu kích hoạt đánh giá QA tới n8n webhook /webhook/support-qa"));
-        auditLogs.save(audit);
-
-        return Map.of(
-                "success", true,
-                "message", "Đã kích hoạt quy trình chấm điểm QA tự động qua luồng n8n L11_Support_QA",
-                "triggeredAt", Instant.now().toString(),
-                "workflow", "L11_Support_QA"
-        );
+        return qaService.triggerQaEvaluation(req);
     }
 
     // Kích hoạt báo cáo vận hành & lỗ hổng tri thức (L12)

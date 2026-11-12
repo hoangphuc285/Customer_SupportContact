@@ -75,6 +75,10 @@ public class N8nClientService {
         sendAsync("/webhook/support-qa", payload != null ? payload : Map.of(), "L11_Support_QA");
     }
 
+    public boolean triggerSupportQaSync(Map<String, Object> payload) {
+        return sendSync("/webhook/support-qa", payload != null ? payload : Map.of(), "L11_Support_QA");
+    }
+
     public void triggerReporting(Map<String, Object> payload) {
         sendAsync("/webhook/reporting", payload != null ? payload : Map.of(), "L12_Reporting");
     }

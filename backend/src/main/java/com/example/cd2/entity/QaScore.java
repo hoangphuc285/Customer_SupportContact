@@ -36,7 +36,7 @@ public class QaScore extends BaseEntity {
     @Column(name = "total_score", nullable = false)
     private Double totalScore;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = QaGradeConverter.class)
     @Column(nullable = false, length = 25)
     private QaGrade grade;
 
