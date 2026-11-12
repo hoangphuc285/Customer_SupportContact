@@ -11,28 +11,58 @@
         }
       },
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.4,
+      "typeVersion": 1.2,
       "position": [
-        -960,
-        64
+        -1184,
+        160
       ],
       "id": "9fce3d4c-c657-4282-af08-d1d6d9f31c05",
       "name": "Schedule Trigger"
     },
     {
       "parameters": {
+        "httpMethod": "POST",
+        "path": "support-qa",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        -32
+      ],
+      "id": "l11-webhook-support-qa",
+      "name": "Webhook - Kích hoạt QA (L11)",
+      "webhookId": "support-qa-webhook-id"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1184,
+        352
+      ],
+      "id": "l11-exec-workflow-trigger",
+      "name": "Execute Workflow Trigger"
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, ticket_code, customer_id, channel, status, created_at, updated_at\nFROM tickets \nWHERE status IN ('CLOSED', 'RESOLVED')\n  AND updated_at >= NOW() - INTERVAL 1 DAY;",
+        "query": "SELECT\n  t.id,\n  t.ticket_code,\n  t.customer_id,\n  t.assignee_id,\n  t.channel,\n  t.priority,\n  t.status,\n  t.subject,\n  t.sla_breached,\n  COALESCE(t.last_alert_level, 0) AS last_alert_level,\n  t.created_at,\n  t.updated_at,\n  s.full_name AS assignee_name\nFROM tickets t\nLEFT JOIN staff s ON t.assignee_id = s.id\nWHERE t.status IN ('CLOSED', 'RESOLVED')\n  AND NOT EXISTS (SELECT 1 FROM qa_scores q WHERE q.ticket_id = t.id)\nORDER BY t.updated_at DESC\nLIMIT 20;",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
-        -736,
-        64
+        -896,
+        160
       ],
       "id": "1f9a3de2-d8fc-4764-933f-a020a1cf1ef9",
       "name": "MySQL_Get_Closed_Tickets",
+      "alwaysOutputData": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
@@ -42,16 +72,49 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\n// Lấy 100% ca bị vi phạm SLA/leo thang và ngẫu nhiên 20% ca thường\nconst sampled = items.filter(item => {\n  const isPriority = item.json.sla_breached === 1 || item.json.last_alert_level !== 'NORMAL';\n  return isPriority || Math.random() < 0.2;\n});\n\n// Đảm bảo có ít nhất 1 item để chạy tiếp\nreturn sampled.length > 0 ? sampled : items.slice(0, 1);"
+        "jsCode": "const valid = $input.all().filter(item => item.json && item.json.id);\nif (valid.length === 0) {\n  return [{ json: { id: null, has_tickets: false } }];\n}\n\nconst sampled = valid.length <= 10\n  ? valid\n  : valid.filter(item => {\n      const breached = Array.isArray(item.json.sla_breached?.data)\n        ? Boolean(item.json.sla_breached.data[0])\n        : Boolean(item.json.sla_breached);\n      const isPriority = breached || Number(item.json.last_alert_level || 0) > 0 || item.json.priority === 'P1';\n      return isPriority || Math.random() < 0.3;\n    });\n\nconst finalItems = sampled.length > 0 ? sampled : valid.slice(0, 1);\nreturn finalItems.map(item => ({\n  json: {\n    ...item.json,\n    has_tickets: true\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -512,
-        64
+        -656,
+        160
       ],
       "id": "dfb93abc-d537-49b2-93e8-08645c3a3d3a",
       "name": "Code_Sampling"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.has_tickets) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "cond-has-qa-tickets"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -448,
+        160
+      ],
+      "id": "l11-if-has-tickets",
+      "name": "IF - Có ticket cần chấm QA?"
     },
     {
       "parameters": {
@@ -60,7 +123,7 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -288,
+        -224,
         64
       ],
       "id": "70e0eaba-8028-45d8-8586-e660b8c0771e",
@@ -69,17 +132,18 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT sender_type, content, created_at \nFROM messages \nWHERE ticket_id = {{ $('Loop Over Items').item.json.id }}\nORDER BY created_at ASC;",
+        "query": "SELECT\n  sender_type,\n  COALESCE(NULLIF(content_translated, ''), content_original) AS message_text,\n  content_original,\n  created_at\nFROM messages\nWHERE ticket_id = {{ $('Loop Over Items').last()?.json?.id }}\nORDER BY created_at ASC;",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
-        -64,
+        0,
         272
       ],
       "id": "ede71c1c-948c-4b8b-a64a-0218eaa4219e",
       "name": "MySQL_Get_Messages",
+      "alwaysOutputData": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
@@ -90,26 +154,27 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Bạn là chuyên viên Đảm bảo chất lượng (QA) dịch vụ chăm sóc khách hàng.\nHãy đánh giá cuộc hội thoại sau giữa Khách hàng (customer) và Nhân viên hỗ trợ (agent):\n\n{{ $('MySQL_Get_Messages').all().map(m => m.json.sender_type + ': ' + m.json.content).join('\\n') }}\n\nTiêu chí chấm điểm (thang điểm 0 - 10):\n- greeting_score: Chào hỏi, xưng hô lịch sự\n- understanding_score: Mức độ hiểu đúng vấn đề của khách\n- policy_accuracy_score: Cung cấp đúng chính sách, thông tin chuẩn xác\n- tone_score: Thái độ nhã nhặn, chuẩn mực\n- resolution_score: Giải quyết triệt để vấn đề\n\nNếu nhân viên có thái độ xúc phạm, chửi bới, hoặc bịa đặt thông tin sai lệch nghiêm trọng, hãy đánh dấu has_critical_violation = true (ngược lại là false).",
+        "text": "=Bạn là chuyên viên Đảm bảo chất lượng (QA) dịch vụ chăm sóc khách hàng.\nHãy đánh giá cuộc hội thoại của ticket #{{ $('Loop Over Items').last()?.json?.ticket_code }} (Tiêu đề: {{ $('Loop Over Items').last()?.json?.subject || 'Hỗ trợ khách hàng' }}):\n\n{{ $('MySQL_Get_Messages').all().filter(m => m.json && (m.json.message_text || m.json.content_original)).map(m => (m.json.sender_type || 'SYSTEM') + ': ' + (m.json.message_text || m.json.content_original)).join('\\n') || '(Chưa có tin nhắn chi tiết trong hội thoại)' }}\n\nChấm điểm theo thang 0 - 100 cho 5 tiêu chí và CHỈ TRẢ VỀ đúng một JSON hợp lệ (không giải thích thêm):\n{\n  \"greeting\": 85,\n  \"understanding\": 85,\n  \"policy_accuracy\": 85,\n  \"tone\": 90,\n  \"resolution\": 85,\n  \"has_critical_violation\": false,\n  \"violations\": \"Không phát hiện vi phạm quy trình.\",\n  \"summary\": \"Nhân viên/AI phản hồi lịch sự, đúng trọng tâm.\",\n  \"coaching_tip\": \"Tiếp tục duy trì tác phong chuẩn mực.\"\n}\nLưu ý: Chỉ đánh dấu has_critical_violation = true nếu phía Nhân viên/AI xúc phạm, chửi bới hoặc bịa đặt thông tin nghiêm trọng.",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        160,
+        224,
         272
       ],
       "id": "0e4785e3-3d98-4966-a4f0-3bcf1724e03b",
-      "name": "AI_Agent_QA"
+      "name": "AI_Agent_QA",
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "// Lấy output từ AI Agent (chỉ lấy bản ghi đầu tiên để tránh bị trùng item)\nconst rawItem = $input.first();\nconst text = rawItem.json.output || rawItem.json.text || '';\n\n// Regex trích xuất điểm số từ văn bản đánh giá của AI\nconst getScore = (fieldName, defaultVal = 8) => {\n  const regex = new RegExp(`${fieldName}[^0-9]*([0-9]+(?:\\\\.[0-9]+)?)\\\\s*\\\\/\\\\s*10`, 'i');\n  const match = text.match(regex);\n  return match ? parseFloat(match[1]) : defaultVal;\n};\n\nconst greeting = getScore('greeting_score', 8);\nconst understanding = getScore('understanding_score', 8);\nconst policy = getScore('policy_accuracy_score', 8);\nconst tone = getScore('tone_score', 8);\nconst resolution = getScore('resolution_score', 8);\n\nconst total = (greeting + understanding + policy + tone + resolution) / 5;\n\n// Kiểm tra vi phạm nghiêm trọng\nconst hasViolation = /has_critical_violation\\s*[:=]\\s*true/i.test(text) || text.includes('vi phạm nghiêm trọng');\n\nlet grade = 'PASSED';\nif (total < 5 || hasViolation) {\n  grade = 'FAILED';\n} else if (total < 7.5) {\n  grade = 'NEEDS_IMPROVEMENT';\n}\n\nreturn [\n  {\n    json: {\n      ticket_id: $('Loop Over Items').item.json.id,\n      total_score: Number(total.toFixed(2)),\n      grade: grade,\n      has_violation: hasViolation ? 1 : 0,\n      details: text.length > 500 ? text.substring(0, 500) + '...' : text\n    }\n  }\n];"
+        "jsCode": "const ticket = $('Loop Over Items').last()?.json || {};\nconst msgs = $('MySQL_Get_Messages').all().map(m => m.json).filter(m => m && (m.message_text || m.content_original));\nconst rawItem = $input.first();\nconst rawText = String(rawItem?.json?.output || rawItem?.json?.text || '');\n\nlet parsed = null;\nconst jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\nif (jsonMatch) {\n  try {\n    parsed = JSON.parse(jsonMatch[0]);\n  } catch (e) {\n    parsed = null;\n  }\n}\n\nconst toScale100 = (val, fallback) => {\n  const n = Number(val);\n  if (!Number.isFinite(n)) return fallback;\n  const scaled = (n > 0 && n <= 10) ? n * 10 : n;\n  return Math.max(0, Math.min(100, Math.round(scaled)));\n};\n\nconst extractRegexScore = (keys, fallback) => {\n  for (const key of keys) {\n    const r = new RegExp(`${key}[^0-9]*([0-9]+(?:\\\\.[0-9]+)?)`, 'i');\n    const m = rawText.match(r);\n    if (m) return toScale100(m[1], fallback);\n  }\n  return fallback;\n};\n\nconst outbound = msgs.filter(m => m.sender_type === 'STAFF' || m.sender_type === 'AI')\n  .map(m => String(m.message_text || m.content_original || ''));\nconst outboundJoined = outbound.join('\\n').toLowerCase();\nconst polite = ['xin chào', 'chào', 'cảm ơn', 'xin lỗi', 'dạ', 'trân trọng', 'quý khách', 'hello'].some(t => outboundJoined.includes(t));\nconst breached = Array.isArray(ticket.sla_breached?.data)\n  ? Boolean(ticket.sla_breached.data[0])\n  : Boolean(ticket.sla_breached);\n\nconst fallbackGreeting = outbound.length === 0 ? 65 : (polite ? 88 : 74);\nconst fallbackUnderstanding = outbound.length === 0 ? 65 : 84;\nconst fallbackPolicy = breached ? 68 : 86;\nconst fallbackTone = outbound.length === 0 ? 70 : (polite ? 90 : 78);\nconst fallbackResolution = outbound.length === 0 ? 70 : (breached ? 75 : 88);\n\nconst greeting = parsed ? toScale100(parsed.greeting ?? parsed.greeting_score, fallbackGreeting) : extractRegexScore(['greeting', 'greeting_score'], fallbackGreeting);\nconst understanding = parsed ? toScale100(parsed.understanding ?? parsed.understanding_score, fallbackUnderstanding) : extractRegexScore(['understanding', 'understanding_score'], fallbackUnderstanding);\nconst policyAccuracy = parsed ? toScale100(parsed.policy_accuracy ?? parsed.policy_accuracy_score, fallbackPolicy) : extractRegexScore(['policy_accuracy', 'policy_accuracy_score'], fallbackPolicy);\nconst tone = parsed ? toScale100(parsed.tone ?? parsed.tone_score, fallbackTone) : extractRegexScore(['tone', 'tone_score'], fallbackTone);\nconst resolution = parsed ? toScale100(parsed.resolution ?? parsed.resolution_score, fallbackResolution) : extractRegexScore(['resolution', 'resolution_score'], fallbackResolution);\n\nconst totalScore = Number(((greeting + understanding + policyAccuracy + tone + resolution) / 5).toFixed(1));\nconst hasViolation = parsed\n  ? Boolean(parsed.has_critical_violation)\n  : /has_critical_violation\\s*[:=]\\s*true/i.test(rawText);\n\nlet grade = 'PASS';\nif (totalScore < 50 || hasViolation) {\n  grade = 'FAIL';\n} else if (totalScore < 75) {\n  grade = 'NEEDS_IMPROVEMENT';\n}\n\nconst violations = (parsed && parsed.violations)\n  ? String(parsed.violations)\n  : (hasViolation ? 'Phát hiện vi phạm nghiêm trọng trong hội thoại.' : (breached ? 'Ticket bị vi phạm SLA.' : 'Không phát hiện vi phạm quy trình.'));\nconst summary = (parsed && parsed.summary)\n  ? String(parsed.summary)\n  : `Đạt ${totalScore}/100 điểm (${grade}) qua ${msgs.length} tin nhắn.`;\nconst coachingTip = (parsed && parsed.coaching_tip)\n  ? String(parsed.coaching_tip)\n  : 'Duy trì thái độ lịch sự, bám sát chính sách và phản hồi kịp thời.';\n\nconst scores = {\n  greeting,\n  understanding,\n  policy_accuracy: policyAccuracy,\n  tone,\n  resolution\n};\n\nconst escSql = (s) => String(s ?? '').replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"''\");\nconst scoresJson = JSON.stringify(scores);\n\nreturn [{\n  json: {\n    ticket_id: ticket.id,\n    ticket_code: ticket.ticket_code,\n    staff_id: ticket.assignee_id || null,\n    scores,\n    scores_sql: escSql(scoresJson),\n    total_score: totalScore,\n    grade,\n    critical_violation: hasViolation ? 1 : 0,\n    critical_violation_bool: hasViolation,\n    violations,\n    violations_sql: escSql(violations),\n    summary,\n    summary_sql: escSql(summary),\n    coaching_tip: coachingTip,\n    coaching_tip_sql: escSql(coachingTip)\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        528,
+        496,
         272
       ],
       "id": "0087973d-de0a-4de5-be6e-8b7d15f3b107",
@@ -118,23 +183,43 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO qa_scores (ticket_id, total_score, grade, has_violation, details, created_at)\nVALUES (\n  {{ $json.ticket_id }},\n  {{ $json.total_score }},\n  '{{ $json.grade }}',\n  {{ $json.has_violation }},\n  '{{ $json.details.replace(/'/g, \"''\") }}',\n  NOW()\n);",
+        "query": "INSERT INTO qa_scores (ticket_id, staff_id, scores, total_score, grade, critical_violation, violations, summary, coaching_tip, created_at, updated_at)\nVALUES (\n  {{ $json.ticket_id }},\n  {{ $json.staff_id ? $json.staff_id : 'NULL' }},\n  '{{ $json.scores_sql }}',\n  {{ $json.total_score }},\n  '{{ $json.grade }}',\n  {{ $json.critical_violation }},\n  '{{ $json.violations_sql }}',\n  '{{ $json.summary_sql }}',\n  '{{ $json.coaching_tip_sql }}',\n  NOW(6),\n  NOW(6)\n);",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
+      "typeVersion": 2.4,
       "position": [
         736,
         272
       ],
       "id": "1b318076-a5c6-4869-924b-13ef42a9753e",
       "name": "MySQL_Insert_QA_Scores",
+      "continueOnFail": true,
       "credentials": {
         "mySql": {
           "id": "sRWvZ8HDAQebbIOB",
           "name": "MySQL account"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/staff/qa/events",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ticketId: $('Code_Calculate_Grade').last()?.json?.ticket_id, staffId: $('Code_Calculate_Grade').last()?.json?.staff_id, scores: $('Code_Calculate_Grade').last()?.json?.scores, totalScore: $('Code_Calculate_Grade').last()?.json?.total_score, grade: $('Code_Calculate_Grade').last()?.json?.grade, criticalViolation: Boolean($('Code_Calculate_Grade').last()?.json?.critical_violation_bool), violations: $('Code_Calculate_Grade').last()?.json?.violations, summary: $('Code_Calculate_Grade').last()?.json?.summary, coachingTip: $('Code_Calculate_Grade').last()?.json?.coaching_tip }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        272
+      ],
+      "id": "l11-backend-qa-event",
+      "name": "HTTP Request - Đồng bộ kết quả QA về Backend",
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -145,7 +230,7 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        -64,
+        0,
         -32
       ],
       "id": "6a731820-988f-40a8-9717-9f9786e7fa4b",
@@ -153,21 +238,22 @@
     },
     {
       "parameters": {
-        "fromEmail": "tiennamx15@gmail.com",
-        "toEmail": "tiennamx15@gmail.com",
+        "fromEmail": "support@support.local",
+        "toEmail": "manager@support.local",
         "subject": "[Báo Cáo QA] Kết quả kiểm định chất lượng vé hỗ trợ L11",
-        "html": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">\n  <h2 style=\"color: #2b5797;\">Báo Cáo Kiểm Định Chất Lượng (QA) Tự Động</h2>\n  <p>Hệ thống vừa hoàn tất quét và đánh giá tự động các vé hỗ trợ khách hàng đã đóng.</p>\n\n  <table style=\"border-collapse: collapse; width: 100%; margin-top: 15px;\">\n    <tr style=\"background-color: #f2f2f2;\">\n      <th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Mục</th>\n      <th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Thông tin</th>\n    </tr>\n    <tr>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\">Tổng số vé đã chấm đợt này</td>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\"><b>{{ $json.qa_tickets.length }}</b> vé</td>\n    </tr>\n    <tr>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\">Lưu trữ cơ sở dữ liệu</td>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\">Đã đồng bộ thành công vào bảng <code>qa_scores</code></td>\n    </tr>\n  </table>\n\n  <p style=\"margin-top: 20px;\"><i>Email được gửi tự động từ luồng n8n L11_Support_QA.</i></p>\n</div>\n```",
+        "html": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">\n  <h2 style=\"color: #2b5797;\">Báo Cáo Kiểm Định Chất Lượng (QA) Tự Động</h2>\n  <p>Hệ thống vừa hoàn tất quét và đánh giá tự động các vé hỗ trợ khách hàng đã đóng.</p>\n\n  <table style=\"border-collapse: collapse; width: 100%; margin-top: 15px;\">\n    <tr style=\"background-color: #f2f2f2;\">\n      <th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Mục</th>\n      <th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Thông tin</th>\n    </tr>\n    <tr>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\">Tổng số vé đã chấm đợt này</td>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\"><b>{{ $('Aggregate').last()?.json?.qa_tickets?.length ?? 0 }}</b> vé</td>\n    </tr>\n    <tr>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\">Lưu trữ cơ sở dữ liệu</td>\n      <td style=\"border: 1px solid #ddd; padding: 8px;\">Đã đồng bộ thành công vào bảng <code>qa_scores</code> và Backend</td>\n    </tr>\n  </table>\n\n  <p style=\"margin-top: 20px;\"><i>Email được gửi tự động từ luồng n8n L11_Support_QA.</i></p>\n</div>",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        160,
+        224,
         -32
       ],
       "id": "77b3e35d-e20d-4a6d-8183-8401c5c8fe2e",
       "name": "Send an Email",
       "webhookId": "21ef9b2c-c67b-463e-8701-79efa2c3e613",
+      "continueOnFail": true,
       "credentials": {
         "smtp": {
           "id": "4pmZoybZrTzFUyeL",
@@ -183,7 +269,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
       "position": [
-        160,
+        224,
         512
       ],
       "id": "a65614b8-daf5-4214-8c17-a100ae5018ba",
@@ -198,6 +284,28 @@
   ],
   "connections": {
     "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "MySQL_Get_Closed_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Kích hoạt QA (L11)": {
+      "main": [
+        [
+          {
+            "node": "MySQL_Get_Closed_Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
       "main": [
         [
           {
@@ -223,11 +331,23 @@
       "main": [
         [
           {
-            "node": "Loop Over Items",
+            "node": "IF - Có ticket cần chấm QA?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "IF - Có ticket cần chấm QA?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Loop Over Items": {
@@ -282,6 +402,17 @@
       ]
     },
     "MySQL_Insert_QA_Scores": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Đồng bộ kết quả QA về Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Đồng bộ kết quả QA về Backend": {
       "main": [
         [
           {

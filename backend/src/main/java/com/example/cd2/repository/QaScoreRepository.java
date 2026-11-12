@@ -11,4 +11,8 @@ import java.util.Optional;
 
 public interface QaScoreRepository extends JpaRepository<QaScore, Long> {
     List<QaScore> findAllByOrderByCreatedAtDesc();
+
+    Optional<QaScore> findFirstByTicketIdOrderByCreatedAtDesc(Long ticketId);
+
+    boolean existsByTicketId(Long ticketId);
 }
