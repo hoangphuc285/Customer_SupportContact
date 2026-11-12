@@ -46,6 +46,20 @@ public class N8nIntakeController {
         return ResponseEntity.ok(slaService.handleSlaEventFromN8n(body));
     }
 
+    /** L13 callback: nhan xac nhan da gui phan hoi cho khach hang */
+    @PostMapping("/staff-response/callback")
+    public ResponseEntity<Map<String, Object>> staffResponseCallback(@RequestBody Map<String, Object> body) {
+        log.info("N8nIntakeController received L13 staff-response callback: {}", body);
+        return ResponseEntity.ok(Map.of("status", "ok", "workflow", "L13_Staff_Response"));
+    }
+
+    /** L14 callback: nhan xac nhan da phan chia phong ban thanh cong */
+    @PostMapping("/department-assign/callback")
+    public ResponseEntity<Map<String, Object>> departmentAssignCallback(@RequestBody Map<String, Object> body) {
+        log.info("N8nIntakeController received L14 department-assign callback: {}", body);
+        return ResponseEntity.ok(Map.of("status", "ok", "workflow", "L14_Department_Routing"));
+    }
+
     /**
      * L01: tiep nhan tin nhan tu moi kenh, tao/gop ticket.
      * Chap nhan linh hoat ca format { "message": "..." } va { "text": "..." }, "channel": "WEB" / "LIVECHAT"

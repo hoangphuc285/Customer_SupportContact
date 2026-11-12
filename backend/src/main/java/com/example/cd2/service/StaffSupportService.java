@@ -156,6 +156,16 @@ public class StaffSupportService {
             m.put("assigneeName", "Chưa phân công");
         }
 
+        if (t.getDepartment() != null) {
+            m.put("departmentId", t.getDepartment().getId());
+            m.put("departmentCode", t.getDepartment().getCode());
+            m.put("departmentName", t.getDepartment().getName());
+        } else {
+            m.put("departmentId", null);
+            m.put("departmentCode", null);
+            m.put("departmentName", null);
+        }
+
         return m;
     }
 
@@ -251,7 +261,7 @@ public class StaffSupportService {
     }
 
     // ==========================================
-    // 6. SEND RESOLUTION
+    // 6. SEND RESOLUTION & STAFF RESPONSE (L13)
     // ==========================================
     public Map<String, Object> sendResolution(Long id, String resolution, String agentName) {
         Ticket t = tickets.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy Ticket id=" + id));
@@ -286,7 +296,101 @@ public class StaffSupportService {
         log.setDetail(Map.of("resolution", resolution));
         auditLogs.save(log);
 
-        return Map.of("success", true, "message", "Đã lưu kết luận xử lý và hoàn tất Ticket #" + t.getTicketCode());
+        // Kích hoạt luồng n8n L13: Staff Response biên tập AI và gửi đa kênh
+        try {
+            Map<String, Object> l13Payload = new HashMap<>();
+            l13Payload.put("ticket_id", t.getId());
+            l13Payload.put("staff_id", staff != null ? staff.getId() : 4);
+            l13Payload.put("case_type", t.getCategory() != null ? t.getCategory() : (t.getIntent() != null ? t.getIntent().name() : "GENERAL"));
+            l13Payload.put("status", "RESOLVED");
+            l13Payload.put("response_note", resolution);
+            n8nService.triggerStaffResponse(l13Payload);
+        } catch (Exception ex) {
+            // Log và tiếp tục nếu n8n tạm thời bận
+        }
+
+        return Map.of("success", true, "message", "Đã lưu kết luận xử lý và kích hoạt phản hồi khách qua luồng L13 cho Ticket #" + t.getTicketCode());
+    }
+
+    /**
+     * Luồng L13: Tiếp nhận phản hồi nghiệp vụ từ Nhân viên, biên tập AI và gửi khách hàng (Telegram/Email)
+     */
+    public Map<String, Object> processStaffResponse(Map<String, Object> req) {
+        Long ticketId = null;
+        if (req.get("ticket_id") != null) {
+            ticketId = Long.valueOf(req.get("ticket_id").toString());
+        } else if (req.get("ticketId") != null) {
+            ticketId = Long.valueOf(req.get("ticketId").toString());
+        } else if (req.get("id") != null) {
+            ticketId = Long.valueOf(req.get("id").toString());
+        }
+
+        if (ticketId == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Thiếu ticket_id");
+        }
+
+        final Long targetTicketId = ticketId;
+        Ticket t = tickets.findById(targetTicketId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy Ticket id=" + targetTicketId));
+
+        Long staffId = null;
+        if (req.get("staff_id") != null) {
+            staffId = Long.valueOf(req.get("staff_id").toString());
+        } else if (req.get("staffId") != null) {
+            staffId = Long.valueOf(req.get("staffId").toString());
+        } else if (t.getAssignee() != null) {
+            staffId = t.getAssignee().getId();
+        } else {
+            staffId = 4L;
+        }
+
+        String caseType = req.get("case_type") != null ? req.get("case_type").toString() :
+                req.get("caseType") != null ? req.get("caseType").toString() :
+                req.get("category") != null ? req.get("category").toString() :
+                (t.getCategory() != null ? t.getCategory() : (t.getIntent() != null ? t.getIntent().name() : "GENERAL"));
+
+        String status = req.get("status") != null ? req.get("status").toString() :
+                req.get("action") != null ? req.get("action").toString() : "RESOLVED";
+
+        String responseNote = req.get("response_note") != null ? req.get("response_note").toString() :
+                req.get("responseNote") != null ? req.get("responseNote").toString() :
+                req.get("resolution") != null ? req.get("resolution").toString() :
+                req.get("message") != null ? req.get("message").toString() :
+                "Đã kiểm tra và xử lý hoàn tất sự cố cho khách hàng.";
+
+        String compensation = req.get("compensation") != null ? req.get("compensation").toString() :
+                req.get("voucher") != null ? req.get("voucher").toString() : "";
+
+        // 1. Kích hoạt luồng n8n L13: Staff Response
+        Map<String, Object> l13Payload = new HashMap<>();
+        l13Payload.put("ticket_id", t.getId());
+        l13Payload.put("staff_id", staffId);
+        l13Payload.put("case_type", caseType.toUpperCase());
+        l13Payload.put("status", status.toUpperCase());
+        l13Payload.put("response_note", responseNote);
+        l13Payload.put("compensation", compensation);
+
+        n8nService.triggerStaffResponse(l13Payload);
+
+        // 2. Ghi AuditLog
+        AuditLog audit = new AuditLog();
+        audit.setWorkflow("L13_Staff_Response");
+        audit.setEntityType("ticket");
+        audit.setEntityId(t.getId());
+        audit.setAction("STAFF_RESPONSE_DISPATCHED");
+        audit.setActor("STAFF #" + staffId);
+        audit.setDetail(l13Payload);
+        auditLogs.save(audit);
+
+        return Map.of(
+                "success", true,
+                "message", "Đã gửi phản hồi thành công qua luồng n8n L13_Staff_Response!",
+                "ticketId", t.getId(),
+                "ticketCode", t.getTicketCode(),
+                "caseType", caseType,
+                "status", status,
+                "workflow", "L13_Staff_Response"
+        );
     }
 
     // ==========================================
@@ -312,6 +416,67 @@ public class StaffSupportService {
         auditLogs.save(log);
 
         return Map.of("success", true, "message", "Đã phân công cho chuyên viên " + s.getFullName());
+    }
+
+    /**
+     * Luồng L14: Tự động phân chia phòng ban và điều phối nhân viên qua n8n AI
+     */
+    public Map<String, Object> autoRouteDepartment(Long ticketId, Map<String, Object> extraParams) {
+        final Long targetTicketId = ticketId;
+        Ticket t = tickets.findById(targetTicketId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy Ticket id=" + targetTicketId));
+
+        List<Message> msgs = messages.findByTicketIdOrderByCreatedAtAsc(t.getId());
+        String content = !msgs.isEmpty() ? msgs.get(0).getContentOriginal() : (t.getSubject() != null ? t.getSubject() : "");
+
+        Map<String, Object> l14Payload = new HashMap<>();
+        l14Payload.put("ticket_id", t.getId());
+        l14Payload.put("content_original", content);
+        l14Payload.put("category", t.getCategory() != null ? t.getCategory() : (t.getIntent() != null ? t.getIntent().name() : ""));
+        l14Payload.put("priority", t.getPriority() != null ? t.getPriority().name() : "P2");
+        if (extraParams != null) {
+            l14Payload.putAll(extraParams);
+        }
+
+        n8nService.triggerDepartmentRouting(l14Payload);
+
+        AuditLog audit = new AuditLog();
+        audit.setWorkflow("L14_Department_Routing");
+        audit.setEntityType("ticket");
+        audit.setEntityId(t.getId());
+        audit.setAction("TRIGGER_DEPARTMENT_ROUTING");
+        audit.setActor("SYSTEM");
+        audit.setDetail(l14Payload);
+        auditLogs.save(audit);
+
+        return Map.of(
+                "success", true,
+                "message", "Đã kích hoạt phân chia phòng ban tự động qua luồng n8n L14 cho Ticket #" + t.getTicketCode(),
+                "ticketId", t.getId(),
+                "ticketCode", t.getTicketCode(),
+                "workflow", "L14_Department_Routing"
+        );
+    }
+
+    /**
+     * Luồng L14: Quét toàn bộ ticket chưa phân công để phân chia phòng ban hàng loạt
+     */
+    public Map<String, Object> autoRouteAllUnassignedTickets() {
+        List<Ticket> unassigned = tickets.findAll().stream()
+                .filter(t -> t.getAssignee() == null && t.getStatus() != TicketStatus.CLOSED && t.getStatus() != TicketStatus.RESOLVED)
+                .toList();
+
+        int count = 0;
+        for (Ticket t : unassigned) {
+            autoRouteDepartment(t.getId(), null);
+            count++;
+        }
+
+        return Map.of(
+                "success", true,
+                "routedCount", count,
+                "message", "Đã kích hoạt phân chia phòng ban qua n8n L14 cho " + count + " ticket chưa phân công"
+        );
     }
 
     // ==========================================

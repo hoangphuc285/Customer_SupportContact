@@ -1,0 +1,348 @@
+{
+  "name": "Luồng 14: L14_Department_Routing – Phân chia phòng ban & Điều phối nhân viên",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-trigger-l14",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -896,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "department-assign",
+        "options": {}
+      },
+      "id": "node-webhook-l14",
+      "name": "Webhook - Tiếp nhận phân chia phòng ban",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        32
+      ],
+      "webhookId": "ac9d8915-409a-4241-adb7-e4cd7fd76d59"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first()?.json || {};\nconst data = item.body || item;\n\nconst ticketId = Number(data.ticket_id || data.id || 1);\nconst content = data.content_original || data.message || data.text || data.issue_description || '';\nconst category = (data.category || data.intent || '').toUpperCase();\nconst priority = (data.priority || data.urgency || 'P2').toUpperCase();\n\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    content_original: content,\n    category: category,\n    priority: priority\n  }\n}];"
+      },
+      "id": "node-code-normalize-l14",
+      "name": "Code - Chuẩn hóa tham số đầu vào",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst contentLower = (data.content_original || '').toLowerCase();\nconst cat = data.category;\n\nlet deptId = 1;\nlet deptCode = 'SUPPORT';\nlet deptName = 'Chăm sóc khách hàng';\n\nif (cat === 'WARRANTY' || cat === 'PRODUCT' || contentLower.includes('bảo hành') || contentLower.includes('liệt phím') || contentLower.includes('sọc màn hình') || contentLower.includes('hỏng') || contentLower.includes('lỗi kỹ thuật') || contentLower.includes('tai nghe') || contentLower.includes('bàn phím') || contentLower.includes('laptop')) {\n  deptId = 4;\n  deptCode = 'TECH';\n  deptName = 'Kỹ thuật & Bảo hành';\n} else if (cat === 'DELIVERY' || contentLower.includes('giao hàng') || contentLower.includes('shipper') || contentLower.includes('giao trễ') || contentLower.includes('chậm giao') || contentLower.includes('vỡ hộp') || contentLower.includes('móp méo')) {\n  deptId = 3;\n  deptCode = 'DELIVERY';\n  deptName = 'Giao hàng & Vận chuyển';\n} else if (cat === 'REFUND' || cat === 'PAYMENT' || contentLower.includes('hoàn tiền') || contentLower.includes('trừ tiền') || contentLower.includes('thanh toán') || contentLower.includes('chuyển khoản') || contentLower.includes('hóa đơn')) {\n  deptId = 5;\n  deptCode = 'ACCOUNTING';\n  deptName = 'Kế toán & Thanh toán';\n} else if (cat === 'STAFF' || contentLower.includes('thái độ') || contentLower.includes('cộc lốc') || contentLower.includes('nhân viên phục vụ') || contentLower.includes('tư vấn sai')) {\n  deptId = 6;\n  deptCode = 'SALES';\n  deptName = 'Kinh doanh & Quản lý';\n} else if (cat === 'LEGAL' || contentLower.includes('kiện') || contentLower.includes('công an') || contentLower.includes('báo chí') || contentLower.includes('lừa đảo') || contentLower.includes('tố cáo')) {\n  deptId = 7;\n  deptCode = 'LEGAL';\n  deptName = 'Pháp chế & Khiếu nại';\n} else if (cat === 'WAREHOUSE' || contentLower.includes('đóng gói') || contentLower.includes('thiếu phụ kiện') || contentLower.includes('thiếu quà')) {\n  deptId = 2;\n  deptCode = 'WAREHOUSE';\n  deptName = 'Kho & Đóng gói';\n}\n\nreturn [{\n  json: {\n    ...data,\n    department_id: deptId,\n    department_code: deptCode,\n    department_name: deptName\n  }\n}];"
+      },
+      "id": "node-code-determine-dept-l14",
+      "name": "Code - Xác định phòng ban chuyên trách",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT s.id AS staff_id, s.full_name AS staff_name, s.email AS staff_email, s.role, s.current_load, s.telegram_chat_id,\n       d.id AS department_id, d.name AS department_name, d.code AS department_code\nFROM staff s\nJOIN departments d ON s.department_id = d.id\nWHERE s.department_id = {{ $json.department_id }} AND s.active = 1\nORDER BY s.current_load ASC, s.id ASC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "node-mysql-find-staff-l14",
+      "name": "MySQL - Tìm nhân viên rảnh nhất trong phòng ban",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -240,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const deptInfo = $('Code - Xác định phòng ban chuyên trách').first().json;\nconst foundStaff = $input.first()?.json || {};\n\nconst staffId = foundStaff.staff_id || 4;\nconst staffName = foundStaff.staff_name || 'Nhân viên CSKH';\nconst staffEmail = foundStaff.staff_email || 'agent@support.local';\nconst currentLoad = Number(foundStaff.current_load || 0);\nconst newLoad = currentLoad + 1;\n\nreturn [{\n  json: {\n    ticket_id: deptInfo.ticket_id,\n    department_id: deptInfo.department_id,\n    department_name: deptInfo.department_name,\n    department_code: deptInfo.department_code,\n    staff_id: staffId,\n    staff_name: staffName,\n    staff_email: staffEmail,\n    current_load: currentLoad,\n    new_load: newLoad,\n    telegram_chat_id: foundStaff.telegram_chat_id || '7919420845'\n  }\n}];"
+      },
+      "id": "node-code-fallback-staff-l14",
+      "name": "Code - Chuẩn bị thông tin gán việc",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET department_id = {{ $json.department_id }}, assignee_id = {{ $json.staff_id }}, status = 'OPEN', updated_at = NOW() WHERE id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-update-ticket-l14",
+      "name": "MySQL - Gán Ticket cho Nhân viên & Phòng ban",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        208,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE staff SET current_load = current_load + 1, updated_at = NOW() WHERE id = {{ $('Code - Chuẩn bị thông tin gán việc').item.json.staff_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-increment-load-l14",
+      "name": "MySQL - Tăng tải cho nhân viên",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        432,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('TICKET_ASSIGNED', 'SYSTEM', JSON_OBJECT('department_id', {{ $('Code - Chuẩn bị thông tin gán việc').item.json.department_id }}, 'department_name', '{{ $('Code - Chuẩn bị thông tin gán việc').item.json.department_name }}', 'staff_id', {{ $('Code - Chuẩn bị thông tin gán việc').item.json.staff_id }}, 'staff_name', '{{ $('Code - Chuẩn bị thông tin gán việc').item.json.staff_name }}'), {{ $('Code - Chuẩn bị thông tin gán việc').item.json.ticket_id }}, 'ticket', 'L14_Department_Routing', NOW(), NOW());",
+        "options": {}
+      },
+      "id": "node-mysql-audit-l14",
+      "name": "MySQL - Ghi audit_logs",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        640,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Code - Chuẩn bị thông tin gán việc').item.json.telegram_chat_id || 7919420845 }}",
+        "text": "=📋 [PHÂN CÔNG TICKET MỚI]\n\nChào {{ $('Code - Chuẩn bị thông tin gán việc').item.json.staff_name }},\nBạn vừa được hệ thống tự động gán phụ trách Ticket #{{ $('Code - Chuẩn bị thông tin gán việc').item.json.ticket_id }}.\n- Phòng ban: {{ $('Code - Chuẩn bị thông tin gán việc').item.json.department_name }}\n- Tải hiện tại: {{ $('Code - Chuẩn bị thông tin gán việc').item.json.new_load }} ticket\nVui lòng kiểm tra và hỗ trợ khách hàng kịp thời!",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-alert-staff-l14",
+      "name": "Telegram - Báo nhân viên nhận việc",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        32
+      ],
+      "webhookId": "ceca5364-7f8b-49de-a79a-85b09848445d",
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "={{ $('Code - Chuẩn bị thông tin gán việc').item.json.staff_email || 'hoangphuc2855@gmail.com' }}",
+        "subject": "=📋 [GIAO VIỆC MỚI] Ticket #{{ $('Code - Chuẩn bị thông tin gán việc').item.json.ticket_id }} - {{ $('Code - Chuẩn bị thông tin gán việc').item.json.department_name }}",
+        "html": "=<h3>Chào {{ $('Code - Chuẩn bị thông tin gán việc').item.json.staff_name }},</h3><p>Hệ thống CSKH VKU Store vừa phân công bạn tiếp nhận và xử lý <strong>Ticket #{{ $('Code - Chuẩn bị thông tin gán việc').item.json.ticket_id }}</strong>.</p><ul><li><strong>Phòng ban:</strong> {{ $('Code - Chuẩn bị thông tin gán việc').item.json.department_name }}</li><li><strong>Mức tải hiện tại:</strong> {{ $('Code - Chuẩn bị thông tin gán việc').item.json.new_load }} ticket</li></ul><p>Vui lòng đăng nhập hệ thống để phản hồi và hỗ trợ khách hàng sớm nhất theo quy định SLA.</p>",
+        "options": {}
+      },
+      "id": "node-email-alert-staff-l14",
+      "name": "Gmail / Email - Báo nhân viên nhận việc",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        864,
+        208
+      ],
+      "webhookId": "8ed88314-5f46-4534-9935-b5377f74d8d8",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $('Code - Chuẩn bị thông tin gán việc').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    ticket_id: res.ticket_id,\n    department_id: res.department_id,\n    department_name: res.department_name,\n    department_code: res.department_code,\n    assigned_staff_id: res.staff_id,\n    assigned_staff_name: res.staff_name,\n    assigned_staff_email: res.staff_email,\n    assigned_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-code-return-l14",
+      "name": "Code - Trả kết quả phân công",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        112
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa tham số đầu vào",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Tiếp nhận phân chia phòng ban": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa tham số đầu vào",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn hóa tham số đầu vào": {
+      "main": [
+        [
+          {
+            "node": "Code - Xác định phòng ban chuyên trách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Xác định phòng ban chuyên trách": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tìm nhân viên rảnh nhất trong phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tìm nhân viên rảnh nhất trong phòng ban": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn bị thông tin gán việc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn bị thông tin gán việc": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Gán Ticket cho Nhân viên & Phòng ban",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Gán Ticket cho Nhân viên & Phòng ban": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Tăng tải cho nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Tăng tải cho nhân viên": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Ghi audit_logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Ghi audit_logs": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Báo nhân viên nhận việc",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail / Email - Báo nhân viên nhận việc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Báo nhân viên nhận việc": {
+      "main": [
+        [
+          {
+            "node": "Code - Trả kết quả phân công",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail / Email - Báo nhân viên nhận việc": {
+      "main": [
+        [
+          {
+            "node": "Code - Trả kết quả phân công",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  }
+}

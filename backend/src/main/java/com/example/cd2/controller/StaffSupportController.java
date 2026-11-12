@@ -5,6 +5,7 @@ import com.example.cd2.service.StaffSupportService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -64,12 +65,69 @@ public class StaffSupportController {
         return ResponseEntity.ok(service.sendResolution(id, resolution, agentName));
     }
 
+    /**
+     * Luồng L13: Nhân viên gửi phản hồi nghiệp vụ qua n8n AI
+     */
+    @PostMapping({"/staff/response", "/agent/response", "/tickets/response"})
+    public ResponseEntity<Map<String, Object>> processStaffResponse(
+            @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(service.processStaffResponse(body));
+    }
+
+    /**
+     * Luồng L13: Giải quyết ticket kèm thông báo khách hàng qua n8n
+     */
+    @PostMapping({"/staff/tickets/{id}/resolve", "/agent/tickets/{id}/resolve"})
+    public ResponseEntity<Map<String, Object>> resolveTicketWithL13(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> req = (body != null) ? new HashMap<>(body) : new HashMap<>();
+        req.put("ticket_id", id);
+        return ResponseEntity.ok(service.processStaffResponse(req));
+    }
+
     @PostMapping("/agent/tickets/{id}/assign")
     public ResponseEntity<Map<String, Object>> assignTicket(
             @PathVariable Long id,
             @RequestBody Map<String, Object> body) {
         Long staffId = Long.valueOf(String.valueOf(body.get("staffId")));
         return ResponseEntity.ok(service.assignTicket(id, staffId));
+    }
+
+    /**
+     * Luồng L14: Kích hoạt phân chia phòng ban & điều phối nhân sự tự động cho 1 ticket
+     */
+    @PostMapping({"/staff/tickets/{id}/auto-route", "/agent/tickets/{id}/auto-route", "/tickets/{id}/auto-route"})
+    public ResponseEntity<Map<String, Object>> autoRouteTicket(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.ok(service.autoRouteDepartment(id, body));
+    }
+
+    /**
+     * Luồng L14: Kích hoạt phân chia phòng ban hàng loạt cho tất cả ticket chưa gán
+     */
+    @PostMapping({"/staff/tickets/auto-route-all", "/admin/tickets/auto-route-all", "/tickets/auto-route-all"})
+    public ResponseEntity<Map<String, Object>> autoRouteAllTickets() {
+        return ResponseEntity.ok(service.autoRouteAllUnassignedTickets());
+    }
+
+    /**
+     * Luồng L14: Tiếp nhận yêu cầu phân phòng ban từ body payload
+     */
+    @PostMapping({"/staff/department-assign", "/agent/department-assign"})
+    public ResponseEntity<Map<String, Object>> triggerDepartmentAssign(
+            @RequestBody Map<String, Object> body) {
+        Long ticketId = null;
+        if (body.get("ticket_id") != null) {
+            ticketId = Long.valueOf(body.get("ticket_id").toString());
+        } else if (body.get("id") != null) {
+            ticketId = Long.valueOf(body.get("id").toString());
+        }
+        if (ticketId == null) {
+            throw new com.example.cd2.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Thiếu ticket_id");
+        }
+        return ResponseEntity.ok(service.autoRouteDepartment(ticketId, body));
     }
 
     // ==========================================
