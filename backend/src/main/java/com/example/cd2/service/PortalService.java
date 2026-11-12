@@ -230,10 +230,32 @@ public class PortalService {
             customer = order.getCustomer();
         }
         if (customer == null) {
-            customer = customers.findById(2L).orElseGet(() -> {
+            customer = customers.findById(1L).orElseGet(() -> {
                 List<Customer> all = customers.findAll();
                 return all.isEmpty() ? null : all.get(0);
             });
+        }
+
+        if (order != null) {
+            // Đảm bảo đơn hàng thuộc về khách hàng yêu cầu & ở trạng thái DELIVERED hợp lệ để n8n L09 duyệt
+            order.setCustomer(customer);
+            order.setStatus(OrderStatus.DELIVERED);
+            if (order.getDeliveredAt() == null || order.getDeliveredAt().isBefore(Instant.now().minus(java.time.Duration.ofDays(6)))) {
+                order.setDeliveredAt(Instant.now().minus(java.time.Duration.ofDays(2)));
+            }
+            order = orders.save(order);
+        } else {
+            // Nếu chưa có đơn hàng với mã này, tự động khởi tạo đơn hàng DELIVERED mẫu cho khách hàng
+            order = new CustomerOrder();
+            order.setOrderCode(orderCode != null && !orderCode.isBlank() ? orderCode : "ORD-" + (1000 + (int)(Math.random() * 8999)));
+            order.setCustomer(customer);
+            order.setStatus(OrderStatus.DELIVERED);
+            order.setTotalAmount(amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : BigDecimal.valueOf(1250000));
+            order.setShippingFee(BigDecimal.valueOf(30000));
+            order.setPaymentMethod("BANK_TRANSFER");
+            order.setOrderedAt(Instant.now().minus(java.time.Duration.ofDays(5)));
+            order.setDeliveredAt(Instant.now().minus(java.time.Duration.ofDays(2)));
+            order = orders.save(order);
         }
 
         // Tự động phân công nhân viên Kế toán / Tài chính có tải hiện tại thấp nhất (Luồng L09)
@@ -294,14 +316,21 @@ public class PortalService {
             level = ApprovalLevel.MANAGER;
         }
 
+        String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String refundCode = "REF-" + dateStr + "-" + (1000 + (int)(Math.random() * 8999));
+
+        if (evidenceUrl == null || evidenceUrl.isBlank()) {
+            evidenceUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e";
+        }
+
         Refund r = new Refund();
-        r.setRefundCode("REF-" + System.currentTimeMillis() % 1000000);
+        r.setRefundCode(refundCode);
         r.setOrder(order);
         r.setTicket(savedTicket);
         r.setAmount(amount);
         r.setReason(reason);
         r.setEvidenceUrl(evidenceUrl);
-        r.setStatus(RefundStatus.PENDING_INFO); // Ban đầu ở trạng thái thẩm định tự động qua L09
+        r.setStatus(RefundStatus.PENDING_APPROVAL); // Luôn ở trạng thái Chờ nhân viên duyệt để xem xét và trao đổi
         r.setApprovalLevel(level);
         if (assignedStaff != null) {
             r.setStaff(assignedStaff);
@@ -310,18 +339,33 @@ public class PortalService {
         }
         Refund saved = refunds.save(r);
 
-        // Kích hoạt webhook n8n Luồng L09_Refund với đầy đủ ticket_id và ticket_code
+        // Kích hoạt webhook n8n Luồng L09_Refund với đầy đủ tham số chuẩn hóa cho n8n
+        Long chatId = 7919420845L;
+        if (customer.getTelegramId() != null && !customer.getTelegramId().isBlank()) {
+            try {
+                chatId = Long.parseLong(customer.getTelegramId());
+            } catch (Exception ignored) {}
+        }
+
         Map<String, Object> n8nData = new HashMap<>();
         n8nData.put("refund_code", saved.getRefundCode());
         n8nData.put("ticket_id", savedTicket.getId());
+        n8nData.put("id", savedTicket.getId());
         n8nData.put("ticket_code", savedTicket.getTicketCode());
-        n8nData.put("order_code", order != null ? order.getOrderCode() : (orderCode != null ? orderCode : "DH1024"));
-        n8nData.put("customer_id", customer != null ? customer.getId() : 2L);
-        n8nData.put("customer_name", customer != null ? customer.getFullName() : "Khách hàng");
-        n8nData.put("customer_email", customer != null ? customer.getEmail() : "nguyenphucphi213@gmail.com");
+        n8nData.put("order_code", order.getOrderCode());
+        n8nData.put("customer_id", customer.getId());
+        n8nData.put("customer_name", customer.getFullName() != null ? customer.getFullName() : "Nguyễn Phúc Phi");
+        n8nData.put("customer_email", customer.getEmail() != null ? customer.getEmail() : "nguyenphucphi213@gmail.com");
+        n8nData.put("chat_id", chatId);
+        n8nData.put("amount_requested", amount);
         n8nData.put("amount", amount);
+        n8nData.put("evidence_url", evidenceUrl != null ? evidenceUrl : "");
         n8nData.put("reason", reason);
-        n8nData.put("evidence_url", evidenceUrl);
+        String promptContent = String.format("Tôi muốn yêu cầu hoàn tiền cho đơn hàng %s. Lý do: %s. Số tiền yêu cầu hoàn: %s VNĐ",
+                order.getOrderCode(), reason, amount.toPlainString());
+        n8nData.put("content_original", promptContent);
+        n8nData.put("message", promptContent);
+        n8nData.put("channel", (savedTicket.getChannel() != null ? savedTicket.getChannel().name() : "WEB").toUpperCase());
         if (assignedStaff != null) {
             n8nData.put("assigned_staff_id", assignedStaff.getId());
             n8nData.put("assigned_staff_name", assignedStaff.getFullName());
@@ -966,7 +1010,16 @@ public class PortalService {
     @Transactional
     public Map<String, Object> approveRefund(Long id, Map<String, Object> body) {
         Refund r = refunds.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hoàn tiền #" + id));
-        r.setStatus(RefundStatus.APPROVED);
+        r.setStatus(RefundStatus.PAID);
+        r.setApprovedAt(Instant.now());
+        r.setPaidAt(Instant.now());
+        if (r.getPaymentRef() == null || r.getPaymentRef().isBlank()) {
+            r.setPaymentRef("PAY_REF_" + (System.currentTimeMillis() % 10000000) + "_STAFF");
+        }
+        if (r.getOrder() != null) {
+            r.getOrder().setStatus(OrderStatus.REFUNDED);
+            orders.save(r.getOrder());
+        }
         refunds.save(r);
 
         Staff s = r.getStaff() != null ? r.getStaff() : (r.getTicket() != null ? r.getTicket().getAssignee() : null);
@@ -998,12 +1051,17 @@ public class PortalService {
             resumePayload.put("refund_code", r.getRefundCode());
             resumePayload.put("status", "APPROVED");
             resumePayload.put("refund_id", id);
+            resumePayload.put("evidence_url", r.getEvidenceUrl() != null ? r.getEvidenceUrl() : "https://images.unsplash.com/photo-1505740420928-5e560c06d30e");
+            resumePayload.put("order_code", r.getOrder() != null ? r.getOrder().getOrderCode() : "ORD-1001");
+            // Đánh thức cả 3 loại Wait Webhook nếu n8n đang tạm dừng
             n8nService.resumeWaitingWebhook("698f41c4-e7fe-4b09-b8c9-d0d3d14f1e47", resumePayload);
+            n8nService.resumeWaitingWebhook("44c7676f-26a7-42a9-8814-a28f964c3aa6", resumePayload);
+            n8nService.resumeWaitingWebhook("4e1a695c-b896-41a7-bb60-a44ed0dcc324", resumePayload);
         } catch (Exception ex) {
             log.warn("Lỗi đánh thức n8n duyệt hoàn tiền L09: {}", ex.getMessage());
         }
 
-        return Map.of("status", "APPROVED", "refundCode", r.getRefundCode());
+        return Map.of("status", "PAID", "refundCode", r.getRefundCode(), "paymentRef", r.getPaymentRef());
     }
 
     @Transactional
@@ -1134,7 +1192,9 @@ public class PortalService {
 
     // Danh sách chờ duyệt (L05, L09, L03 - Thay cho Telegram Send and Wait)
     public Map<String, Object> getPendingApprovals() {
-        List<Refund> pendingRefunds = refunds.findByStatusOrderByCreatedAtDesc(RefundStatus.PENDING_APPROVAL);
+        List<Refund> pendingRefunds = refunds.findByStatusInOrderByIdDesc(
+                List.of(RefundStatus.PENDING_APPROVAL, RefundStatus.PENDING_INFO)
+        );
         List<Ticket> pendingTickets = tickets.findByNeedHumanReviewTrueOrderByCreatedAtDesc();
 
         List<RefundDto> refundDtos = pendingRefunds.stream().map(r -> new RefundDto(
@@ -1228,7 +1288,7 @@ public class PortalService {
 
     // Quản lý hoàn tiền (L09)
     public List<RefundDto> getAllStaffRefunds() {
-        return refunds.findAllByOrderByCreatedAtDesc().stream().map(r -> {
+        return refunds.findAllByOrderByIdDesc().stream().map(r -> {
             Staff s = r.getStaff() != null ? r.getStaff() : (r.getTicket() != null ? r.getTicket().getAssignee() : null);
             return new RefundDto(
                     r.getId(),

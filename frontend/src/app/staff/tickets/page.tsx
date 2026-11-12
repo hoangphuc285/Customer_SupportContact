@@ -16,7 +16,8 @@ import {
     Flame,
     Bot,
     Languages,
-    Zap
+    Zap,
+    Building2
 } from 'lucide-react';
 
 export default function StaffTicketListPage() {
@@ -25,6 +26,7 @@ export default function StaffTicketListPage() {
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [triggeringSla, setTriggeringSla] = useState(false);
+    const [routingL14, setRoutingL14] = useState(false);
     const [slaNotice, setSlaNotice] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     
@@ -112,6 +114,29 @@ export default function StaffTicketListPage() {
             setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + (err?.message || 'Unknown error'));
         } finally {
             setTriggeringSla(false);
+            setTimeout(() => setSlaNotice(null), 7000);
+        }
+    };
+
+    const handleTriggerL14 = async () => {
+        setRoutingL14(true);
+        setSlaNotice(null);
+        try {
+            const res = await fetch('http://localhost:8080/api/staff/tickets/auto-route-all', {
+                method: 'POST',
+                headers: getAuthHeaders(true)
+            });
+            const data = await res.json().catch(() => null);
+            if (res.ok && data?.success) {
+                setSlaNotice(`✅ ${data.message || 'Đã phân chia phòng ban thành công qua luồng n8n L14!'}`);
+                setTimeout(() => fetchTickets(), 3000);
+            } else {
+                setSlaNotice('⚠️ Lỗi: ' + (data?.message || `HTTP ${res.status}`));
+            }
+        } catch (err: any) {
+            setSlaNotice('❌ Lỗi kết nối tới Backend L14: ' + (err?.message || 'Unknown error'));
+        } finally {
+            setRoutingL14(false);
             setTimeout(() => setSlaNotice(null), 7000);
         }
     };
@@ -208,18 +233,27 @@ export default function StaffTicketListPage() {
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                L01, L02, L07
+                                L01, L02, L07, L14
                             </span>
                             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
                                 Inbox Ticket & Phân luồng
                             </h1>
                         </div>
                         <p className="text-sm text-slate-400 mt-1">
-                            Hộp thư đa kênh tổng hợp, theo dõi SLA thời gian thực & cảnh báo can thiệp nhân viên
+                            Hộp thư đa kênh tổng hợp, theo dõi SLA thời gian thực & điều phối phòng ban tự động
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2.5">
+                        <button
+                            onClick={handleTriggerL14}
+                            disabled={routingL14}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-60 cursor-pointer"
+                            title="Tự động phân loại phòng ban và điều phối nhân sự theo luồng L14"
+                        >
+                            <Building2 size={16} className={routingL14 ? 'animate-spin' : ''} />
+                            <span>{routingL14 ? 'Đang phân ban...' : '🏢 Phân Ban Tự Động (L14)'}</span>
+                        </button>
                         <button
                             onClick={handleTriggerSla}
                             disabled={triggeringSla}

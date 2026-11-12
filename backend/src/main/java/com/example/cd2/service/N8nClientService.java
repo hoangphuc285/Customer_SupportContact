@@ -91,6 +91,22 @@ public class N8nClientService {
         sendAsync("/webhook/improvement-task", payload != null ? payload : Map.of(), "L12_ImprovementTask");
     }
 
+    public void triggerStaffResponse(Map<String, Object> payload) {
+        sendAsync("/webhook/staff-response", payload != null ? payload : Map.of(), "L13_Staff_Response");
+    }
+
+    public boolean triggerStaffResponseSync(Map<String, Object> payload) {
+        return sendSync("/webhook/staff-response", payload != null ? payload : Map.of(), "L13_Staff_Response");
+    }
+
+    public void triggerDepartmentRouting(Map<String, Object> payload) {
+        sendAsync("/webhook/department-assign", payload != null ? payload : Map.of(), "L14_Department_Routing");
+    }
+
+    public boolean triggerDepartmentRoutingSync(Map<String, Object> payload) {
+        return sendSync("/webhook/department-assign", payload != null ? payload : Map.of(), "L14_Department_Routing");
+    }
+
     public void resumeWaitingWebhook(String webhookIdOrUrl, Map<String, Object> payload) {
         if (webhookIdOrUrl != null && webhookIdOrUrl.startsWith("http")) {
             sendFullUrlAsync(webhookIdOrUrl, payload, "Resume_Wait_Webhook_Direct");
@@ -217,31 +233,6 @@ public class N8nClientService {
                     });
         } catch (Exception e) {
             log.error("Loi serialization payload gui n8n [{}]: {}", workflowName, e.getMessage());
-        }
-    }
-
-    private boolean sendSync(String webhookPath, Object payload, String workflowName) {
-        try {
-            String json = objectMapper.writeValueAsString(payload);
-            String url = n8nBaseUrl + webhookPath;
-
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(5))
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-
-            HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-            if (res.statusCode() >= 200 && res.statusCode() < 300) {
-                log.info("Da kich hoat webhook n8n [{}] thanh cong: {}", workflowName, res.statusCode());
-                return true;
-            }
-            log.warn("Webhook n8n [{}] tra ve ma loi {}: {}", workflowName, res.statusCode(), res.body());
-            return false;
-        } catch (Exception e) {
-            log.warn("Khong the ket noi webhook n8n [{}] ({}): {}", workflowName, n8nBaseUrl + webhookPath, e.getMessage());
-            return false;
         }
     }
 }

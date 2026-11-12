@@ -68,7 +68,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,
                         "/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
                 .requestMatchers("/actuator/health", "/error").permitAll()
-                .requestMatchers("/api/chat/**", "/api/escalation/**", "/api/sla/**").permitAll()
+                .requestMatchers("/api/chat/**", "/api/escalation/**", "/api/sla/**", "/api/agent/**", "/api/payments/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/portal/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/portal/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/staff/**").permitAll()

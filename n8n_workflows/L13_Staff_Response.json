@@ -1,0 +1,571 @@
+{
+  "name": "Luồng 13: L13_Staff_Response – Nhân viên phản hồi & Gửi khách",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-trigger-l13",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -896,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "staff-response",
+        "options": {}
+      },
+      "id": "node-webhook-l13",
+      "name": "Webhook - Nhân viên phản hồi",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        32
+      ],
+      "webhookId": "3076e31a-b5f7-431f-8fbc-1df9919fb020"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first()?.json || {};\nconst data = item.body || item;\n\nconst ticketId = Number(data.ticket_id || data.id || 1);\nconst staffId = Number(data.staff_id || 4);\nconst caseType = (data.case_type || data.category || 'GENERAL').toUpperCase();\nconst status = (data.status || data.action || 'RESOLVED').toUpperCase();\nconst responseNote = data.response_note || data.resolution || data.resolution_note || data.message || 'Đã kiểm tra và xử lý hoàn tất sự cố cho khách hàng.';\nconst compensation = data.compensation || data.voucher || '';\n\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    staff_id: staffId,\n    case_type: caseType,\n    status: status,\n    response_note: responseNote,\n    compensation: compensation\n  }\n}];"
+      },
+      "id": "node-code-normalize-l13",
+      "name": "Code - Chuẩn hóa thông tin phản hồi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.id AS ticket_id, t.ticket_code, t.customer_id, t.status AS ticket_status, t.category, t.channel,\n       c.full_name AS customer_name, c.email AS customer_email, c.telegram_id AS customer_telegram_id,\n       s.full_name AS staff_name, s.role AS staff_role\nFROM tickets t\nLEFT JOIN customers c ON t.customer_id = c.id\nLEFT JOIN staff s ON s.id = {{ $('Code - Chuẩn hóa thông tin phản hồi').item.json.staff_id || 4 }}\nWHERE t.id = {{ $('Code - Chuẩn hóa thông tin phản hồi').item.json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-get-info-l13",
+      "name": "MySQL - Lấy thông tin Ticket & Khách hàng",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -464,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là Chuyên viên Chăm sóc Khách hàng cao cấp của VKU Store. Hãy trau chuốt lại câu trả lời sau đây của nhân viên/kỹ thuật viên để gửi đến khách hàng một cách lịch sự, ân cần, chuyên nghiệp và rõ ràng:\n- Khách hàng: {{ $json.customer_name || 'Quý khách' }}\n- Mã ticket: {{ $json.ticket_code }}\n- Loại vụ việc: {{ $('Code - Chuẩn hóa thông tin phản hồi').item.json.case_type }}\n- Trạng thái xử lý: {{ $('Code - Chuẩn hóa thông tin phản hồi').item.json.status }}\n- Nhân viên hỗ trợ: {{ $json.staff_name || 'Bộ phận Kỹ thuật & CSKH' }}\n- Nội dung xử lý/giải pháp thực tế từ nhân viên: {{ $('Code - Chuẩn hóa thông tin phản hồi').item.json.response_note }}\n- Quà bồi thường/tri ân (nếu có): {{ $('Code - Chuẩn hóa thông tin phản hồi').item.json.compensation || 'Không có' }}\n\nYêu cầu:\n1. Giọng điệu chân thành, tôn trọng, đồng cảm sâu sắc.\n2. Trình bày rõ ràng kết quả đã xử lý và hướng dẫn tiếp theo cho khách hàng.\n3. Ngắn gọn, súc tích (dưới 100 từ).",
+        "batching": {}
+      },
+      "id": "node-llm-format-response-l13",
+      "name": "Basic LLM Chain - Soạn tin nhắn phản hồi khách",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -224,
+        112
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "id": "node-gemini-model-l13",
+      "name": "Google Gemini Chat Model - Soạn tin",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        320
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputMeta = $('Code - Chuẩn hóa thông tin phản hồi').first().json;\nconst ticketMeta = $('MySQL - Lấy thông tin Ticket & Khách hàng').first()?.json || {};\nconst aiText = $input.first()?.json?.text || inputMeta.response_note;\n\nreturn [{\n  json: {\n    ...inputMeta,\n    ...ticketMeta,\n    ai_response_text: aiText,\n    customer_name: ticketMeta.customer_name || 'Quý khách',\n    customer_email: ticketMeta.customer_email || 'hoangphuc2855@gmail.com',\n    customer_telegram_id: ticketMeta.customer_telegram_id || '7919420845'\n  }\n}];"
+      },
+      "id": "node-code-prep-dispatch-l13",
+      "name": "Code - Chuẩn bị dữ liệu cập nhật & Gửi tin",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.case_type }}",
+                    "rightValue": "COMPLAINT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-complaint"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.case_type }}",
+                    "rightValue": "REFUND",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-refund"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.case_type }}",
+                    "rightValue": "WARRANTY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-warranty"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "node-switch-case-type-l13",
+      "name": "Switch - Loại vụ việc",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        272,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE complaints SET status = 'RESOLVED', resolution = '{{ ($json.response_note || \"Đã giải quyết theo quy trình\").replace(/'/g, \"\\\\'\") }}', resolved_at = NOW(), updated_at = NOW() WHERE ticket_id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-update-complaint-l13",
+      "name": "MySQL - Cập nhật complaints RESOLVED",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        528,
+        -48
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE refunds SET status = '{{ $json.status === \"REJECTED\" ? \"REJECTED\" : \"PAID\" }}', updated_at = NOW() WHERE ticket_id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-update-refund-l13",
+      "name": "MySQL - Cập nhật refunds PAID",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        528,
+        64
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE warranty_cases SET status = 'CLOSED', updated_at = NOW() WHERE ticket_id = {{ $json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-update-warranty-l13",
+      "name": "MySQL - Cập nhật warranty_cases CLOSED",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        528,
+        176
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets SET status = 'RESOLVED', resolved_at = NOW(), updated_at = NOW() WHERE id = {{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_id }};",
+        "options": {}
+      },
+      "id": "node-mysql-close-ticket-l13",
+      "name": "MySQL - Cập nhật Ticket RESOLVED",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        784,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (ticket_id, staff_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at) VALUES ({{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_id }}, {{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.staff_id || 4 }}, 'STAFF', 'WEB', '{{ ($('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ai_response_text || \"Sự cố đã được xử lý thỏa đáng.\").replace(/'/g, \"\\\\'\") }}', '{{ ($('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ai_response_text || \"Sự cố đã được xử lý thỏa đáng.\").replace(/'/g, \"\\\\'\") }}', 'vi', 1, NOW(), NOW());",
+        "options": {}
+      },
+      "id": "node-mysql-save-message-l13",
+      "name": "MySQL - Lưu tin nhắn nhân viên",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1024,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.customer_telegram_id || 7919420845 }}",
+        "text": "=💬 [PHẢN HỒI TỪ VKU STORE - TICKET #{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_code }}]\n\n{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ai_response_text }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-send-customer-l13",
+      "name": "Telegram - Gửi tin nhắn cho khách hàng",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1264,
+        32
+      ],
+      "webhookId": "03f11e06-0a00-41bd-95e7-f50c2a174f7a",
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "={{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.customer_email || 'hoangphuc2855@gmail.com' }}",
+        "subject": "=🔔 [VKU Support] Phản hồi kết quả xử lý Ticket #{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_code }}",
+        "html": "=<h3>Kính gửi Quý khách {{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.customer_name }},</h3><p>Bộ phận CSKH & Kỹ thuật đã xử lý xong yêu cầu của Quý khách cho mã Ticket <strong>#{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_code }}</strong>.</p><div style=\"background: #f1f5f9; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;\"><p>{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ai_response_text }}</p></div><p>Trân trọng cảm ơn Quý khách đã tin tưởng và đồng hành cùng VKU Store!</p>",
+        "options": {}
+      },
+      "id": "node-email-send-customer-l13",
+      "name": "Gmail / Email - Gửi email thông báo cho khách",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1264,
+        208
+      ],
+      "webhookId": "873fba12-4f58-4e82-83ca-d2b27fa2b8f7",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at) VALUES ('STAFF_RESOLVED', 'STAFF', JSON_OBJECT('ticket_id', {{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_id }}, 'case_type', '{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.case_type }}', 'status', '{{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.status }}'), {{ $('Code - Chuẩn bị dữ liệu cập nhật & Gửi tin').item.json.ticket_id }}, 'ticket', 'L13_Staff_Response', NOW(), NOW());",
+        "options": {}
+      },
+      "id": "node-mysql-audit-l13",
+      "name": "MySQL - Ghi audit_logs",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1504,
+        112
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa thông tin phản hồi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Nhân viên phản hồi": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa thông tin phản hồi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn hóa thông tin phản hồi": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lấy thông tin Ticket & Khách hàng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lấy thông tin Ticket & Khách hàng": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn tin nhắn phản hồi khách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain - Soạn tin nhắn phản hồi khách": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn bị dữ liệu cập nhật & Gửi tin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Soạn tin": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain - Soạn tin nhắn phản hồi khách",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chuẩn bị dữ liệu cập nhật & Gửi tin": {
+      "main": [
+        [
+          {
+            "node": "Switch - Loại vụ việc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Loại vụ việc": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Cập nhật complaints RESOLVED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Cập nhật refunds PAID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Cập nhật warranty_cases CLOSED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL - Cập nhật Ticket RESOLVED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Cập nhật complaints RESOLVED": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Cập nhật Ticket RESOLVED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Cập nhật refunds PAID": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Cập nhật Ticket RESOLVED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Cập nhật warranty_cases CLOSED": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Cập nhật Ticket RESOLVED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Cập nhật Ticket RESOLVED": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Lưu tin nhắn nhân viên",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Lưu tin nhắn nhân viên": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Gửi tin nhắn cho khách hàng",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail / Email - Gửi email thông báo cho khách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Gửi tin nhắn cho khách hàng": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Ghi audit_logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail / Email - Gửi email thông báo cho khách": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Ghi audit_logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  }
+}

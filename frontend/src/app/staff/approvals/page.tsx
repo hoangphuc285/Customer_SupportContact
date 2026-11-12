@@ -13,7 +13,8 @@ import {
     AlertTriangle,
     ShieldAlert,
     ExternalLink,
-    Image as ImageIcon
+    Image as ImageIcon,
+    MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -36,12 +37,30 @@ export default function StaffApprovalsPage() {
             const res = await fetch('http://localhost:8080/api/staff/approvals');
             if (res.ok) {
                 const json = await res.json();
+                if (json.pendingRefunds && Array.isArray(json.pendingRefunds)) {
+                    json.pendingRefunds.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
+                }
+                if (json.pendingAiDrafts && Array.isArray(json.pendingAiDrafts)) {
+                    json.pendingAiDrafts.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
+                }
                 setData(json);
             }
         } catch (err) {
             console.error('Lỗi tải hàng chờ duyệt:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const formatDate = (iso: string) => {
+        if (!iso) return 'N/A';
+        try {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return iso;
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+        } catch {
+            return iso || 'N/A';
         }
     };
 
@@ -262,6 +281,9 @@ export default function StaffApprovalsPage() {
                                             <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                                                 Cấp duyệt: {r.approvalLevel}
                                             </span>
+                                            <span className="text-xs text-slate-400 font-medium ml-auto">
+                                                🕒 {formatDate(r.createdAt)}
+                                            </span>
                                         </div>
 
                                         <div className="text-lg font-black text-emerald-400">
@@ -290,6 +312,14 @@ export default function StaffApprovalsPage() {
 
                                     {/* Action Buttons */}
                                     <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto">
+                                        <Link
+                                            href="/staff/refunds"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded-xl font-bold text-xs border border-indigo-500/30 transition shadow"
+                                        >
+                                            <MessageSquare size={14} />
+                                            Chat & Chi tiết
+                                        </Link>
+
                                         <button
                                             disabled={actionLoading}
                                             onClick={() => handleRefundAction(r.id, 'approve')}
