@@ -383,13 +383,21 @@ function UserTicketsContent() {
                                     <h3 className="font-bold text-base text-slate-900">{selectedTicket.subject}</h3>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedTicket(null)}
-                                    className="text-xs font-bold text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 cursor-pointer self-start"
-                                >
-                                    Đóng xem chi tiết
-                                </button>
+                                <div className="flex items-center gap-2 self-start">
+                                    <Link
+                                        href={`/user/feedback?ticketId=${encodeURIComponent(selectedTicket.ticketCode || String(selectedTicket.id))}`}
+                                        className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200 transition"
+                                    >
+                                        Đánh giá CSAT
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedTicket(null)}
+                                        className="text-xs font-bold text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 cursor-pointer"
+                                    >
+                                        Đóng xem chi tiết
+                                    </button>
+                                </div>
                             </div>
 
                             {/* THÔNG TIN XỬ LÝ */}

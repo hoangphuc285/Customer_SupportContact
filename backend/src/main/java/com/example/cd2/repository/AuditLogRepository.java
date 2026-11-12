@@ -10,4 +10,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByEntityTypeIgnoreCaseAndEntityIdOrderByCreatedAtDesc(String entityType, Long entityId);
 
     List<AuditLog> findByEntityIdOrderByCreatedAtDesc(Long entityId);
+
+    List<AuditLog> findTop10ByWorkflowOrderByCreatedAtDesc(String workflow);
 }

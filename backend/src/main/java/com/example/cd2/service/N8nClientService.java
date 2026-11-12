@@ -75,6 +75,10 @@ public class N8nClientService {
         sendAsync("/webhook/reporting", payload != null ? payload : Map.of(), "L12_Reporting");
     }
 
+    public boolean triggerReportingSync(Map<String, Object> payload) {
+        return sendSync("/webhook/reporting", payload != null ? payload : Map.of(), "L12_Reporting");
+    }
+
     public void triggerImprovementTask(Map<String, Object> payload) {
         sendAsync("/webhook/improvement-task", payload != null ? payload : Map.of(), "L12_ImprovementTask");
     }
@@ -180,6 +184,31 @@ public class N8nClientService {
                     });
         } catch (Exception e) {
             log.error("Loi serialization payload gui n8n [{}]: {}", workflowName, e.getMessage());
+        }
+    }
+
+    private boolean sendSync(String webhookPath, Object payload, String workflowName) {
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            String url = n8nBaseUrl + webhookPath;
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(5))
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
+
+            HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (res.statusCode() >= 200 && res.statusCode() < 300) {
+                log.info("Da kich hoat webhook n8n [{}] thanh cong: {}", workflowName, res.statusCode());
+                return true;
+            }
+            log.warn("Webhook n8n [{}] tra ve ma loi {}: {}", workflowName, res.statusCode(), res.body());
+            return false;
+        } catch (Exception e) {
+            log.warn("Khong the ket noi webhook n8n [{}] ({}): {}", workflowName, n8nBaseUrl + webhookPath, e.getMessage());
+            return false;
         }
     }
 }

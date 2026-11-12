@@ -142,8 +142,8 @@ public class PortalController {
     }
 
     @PostMapping("/tickets/{id}/customer-feedback")
-    public Map<String, Object> customerFeedback(@PathVariable Long id, @RequestBody Map<String, Object> req) {
-        return Map.of("status", "SUCCESS", "message", "Đã ghi nhận phản hồi CSAT (L05)");
+    public Map<String, Object> customerFeedback(@PathVariable String id, @RequestBody Map<String, Object> req) {
+        return portal.submitCustomerFeedback(id, req);
     }
 
     // ---- Nhan vien (Agent Dashboard) ----
