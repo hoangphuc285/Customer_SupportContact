@@ -757,6 +757,17 @@ public class PortalService {
         }
         n8nService.triggerIntakeOmnichannel(n8nData);
 
+        // Kích hoạt tự động luồng n8n Luồng L14_Department_Routing phân phòng ban và gán nhân viên
+        try {
+            Map<String, Object> l14Payload = new HashMap<>();
+            l14Payload.put("ticket_id", saved.getId());
+            l14Payload.put("content_original", subject + ": " + content);
+            l14Payload.put("category", saved.getCategory() != null ? saved.getCategory() : "");
+            l14Payload.put("priority", saved.getPriority() != null ? saved.getPriority().name() : "P2");
+            n8nService.triggerDepartmentRouting(l14Payload);
+        } catch (Exception ignored) {
+        }
+
         return toDto(saved);
     }
 
