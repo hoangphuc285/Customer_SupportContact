@@ -15,9 +15,8 @@ import {
     CheckCircle2,
     Flame,
     Bot,
-    Languages,
-    Zap,
-    Building2
+    Building2,
+    Zap
 } from 'lucide-react';
 
 export default function StaffTicketListPage() {
@@ -100,21 +99,15 @@ export default function StaffTicketListPage() {
                 if (data.overview) {
                     setSlaOverview(data.overview);
                 }
-                await Promise.all([fetchTickets(), fetchSlaOverview()]);
-                if (data.mode === 'N8N_WORKFLOW') {
-                    setTimeout(() => {
-                        fetchTickets();
-                        fetchSlaOverview();
-                    }, 2500);
-                }
+                await fetchTickets();
             } else {
-                setSlaNotice('⚠️ Lỗi: ' + (data?.error || data?.message || `HTTP ${res.status}`));
+                setSlaNotice(`⚠️ Kích hoạt SLA thất bại: ${data?.message || 'Lỗi không xác định'}`);
             }
+            setTimeout(() => setSlaNotice(null), 6000);
         } catch (err: any) {
-            setSlaNotice('❌ Lỗi kết nối tới Backend SLA: ' + (err?.message || 'Unknown error'));
+            setSlaNotice(`❌ Lỗi kết nối khi quét SLA: ${err?.message || 'Không thể gọi API'}`);
         } finally {
             setTriggeringSla(false);
-            setTimeout(() => setSlaNotice(null), 7000);
         }
     };
 
@@ -122,22 +115,22 @@ export default function StaffTicketListPage() {
         setRoutingL14(true);
         setSlaNotice(null);
         try {
-            const res = await fetch('http://localhost:8080/api/staff/tickets/auto-route-all', {
+            const res = await fetch('http://localhost:8080/api/portal/departments/assign-all', {
                 method: 'POST',
                 headers: getAuthHeaders(true)
             });
             const data = await res.json().catch(() => null);
-            if (res.ok && data?.success) {
-                setSlaNotice(`✅ ${data.message || 'Đã phân chia phòng ban thành công qua luồng n8n L14!'}`);
-                setTimeout(() => fetchTickets(), 3000);
+            if (res.ok) {
+                setSlaNotice(`🏢 ${data?.message || 'Đã kích hoạt phân chia phòng ban L14 qua n8n thành công!'}`);
+                await fetchTickets();
             } else {
-                setSlaNotice('⚠️ Lỗi: ' + (data?.message || `HTTP ${res.status}`));
+                setSlaNotice(`⚠️ Phân ban L14 thất bại: ${data?.message || 'Lỗi không xác định'}`);
             }
+            setTimeout(() => setSlaNotice(null), 6000);
         } catch (err: any) {
-            setSlaNotice('❌ Lỗi kết nối tới Backend L14: ' + (err?.message || 'Unknown error'));
+            setSlaNotice(`❌ Lỗi kết nối phân ban L14: ${err?.message || 'Không thể gọi API'}`);
         } finally {
             setRoutingL14(false);
-            setTimeout(() => setSlaNotice(null), 7000);
         }
     };
 
@@ -146,58 +139,45 @@ export default function StaffTicketListPage() {
         fetchSlaOverview();
     }, [channelFilter, intentFilter, urgencyFilter, needHumanReviewFilter]);
 
-    const filteredTickets = tickets.filter((t) => {
-        if (!searchQuery.trim()) return true;
+    const filteredTickets = tickets.filter(t => {
+        if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
         return (
             (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
             (t.subject && t.subject.toLowerCase().includes(q)) ||
-            (t.customerName && t.customerName.toLowerCase().includes(q))
+            (t.customerName && t.customerName.toLowerCase().includes(q)) ||
+            (t.customerEmail && t.customerEmail.toLowerCase().includes(q))
         );
     });
 
     const getSlaBadge = (ticket: any) => {
-        if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
+        const slaStatus = ticket.slaStatus || (ticket.overdue ? 'BREACHED' : 'SAFE');
+        const slaRatio = ticket.slaRatio;
+
+        if (slaStatus === 'CRITICAL' || (slaRatio && slaRatio >= 1.5)) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                    <CheckCircle2 size={12} className="text-emerald-400" />
-                    Đã hoàn tất{ticket.slaBreached ? ' (Trễ SLA)' : ''}
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                    <Clock size={11} className="animate-spin" /> Trễ &gt;150% (Đỏ)
                 </span>
             );
         }
-        if (ticket.slaBreached) {
+        if (slaStatus === 'BREACHED' || (slaRatio && slaRatio >= 1.0)) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-                    SLA: Đỏ (Vi phạm)
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                    <Clock size={11} /> Quá hạn (Cam)
                 </span>
             );
         }
-        if (ticket.dueAt) {
-            const due = new Date(ticket.dueAt).getTime();
-            const now = Date.now();
-            const diffMins = Math.round((due - now) / 60000);
-            if (diffMins <= 0) {
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                        SLA: Đỏ (Quá hạn)
-                    </span>
-                );
-            }
-            if (diffMins <= 60) {
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                        <Clock size={12} />
-                        SLA: Vàng ({diffMins}p)
-                    </span>
-                );
-            }
+        if (slaStatus === 'WARNING' || (slaRatio && slaRatio >= 0.8)) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    <Clock size={11} /> Cảnh báo 80% (Vàng)
+                </span>
+            );
         }
         return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                <CheckCircle2 size={12} />
-                SLA: Xanh (An toàn)
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 size={11} /> An toàn
             </span>
         );
     };
@@ -206,20 +186,20 @@ export default function StaffTicketListPage() {
         if (!score && score !== 0) return null;
         if (score >= 70) {
             return (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-rose-950 text-rose-400 border border-rose-800">
-                    <Flame size={12} /> Rủi ro cao: {score}/100
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                    <Flame size={11} /> Rủi ro cao: {score}/100
                 </span>
             );
         }
         if (score >= 40) {
             return (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-950 text-amber-400 border border-amber-800">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                     Rủi ro TB: {score}/100
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                 Rủi ro thấp: {score}/100
             </span>
         );
@@ -227,105 +207,107 @@ export default function StaffTicketListPage() {
 
     return (
         <ProtectedRoute>
-            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100">
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
                 {/* HEADER */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/90">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                L01, L02, L07, L14
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                                L01 • L02 • L07 • L14
                             </span>
-                            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-                                Inbox Ticket & Phân luồng
-                            </h1>
+                            <span className="text-xs text-slate-400 font-medium">Hộp thư tổng hợp & Điều phối</span>
                         </div>
-                        <p className="text-sm text-slate-400 mt-1">
-                            Hộp thư đa kênh tổng hợp, theo dõi SLA thời gian thực & điều phối phòng ban tự động
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                            <TicketIcon className="text-blue-600 shrink-0" size={26} />
+                            <span>Inbox Ticket & Phân Luồng CSKH</span>
+                        </h1>
+                        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                            Hộp thư đa kênh • Giám sát SLA thời gian thực • Tự động phân chia phòng ban & gán chuyên viên
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         <button
                             onClick={handleTriggerL14}
                             disabled={routingL14}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-60 cursor-pointer"
+                            className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs sm:text-sm font-bold transition shadow-2xs active:scale-95 disabled:opacity-60 cursor-pointer"
                             title="Tự động phân loại phòng ban và điều phối nhân sự theo luồng L14"
                         >
-                            <Building2 size={16} className={routingL14 ? 'animate-spin' : ''} />
+                            <Building2 size={15} className={routingL14 ? 'animate-spin text-blue-600' : 'text-blue-600'} />
                             <span>{routingL14 ? 'Đang phân ban...' : '🏢 Phân Ban Tự Động (L14)'}</span>
                         </button>
                         <button
                             onClick={handleTriggerSla}
                             disabled={triggeringSla}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 rounded-xl text-sm font-black transition-all shadow-md active:scale-95 disabled:opacity-60 cursor-pointer"
+                            className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold transition shadow-2xs active:scale-95 disabled:opacity-60 cursor-pointer"
                             title="Kích hoạt n8n L07 quét SLA và cập nhật trạng thái tự động"
                         >
-                            <Zap size={16} className={triggeringSla ? 'animate-spin' : ''} />
+                            <Zap size={15} className={triggeringSla ? 'animate-spin' : ''} />
                             <span>{triggeringSla ? 'Đang quét SLA...' : '⚡ Quét SLA (L07)'}</span>
                         </button>
                         <button
                             onClick={fetchTickets}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm cursor-pointer"
+                            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 transition shadow-2xs cursor-pointer"
                         >
-                            <RotateCcw size={15} className={loading ? 'animate-spin' : ''} />
-                            Làm mới
+                            <RotateCcw size={14} className={loading ? 'animate-spin text-blue-600' : 'text-slate-400'} />
+                            <span>Làm mới</span>
                         </button>
                     </div>
                 </div>
 
                 {/* SLA NOTIFICATION BANNER */}
                 {slaNotice && (
-                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-                        <Zap size={15} className="text-amber-400 shrink-0" />
+                    <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold flex items-center gap-2 shadow-xs animate-in fade-in">
+                        <Zap size={15} className="text-blue-600 shrink-0" />
                         <span>{slaNotice}</span>
                     </div>
                 )}
 
                 {errorMsg && (
-                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
-                        <AlertTriangle size={15} className="text-rose-400 shrink-0" />
+                    <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold flex items-center gap-2">
+                        <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                         <span>{errorMsg}</span>
                     </div>
                 )}
 
                 {/* SLA OVERVIEW STRIP (L07) */}
                 {slaOverview && (
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-                            <span className="text-[11px] text-slate-400 font-semibold block">Tuân thủ SLA</span>
-                            <span className="text-lg font-black text-emerald-400 font-mono">{slaOverview.slaComplianceRate ?? 100}%</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
+                            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Tuân thủ SLA</span>
+                            <span className="text-2xl font-black text-emerald-600 font-mono mt-0.5 block">{slaOverview.slaComplianceRate ?? 100}%</span>
                         </div>
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-                            <span className="text-[11px] text-slate-400 font-semibold block">An toàn (&lt;80%)</span>
-                            <span className="text-lg font-black text-white font-mono">{slaOverview.safeCount ?? 0}</span>
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
+                            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">An toàn (&lt;80%)</span>
+                            <span className="text-2xl font-black text-slate-900 font-mono mt-0.5 block">{slaOverview.safeCount ?? 0}</span>
                         </div>
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-amber-500/20">
-                            <span className="text-[11px] text-amber-400 font-semibold block">Cảnh báo (80-100%)</span>
-                            <span className="text-lg font-black text-amber-400 font-mono">{slaOverview.warning80Count ?? 0}</span>
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
+                            <span className="text-[11px] text-amber-600 font-bold uppercase tracking-wider block">Cảnh báo (80-100%)</span>
+                            <span className="text-2xl font-black text-amber-600 font-mono mt-0.5 block">{slaOverview.warning80Count ?? 0}</span>
                         </div>
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-orange-500/20">
-                            <span className="text-[11px] text-orange-400 font-semibold block">Quá hạn (100-150%)</span>
-                            <span className="text-lg font-black text-orange-400 font-mono">{slaOverview.breached100Count ?? 0}</span>
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
+                            <span className="text-[11px] text-orange-600 font-bold uppercase tracking-wider block">Quá hạn (100-150%)</span>
+                            <span className="text-2xl font-black text-orange-600 font-mono mt-0.5 block">{slaOverview.breached100Count ?? 0}</span>
                         </div>
-                        <div className="p-3.5 rounded-xl bg-slate-950 border border-rose-500/20 col-span-2 sm:col-span-1">
-                            <span className="text-[11px] text-rose-400 font-semibold block">Nghiêm trọng (&gt;150%)</span>
-                            <span className="text-lg font-black text-rose-400 font-mono">{slaOverview.critical150Count ?? 0}</span>
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
+                            <span className="text-[11px] text-rose-600 font-bold uppercase tracking-wider block">Trễ nặng (&gt;150%)</span>
+                            <span className="text-2xl font-black text-rose-600 font-mono mt-0.5 block">{slaOverview.critical150Count ?? 0}</span>
                         </div>
                     </div>
                 )}
 
                 {/* FILTERS TOOLBAR */}
-                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-4 shadow-xl">
+                <div className="p-4.5 bg-white border border-slate-200/90 rounded-2xl space-y-3.5 shadow-2xs">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                         {/* Search input */}
                         <div className="md:col-span-2 relative">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <input
                                 type="text"
                                 placeholder="Tìm mã ticket, tiêu đề, khách hàng..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 font-medium transition"
                             />
                         </div>
 
@@ -334,7 +316,7 @@ export default function StaffTicketListPage() {
                             <select
                                 value={channelFilter}
                                 onChange={(e) => setChannelFilter(e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
                             >
                                 <option value="">Tất cả kênh</option>
                                 <option value="WEB">Cổng Web Khách</option>
@@ -350,7 +332,7 @@ export default function StaffTicketListPage() {
                             <select
                                 value={intentFilter}
                                 onChange={(e) => setIntentFilter(e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
                             >
                                 <option value="">Tất cả Ý định (L02)</option>
                                 <option value="COMPLAINT">Khiếu nại (L08)</option>
@@ -366,7 +348,7 @@ export default function StaffTicketListPage() {
                             <select
                                 value={urgencyFilter}
                                 onChange={(e) => setUrgencyFilter(e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
                             >
                                 <option value="">Độ khẩn cấp</option>
                                 <option value="P1">P1 - Khẩn cấp / Nghiêm trọng</option>
@@ -378,26 +360,26 @@ export default function StaffTicketListPage() {
                     </div>
 
                     {/* Quick filter pills */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800 text-xs">
-                        <span className="text-slate-400 font-medium mr-1 flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+                        <span className="text-slate-400 font-semibold mr-1 flex items-center gap-1 text-[11px]">
                             <Filter size={13} /> Lọc nhanh:
                         </span>
                         <button
                             onClick={() => setNeedHumanReviewFilter(null)}
-                            className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                            className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
                                 needHumanReviewFilter === null 
-                                    ? 'bg-indigo-600 text-white shadow' 
-                                    : 'bg-slate-900 text-slate-400 hover:text-white'
+                                    ? 'bg-blue-600 text-white shadow-2xs' 
+                                    : 'bg-slate-100 text-slate-600 hover:text-blue-700'
                             }`}
                         >
                             Tất cả ({tickets.length})
                         </button>
                         <button
                             onClick={() => setNeedHumanReviewFilter(true)}
-                            className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+                            className={`px-3 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer ${
                                 needHumanReviewFilter === true 
-                                    ? 'bg-amber-500 text-slate-950 shadow' 
-                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
+                                    ? 'bg-amber-500 text-white shadow-2xs' 
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
                             }`}
                         >
                             <ShieldAlert size={13} />
@@ -407,54 +389,55 @@ export default function StaffTicketListPage() {
                 </div>
 
                 {/* TICKET LIST TABLE */}
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                     {loading ? (
-                        <div className="p-12 text-center text-slate-400">
-                            <RotateCcw className="animate-spin inline-block mb-3" size={24} />
-                            <p>Đang tải danh sách ticket...</p>
+                        <div className="p-14 text-center text-slate-500">
+                            <RotateCcw className="animate-spin inline-block mb-3 text-blue-600" size={26} />
+                            <p className="text-xs font-semibold">Đang tải danh sách ticket...</p>
                         </div>
                     ) : filteredTickets.length === 0 ? (
-                        <div className="p-12 text-center text-slate-500">
-                            <TicketIcon className="inline-block mb-3 opacity-30" size={36} />
-                            <p className="font-medium text-slate-400">Không có ticket nào thỏa mãn bộ lọc</p>
+                        <div className="p-14 text-center text-slate-400">
+                            <TicketIcon className="inline-block mb-3 text-slate-300" size={38} />
+                            <p className="font-bold text-slate-600 text-sm">Không có ticket nào thỏa mãn bộ lọc</p>
+                            <p className="text-xs text-slate-400 mt-1">Vui lòng thử lại với từ khóa hoặc bộ lọc khác.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-sm">
+                            <table className="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                    <tr className="border-b border-slate-200/90 bg-slate-50/80 text-slate-500 uppercase tracking-wider font-bold text-[11px]">
                                         <th className="py-3.5 px-4">Ticket</th>
-                                        <th className="py-3.5 px-4">Khách hàng / Kênh</th>
-                                        <th className="py-3.5 px-4">Ý định / Phụ trách</th>
+                                        <th className="py-3.5 px-4">Khách Hàng / Kênh</th>
+                                        <th className="py-3.5 px-4">Ý Định / Phụ Trách</th>
                                         <th className="py-3.5 px-4">Cờ Review</th>
                                         <th className="py-3.5 px-4">SLA (L07)</th>
-                                        <th className="py-3.5 px-4">Rủi ro (L06)</th>
-                                        <th className="py-3.5 px-4 text-right">Chi tiết</th>
+                                        <th className="py-3.5 px-4">Rủi Ro (L06)</th>
+                                        <th className="py-3.5 px-4 text-right">Chi Tiết</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800/60">
+                                <tbody className="divide-y divide-slate-100">
                                     {filteredTickets.map((t) => (
-                                        <tr key={t.id} className="hover:bg-slate-900/40 transition-colors">
-                                            <td className="py-3.5 px-4">
-                                                <div className="font-mono font-bold text-indigo-400">
+                                        <tr key={t.id} className="hover:bg-blue-50/40 transition-colors">
+                                            <td className="py-3.5 px-4 font-mono">
+                                                <div className="font-bold text-blue-700">
                                                     #{t.ticketCode || t.id}
                                                 </div>
-                                                <div className="text-xs text-slate-300 font-medium max-w-xs truncate mt-0.5">
+                                                <div className="text-xs text-slate-700 font-medium max-w-xs truncate mt-0.5" title={t.subject}>
                                                     {t.subject || 'Yêu cầu hỗ trợ'}
                                                 </div>
                                             </td>
 
                                             <td className="py-3.5 px-4">
-                                                <div className="text-white font-medium">
+                                                <div className="text-slate-800 font-bold">
                                                     {t.customerName || 'Khách vãng lai'}
                                                 </div>
-                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                                                     {t.channel}
                                                 </span>
                                             </td>
 
                                             <td className="py-3.5 px-4">
-                                                <span className="px-2 py-1 rounded text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                                     {t.intent || 'CHỜ PHÂN LOẠI'}
                                                 </span>
                                                 <div className="text-[11px] text-slate-400 mt-1">
@@ -464,12 +447,12 @@ export default function StaffTicketListPage() {
 
                                             <td className="py-3.5 px-4">
                                                 {t.needHumanReview ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
-                                                        <ShieldAlert size={12} /> Cần duyệt
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                        <ShieldAlert size={11} /> Cần duyệt
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-slate-500">
-                                                        <Bot size={13} className="text-slate-400" /> Tự động
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] text-slate-400">
+                                                        <Bot size={12} className="text-slate-400" /> Tự động
                                                     </span>
                                                 )}
                                             </td>
@@ -485,9 +468,10 @@ export default function StaffTicketListPage() {
                                             <td className="py-3.5 px-4 text-right">
                                                 <Link
                                                     href={`/staff/tickets/${t.id}`}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors shadow"
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-2xs"
                                                 >
-                                                    Mở <ArrowRight size={13} />
+                                                    <span>Mở</span>
+                                                    <ArrowRight size={12} />
                                                 </Link>
                                             </td>
                                         </tr>

@@ -12,15 +12,15 @@ import {
     ArrowRight, 
     CheckCircle2, 
     Headphones, 
-    Terminal, 
     Layers, 
     Wrench, 
     Users, 
-    Check,
-    AlertCircle,
-    Truck,
-    CreditCard,
-    Scale
+    Check, 
+    AlertCircle, 
+    Truck, 
+    CreditCard, 
+    Scale,
+    Sparkles
 } from 'lucide-react';
 
 interface StaffPreset {
@@ -99,103 +99,107 @@ export default function StaffLoginPage() {
                 localStorage.setItem('agent_token', token);
             }
 
-            localStorage.setItem('user_account', JSON.stringify(accountData));
-            localStorage.setItem('user_info', JSON.stringify(accountData));
-            localStorage.setItem('user_role', roleStr);
-            
-            const isAdmin = roleStr === 'ADMIN' || roleStr === 'ROLE_ADMIN' || roleStr.includes('ADMIN');
-            if (isAdmin) {
-                router.push('/admin');
-            } else {
-                router.push('/staff/dashboard');
-            }
+            const storageUser = {
+                id: accountData.id || data.id,
+                email: accountData.email || email,
+                name: accountData.fullName || accountData.name || 'Chuyên viên CSKH',
+                fullName: accountData.fullName || accountData.name || 'Chuyên viên CSKH',
+                role: rawRole,
+            };
+
+            localStorage.setItem('user_account', JSON.stringify(storageUser));
+            localStorage.setItem('user_info', JSON.stringify(storageUser));
+            localStorage.setItem('user_role', rawRole);
+
+            router.push('/staff/dashboard');
         } catch (err: any) {
-            setError(err.message || 'Lỗi kết nối máy chủ backend!');
+            console.error('Lỗi đăng nhập:', err);
+            setError(err.message || 'Lỗi hệ thống khi đăng nhập.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden font-sans antialiased selection:bg-indigo-500 selection:text-white">
-            {/* Họa tiết lưới kỹ thuật tinh tế */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+        <div className="min-h-screen bg-slate-50/80 text-slate-800 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
+            {/* Subtle blue gradient background accents */}
+            <div className="absolute top-0 -left-20 w-96 h-96 bg-blue-100/60 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 -right-20 w-96 h-96 bg-sky-100/60 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-xl relative z-10">
+            <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 rounded-3xl bg-white border border-slate-200/90 shadow-xl overflow-hidden relative z-10">
                 
-                {/* CỘT TRÁI: THÔNG SỐ VẬN HÀNH NỘI BỘ & PRESETS TỪ CODEBASE */}
-                <div className="lg:col-span-5 p-6 sm:p-8 lg:p-10 bg-slate-950/60 border-b lg:border-b-0 lg:border-r border-slate-800/80 flex flex-col justify-between">
+                {/* CỘT TRÁI: THÔNG SỐ VẬN HÀNH NỘI BỘ & PRESETS */}
+                <div className="lg:col-span-5 p-6 sm:p-8 lg:p-10 bg-blue-50/40 border-b lg:border-b-0 lg:border-r border-slate-200/80 flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center gap-2 mb-6">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/30">
-                                <Terminal size={20} />
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/25">
+                                <Headphones size={20} />
                             </div>
                             <div>
-                                <h2 className="text-sm font-bold text-white tracking-wide">
-                                    CS Portal • Staff Ops
+                                <h2 className="text-base font-extrabold text-blue-900 tracking-tight leading-none">
+                                    LotusCare Staff
                                 </h2>
-                                <p className="text-[11px] text-slate-400 font-mono">Environment: Local Dev</p>
+                                <p className="text-[11px] text-slate-500 font-medium mt-1">Contact Center Operations</p>
                             </div>
                         </div>
 
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-1">
                             Enterprise Operations Console
                         </span>
-                        <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+                        <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
                             Hệ Thống Phân Phối & Xử Lý Ticket Nội Bộ
                         </h3>
-                        <p className="text-slate-400 text-xs sm:text-sm mt-2 leading-relaxed">
-                            Bàn làm việc số dành cho điều phối viên, xử lý khiếu nại SLA, quản lý cơ sở tri thức RAG và tích hợp webhook n8n.
+                        <p className="text-slate-500 text-xs sm:text-sm mt-2 leading-relaxed">
+                            Bàn làm việc số dành cho điều phối viên, xử lý khiếu nại SLA, quản lý bảo hành, hoàn tiền và kích hoạt automation n8n.
                         </p>
 
                         <div className="mt-6 space-y-2.5">
-                            <div className="flex items-center gap-2.5 text-xs text-slate-300">
-                                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+                                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                                 <span>Phân loại tự động ticket theo mức P1 - P4</span>
                             </div>
-                            <div className="flex items-center gap-2.5 text-xs text-slate-300">
-                                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                                <span>Kiểm tra chính sách bảo hành & hoàn trả tức thì</span>
+                            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+                                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                                <span>Thẩm định bảo hành (L10) & hoàn tiền 7 ngày (L09)</span>
                             </div>
-                            <div className="flex items-center gap-2.5 text-xs text-slate-300">
-                                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                                <span>Hỗ trợ Voice Gemini & Chat trực tiếp đa kênh</span>
+                            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+                                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                                <span>Chat trực tiếp với khách và giải quyết theo chuẩn SLA</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* PRESET ROLES KHỞI TẠO TỪ DATA.SQL / DATAINITIALIZER */}
-                    <div className="mt-8 pt-6 border-t border-slate-800/80">
+                    {/* PRESET ROLES */}
+                    <div className="mt-8 pt-6 border-t border-slate-200/80">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                                Chọn vai trò nhân sự mẫu
+                            <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">
+                                Chọn tài khoản mẫu nhanh
                             </span>
-                            <span className="text-[10px] text-slate-500 font-mono">Seeded accounts</span>
+                            <span className="text-[10px] text-blue-600 font-bold">1-Click Login</span>
                         </div>
 
-                        <div className="space-y-1.5">
-                            {STAFF_PRESETS.map((preset) => {
-                                const isSelected = activeRoleKey === preset.roleKey;
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {STAFF_PRESETS.slice(0, 6).map((preset) => {
+                                const isSelected = activeRoleKey === preset.roleKey && email === preset.email;
                                 const Icon = preset.icon;
                                 return (
                                     <button
-                                        key={preset.roleKey}
+                                        key={preset.email}
                                         type="button"
                                         onClick={() => handleSelectPreset(preset)}
-                                        className={`w-full p-2 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer border ${
+                                        className={`p-2 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer border ${
                                             isSelected 
-                                                ? 'bg-slate-800 border-indigo-500/80 text-white' 
-                                                : 'bg-slate-900/40 border-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                                ? 'bg-blue-600 border-blue-600 text-white shadow-xs' 
+                                                : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-blue-50/60'
                                         }`}
                                     >
-                                        <div className="flex items-center gap-2.5">
-                                            <Icon size={14} className={isSelected ? 'text-indigo-400' : 'text-slate-500'} />
-                                            <div>
-                                                <p className="text-xs font-bold leading-none">{preset.roleName}</p>
-                                                <p className="text-[10px] text-slate-500 mt-1 font-mono">{preset.email}</p>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Icon size={14} className={isSelected ? 'text-white' : 'text-blue-600'} />
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-bold leading-none truncate">{preset.roleName}</p>
+                                                <p className={`text-[10px] mt-0.5 font-mono truncate ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{preset.email}</p>
                                             </div>
                                         </div>
-                                        {isSelected && <Check size={14} className="text-indigo-400" />}
                                     </button>
                                 );
                             })}
@@ -204,35 +208,35 @@ export default function StaffLoginPage() {
                 </div>
 
                 {/* CỘT PHẢI: FORM ĐĂNG NHẬP NHÂN VIÊN */}
-                <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between">
+                <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between bg-white">
                     <div>
                         <div className="mb-6">
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-2">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
                                 <ShieldCheck size={14} />
                                 <span>Cổng Chuyên viên CSKH</span>
                             </div>
-                            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                                 Xác thực tài khoản nhân viên
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1">
-                                Đăng nhập bằng tài khoản nội bộ để bắt đầu phiên xử lý ticket
+                            <p className="text-xs text-slate-500 mt-1">
+                                Đăng nhập bằng tài khoản nội bộ để tiếp nhận và giải quyết ticket
                             </p>
                         </div>
 
                         {error && (
-                            <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs sm:text-sm font-medium flex items-start gap-3 animate-in fade-in">
-                                <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+                            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm font-medium flex items-start gap-3 animate-in fade-in">
+                                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                                 <span>{error}</span>
                             </div>
                         )}
 
                         <form onSubmit={handleLogin} className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                                     Email Chuyên Viên
                                 </label>
                                 <div className="relative">
-                                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input
                                         type="email"
                                         required
@@ -241,30 +245,30 @@ export default function StaffLoginPage() {
                                             setEmail(e.target.value);
                                             setActiveRoleKey('');
                                         }}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-medium"
+                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 transition font-medium"
                                         placeholder="agent@support.local"
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                                     Mật Khẩu
                                 </label>
                                 <div className="relative">
-                                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input
                                         type={showPassword ? 'text' : 'password'}
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-medium font-mono"
+                                        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 transition font-medium font-mono"
                                         placeholder="••••••••••••"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1 cursor-pointer"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                                         tabIndex={-1}
                                     >
                                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -275,7 +279,7 @@ export default function StaffLoginPage() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                                className="w-full mt-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-bold text-xs sm:text-sm transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                             >
                                 {loading ? (
                                     <div className="flex items-center gap-2">
@@ -292,11 +296,11 @@ export default function StaffLoginPage() {
                         </form>
                     </div>
 
-                    <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-                        <Link href="/support/login" className="text-slate-400 hover:text-white transition flex items-center gap-1.5">
+                    <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <Link href="/user" className="text-blue-600 hover:text-blue-700 font-semibold transition flex items-center gap-1.5">
                             ← Chuyển sang Cổng Khách Hàng
                         </Link>
-                        <span className="font-mono text-[11px] text-slate-600">Port 8080 • API Auth</span>
+                        <span className="font-mono text-[11px] text-slate-400">LotusCare Enterprise</span>
                     </div>
                 </div>
 

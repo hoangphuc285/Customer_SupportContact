@@ -101,7 +101,7 @@ export default function ProcessTicketDetailPage() {
                 }));
             }
         } catch (err) {
-            console.error('Lỗi toggle AI:', err);
+            console.error('Lỗi khi toggle AI:', err);
         } finally {
             setTogglingAi(false);
         }
@@ -110,14 +110,30 @@ export default function ProcessTicketDetailPage() {
     const handleSendReply = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!replyText.trim() || sendingReply) return;
-        setSendingReply(true);
 
+        setSendingReply(true);
         try {
+            const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            let staffName = 'Chuyên viên CSKH';
+            let staffId = 4;
+            if (savedInfo) {
+                try {
+                    const u = JSON.parse(savedInfo);
+                    if (u.fullName || u.name) staffName = u.fullName || u.name;
+                    if (u.id) staffId = u.id;
+                } catch (e) {}
+            }
+
             const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/reply`, {
                 method: 'POST',
                 headers: getAuthHeaders(true),
-                body: JSON.stringify({ message: replyText.trim() })
+                body: JSON.stringify({
+                    message: replyText.trim(),
+                    staffId: staffId,
+                    staffName: staffName
+                })
             });
+
             if (res.ok) {
                 const newMsg = await res.json();
                 setData((prev: any) => ({
@@ -125,78 +141,99 @@ export default function ProcessTicketDetailPage() {
                     messages: [...(prev?.messages || []), newMsg]
                 }));
                 setReplyText('');
+            } else {
+                alert('Không thể gửi tin nhắn.');
             }
         } catch (err) {
-            console.error('Lỗi gửi trả lời:', err);
+            console.error('Lỗi gửi reply:', err);
+            alert('Lỗi kết nối khi gửi phản hồi.');
         } finally {
             setSendingReply(false);
         }
     };
 
-    const handleL13Submit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!l13Note.trim() || l13Submitting) return;
-        setL13Submitting(true);
-        setL13Notice(null);
-        try {
-            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/resolve`, {
-                method: 'POST',
-                headers: getAuthHeaders(true),
-                body: JSON.stringify({
-                    case_type: l13CaseType,
-                    status: l13Status,
-                    response_note: l13Note.trim(),
-                    compensation: l13Compensation.trim()
-                })
-            });
-            const resJson = await res.json();
-            if (res.ok && resJson.success) {
-                setL13Notice('✅ Đã kích hoạt n8n L13 biên tập AI và gửi phản hồi cho khách hàng!');
-                setTimeout(() => {
-                    setShowL13Modal(false);
-                    setL13Note('');
-                    setL13Compensation('');
-                    setL13Notice(null);
-                    fetchDetail();
-                }, 3000);
-            } else {
-                setL13Notice('⚠️ ' + (resJson.message || 'Lỗi khi gửi phản hồi'));
-            }
-        } catch (err: any) {
-            setL13Notice('❌ Lỗi kết nối: ' + err.message);
-        } finally {
-            setL13Submitting(false);
-        }
-    };
-
     const handleAutoRouteL14 = async () => {
-        if (!ticketId || routingL14) return;
+        if (!ticketId) return;
         setRoutingL14(true);
         try {
-            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/auto-route`, {
+            const res = await fetch(`http://localhost:8080/api/portal/departments/assign/${ticketId}`, {
                 method: 'POST',
                 headers: getAuthHeaders(true)
             });
-            const resJson = await res.json().catch(() => null);
-            if (res.ok && resJson?.success) {
-                alert(`✅ ${resJson.message || 'Đã phân phối ticket đến phòng ban qua luồng n8n L14!'}`);
-                setTimeout(() => fetchDetail(), 2500);
+            const result = await res.json().catch(() => null);
+            if (res.ok && result?.success) {
+                alert(`✅ Đã phân công thành công:\n- Phòng ban: ${result.department_name}\n- Nhân viên: ${result.assigned_staff_name}`);
+                await fetchDetail();
             } else {
-                alert(`⚠️ ${resJson?.message || 'Không thể tự động điều phối phòng ban'}`);
+                alert(`⚠️ Phân ban thất bại: ${result?.message || 'Lỗi không xác định'}`);
             }
         } catch (err: any) {
-            alert(`❌ Lỗi kết nối n8n L14: ${err?.message || 'Unknown error'}`);
+            alert(`❌ Lỗi kết nối phân ban L14: ${err?.message || 'Không thể gọi API'}`);
         } finally {
             setRoutingL14(false);
+        }
+    };
+
+    const handleL13Submit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setL13Submitting(true);
+        setL13Notice(null);
+
+        try {
+            const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            let staffName = 'Chuyên viên CSKH';
+            let staffId = 4;
+            if (savedInfo) {
+                try {
+                    const u = JSON.parse(savedInfo);
+                    if (u.fullName || u.name) staffName = u.fullName || u.name;
+                    if (u.id) staffId = u.id;
+                } catch (e) {}
+            }
+
+            const payload = {
+                ticket_id: Number(ticketId),
+                case_type: l13CaseType,
+                resolution_status: l13Status,
+                internal_note: l13Note || 'Đã kiểm tra và xử lý xong yêu cầu của quý khách.',
+                compensation_note: l13Compensation || '',
+                staff_id: staffId,
+                staff_name: staffName,
+                channel: ticket.channel || 'WEB'
+            };
+
+            const res = await fetch('http://localhost:8080/api/portal/staff-response/trigger', {
+                method: 'POST',
+                headers: getAuthHeaders(true),
+                body: JSON.stringify(payload)
+            });
+
+            const resData = await res.json().catch(() => null);
+
+            if (res.ok) {
+                setL13Notice(`✅ ${resData?.message || 'Đã kích hoạt Luồng 13 (AI Soạn thư & Đóng Ticket) thành công!'}`);
+                setTimeout(() => {
+                    setShowL13Modal(false);
+                    setL13Notice(null);
+                    fetchDetail();
+                }, 2000);
+            } else {
+                setL13Notice(`⚠️ Thất bại: ${resData?.message || 'Không thể kích hoạt Luồng 13'}`);
+            }
+        } catch (err: any) {
+            console.error('Lỗi Luồng 13:', err);
+            setL13Notice(`❌ Lỗi kết nối máy chủ: ${err?.message || 'Không thể gửi yêu cầu'}`);
+        } finally {
+            setL13Submitting(false);
         }
     };
 
     if (loading) {
         return (
             <ProtectedRoute>
-                <div className="p-8 text-center text-slate-400">
-                    <RotateCcw className="animate-spin inline-block mb-3" size={24} />
-                    <p>Đang tải hội thoại ticket #{ticketId}...</p>
+                <div className="p-16 text-center text-slate-500">
+                    <RotateCcw className="animate-spin inline-block mb-3 text-blue-600" size={28} />
+                    <p className="text-xs font-semibold">Đang tải chi tiết Ticket #{ticketId}...</p>
                 </div>
             </ProtectedRoute>
         );
@@ -205,10 +242,10 @@ export default function ProcessTicketDetailPage() {
     if (errorMsg || !data?.ticket) {
         return (
             <ProtectedRoute>
-                <div className="p-8 max-w-2xl mx-auto text-center space-y-4 text-slate-200">
-                    <AlertTriangle className="mx-auto text-rose-400" size={32} />
-                    <p className="font-bold">{errorMsg || `Không tìm thấy ticket #${ticketId}`}</p>
-                    <Link href="/staff/tickets" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold">
+                <div className="p-8 max-w-2xl mx-auto text-center space-y-4">
+                    <AlertTriangle className="mx-auto text-rose-500" size={32} />
+                    <p className="font-bold text-slate-800 text-sm">{errorMsg || `Không tìm thấy ticket #${ticketId}`}</p>
+                    <Link href="/staff/tickets" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs">
                         <ArrowLeft size={14} /> Quay lại danh sách Ticket
                     </Link>
                 </div>
@@ -222,84 +259,85 @@ export default function ProcessTicketDetailPage() {
     const getSentimentBadge = (sentiment?: string) => {
         switch (sentiment) {
             case 'VERY_NEGATIVE':
-                return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">😡 Rất tiêu cực</span>;
+                return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">😡 Rất tiêu cực</span>;
             case 'NEGATIVE':
-                return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">🙁 Tiêu cực</span>;
+                return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">🙁 Tiêu cực</span>;
             case 'POSITIVE':
-                return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">😊 Tích cực</span>;
+                return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">😊 Tích cực</span>;
             default:
-                return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">😐 Trung tính</span>;
+                return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">😐 Trung tính</span>;
         }
     };
 
     return (
         <ProtectedRoute>
-            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100">
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
                 {/* TOP BAR */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/90">
                     <div className="flex items-center gap-3">
                         <Link
                             href="/staff/tickets"
-                            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors"
+                            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-slate-600 hover:text-blue-700 transition shadow-2xs"
                         >
                             <ArrowLeft size={18} />
                         </Link>
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                    L02, L03, L06, L13, L14
+                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-200">
+                                    L02 • L03 • L06 • L13 • L14
                                 </span>
-                                <h1 className="text-xl md:text-2xl font-black text-white">
-                                    Chi tiết Ticket #{ticket.ticketCode || ticketId}
+                                <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                                    Ticket #{ticket.ticketCode || ticketId}
                                 </h1>
                             </div>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                Kênh: <strong className="text-slate-200">{ticket.channel}</strong> | Khách hàng: <strong className="text-slate-200">{ticket.customerName || 'Vãng lai'}</strong> | Phụ trách: <strong className="text-slate-200">{ticket.assignee || 'Chưa phân công'}</strong> | Phòng ban: <strong className="text-indigo-400">{ticket.departmentName || ticket.departmentCode || 'Chưa phân'}</strong> | SLA: <strong className={ticket.slaBreached ? 'text-rose-400' : 'text-emerald-400'}>{ticket.slaBreached ? 'Vi phạm SLA' : 'Đang theo dõi'}</strong>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Kênh: <strong className="text-slate-800">{ticket.channel}</strong> | Khách: <strong className="text-slate-800">{ticket.customerName || 'Vãng lai'}</strong> | Phụ trách: <strong className="text-blue-700">{ticket.assignee || 'Chưa phân công'}</strong> | Phòng ban: <strong className="text-blue-700">{ticket.departmentName || ticket.departmentCode || 'Chưa phân'}</strong> | SLA: <strong className={ticket.slaBreached ? 'text-rose-600' : 'text-emerald-600'}>{ticket.slaBreached ? 'Vi phạm SLA' : 'Đang theo dõi'}</strong>
                             </p>
                         </div>
                     </div>
 
                     {/* AI LOCK BUTTON & TRANSLATE TOGGLE & ACTIONS */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
                             onClick={handleAutoRouteL14}
                             disabled={routingL14}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-600/20 border border-purple-500/40 text-purple-300 hover:bg-purple-600/30 transition-all cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition cursor-pointer disabled:opacity-50 shadow-2xs"
                             title="Tự động phân tích nội dung để định tuyến phòng ban & gán nhân viên (L14)"
                         >
-                            <Building2 size={14} className={routingL14 ? 'animate-spin' : ''} />
+                            <Building2 size={14} className={routingL14 ? 'animate-spin text-blue-600' : ''} />
                             <span>{routingL14 ? 'Đang phân ban...' : 'Phân Ban (L14)'}</span>
                         </button>
+
                         <button
                             onClick={() => setShowTranslated(!showTranslated)}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition shadow-2xs cursor-pointer ${
                                 showTranslated 
-                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' 
-                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                    ? 'bg-blue-600 border-blue-600 text-white' 
+                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                             }`}
                         >
-                            <Languages size={15} />
-                            {showTranslated ? 'Đang bật bản dịch (L03)' : 'Đang xem bản gốc'}
+                            <Languages size={14} />
+                            <span>{showTranslated ? 'Bản dịch (L03)' : 'Bản gốc'}</span>
                         </button>
 
                         <button
                             onClick={handleToggleAi}
                             disabled={togglingAi}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition shadow-2xs cursor-pointer ${
                                 ticket.aiLocked
-                                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30'
-                                    : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
+                                    ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                                    : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                             }`}
                         >
                             {ticket.aiLocked ? (
                                 <>
-                                    <Lock size={15} />
-                                    AI Đã Khóa (Chỉ trả lời tay)
+                                    <Lock size={14} />
+                                    <span>AI Đã Khóa (Trả lời tay)</span>
                                 </>
                             ) : (
                                 <>
-                                    <Unlock size={15} />
-                                    AI Đang Mở (Tự động L05)
+                                    <Unlock size={14} />
+                                    <span>AI Đang Mở (Tự động L05)</span>
                                 </>
                             )}
                         </button>
@@ -309,7 +347,7 @@ export default function ProcessTicketDetailPage() {
                                 setL13CaseType(ticket.category || ticket.intent || 'GENERAL');
                                 setShowL13Modal(true);
                             }}
-                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md transition-all active:scale-95 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition active:scale-95 cursor-pointer"
                             title="Soạn giải pháp thô, AI Gemini trau chuốt thành lời phản hồi ân cần và gửi đa kênh"
                         >
                             <Zap size={14} />
@@ -319,63 +357,63 @@ export default function ProcessTicketDetailPage() {
                 </div>
 
                 {/* METRICS STRIP: Sentiment, Risk Score, Intent, SLA */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                    <div className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-2xs">
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                             Cảm xúc khách (Sentiment)
                         </div>
                         {getSentimentBadge(ticket.sentiment)}
                     </div>
 
-                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                    <div className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-2xs">
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                             Điểm rủi ro (L06 Leo thang)
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className={`text-base font-black ${
-                                (ticket.riskScore || 0) >= 70 ? 'text-rose-400' : (ticket.riskScore || 0) >= 40 ? 'text-amber-400' : 'text-emerald-400'
+                            <span className={`text-xl font-black ${
+                                (ticket.riskScore || 0) >= 70 ? 'text-rose-600' : (ticket.riskScore || 0) >= 40 ? 'text-amber-600' : 'text-emerald-600'
                             }`}>
                                 {ticket.riskScore || 15}/100
                             </span>
                             {(ticket.riskScore || 0) >= 70 && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                     <Flame size={10} /> Nguy cơ cao
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                    <div className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-2xs">
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                             Ý định trích xuất (L02)
                         </div>
-                        <span className="font-mono text-xs font-bold text-indigo-400">
+                        <span className="font-mono text-xs font-bold text-blue-700">
                             {ticket.intent || 'CHỜ PHÂN LOẠI'}
                         </span>
                     </div>
 
-                    <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                    <div className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-2xs">
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                             Cờ kiểm duyệt (L05/L03)
                         </div>
                         {ticket.needHumanReview ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-400">
-                                <ShieldAlert size={13} /> Cần nhân viên duyệt
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700">
+                                <ShieldAlert size={13} className="text-amber-600" /> Cần nhân viên duyệt
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-                                <CheckCircle2 size={13} className="text-emerald-400" /> Tự động đạt chuẩn
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-semibold">
+                                <CheckCircle2 size={13} className="text-emerald-600" /> Tự động đạt chuẩn
                             </span>
                         )}
                     </div>
                 </div>
 
                 {/* CONVERSATION HISTORY */}
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl flex flex-col h-[540px] shadow-2xl overflow-hidden">
+                <div className="bg-white border border-slate-200/90 rounded-2xl flex flex-col h-[540px] shadow-2xs overflow-hidden">
                     {/* Message scroll area */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-50/50">
                         {messages.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                            <div className="h-full flex items-center justify-center text-slate-400 text-xs font-medium">
                                 Chưa có tin nhắn nào trong hội thoại này
                             </div>
                         ) : (
@@ -391,31 +429,31 @@ export default function ProcessTicketDetailPage() {
                                             isCustomer ? 'items-start' : 'items-end'
                                         }`}
                                     >
-                                        <div className="flex items-center gap-1.5 mb-1 px-1 text-xs text-slate-400 font-medium">
-                                            {isCustomer && <><User size={13} className="text-sky-400" /> <span>Khách hàng</span></>}
-                                            {isAi && <><Bot size={13} className="text-purple-400" /> <span className="text-purple-400 font-bold">AI Assistant</span></>}
-                                            {isStaff && <><Sparkles size={13} className="text-emerald-400" /> <span className="text-emerald-400 font-bold">Chuyên viên CSKH</span></>}
+                                        <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-400 font-medium">
+                                            {isCustomer && <><User size={12} className="text-blue-600" /> <span className="font-semibold text-slate-700">Khách hàng</span></>}
+                                            {isAi && <><Bot size={12} className="text-amber-600" /> <span className="text-amber-700 font-bold">AI Assistant</span></>}
+                                            {isStaff && <><Sparkles size={12} className="text-blue-600" /> <span className="text-blue-700 font-bold">Chuyên viên CSKH</span></>}
                                             <span>•</span>
-                                            <span className="text-[11px] text-slate-500">
+                                            <span className="text-[10px] text-slate-400">
                                                 {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
                                         </div>
 
                                         <div
-                                            className={`max-w-xl p-4 rounded-2xl text-sm leading-relaxed shadow-md ${
+                                            className={`max-w-xl p-3.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${
                                                 isCustomer
-                                                    ? 'bg-slate-900 border border-slate-800 text-slate-100 rounded-tl-sm'
+                                                    ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
                                                     : isAi
-                                                    ? 'bg-purple-950/40 border border-purple-800/60 text-purple-100 rounded-tr-sm'
-                                                    : 'bg-indigo-600 text-white rounded-tr-sm'
+                                                    ? 'bg-blue-50 border border-blue-100 text-blue-900 rounded-tr-xs font-medium'
+                                                    : 'bg-blue-600 text-white rounded-tr-xs font-medium'
                                             }`}
                                         >
                                             {/* Original vs Translated */}
                                             {showTranslated && m.contentTranslated && m.contentTranslated !== m.contentOriginal ? (
-                                                <div className="space-y-2">
+                                                <div className="space-y-1.5">
                                                     <div>{m.contentTranslated}</div>
-                                                    <div className="pt-2 border-t border-slate-700/50 text-xs text-slate-400 italic">
-                                                        <span className="font-semibold text-slate-500">Bản gốc ({m.language || 'auto'}):</span> {m.contentOriginal}
+                                                    <div className="pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 italic">
+                                                        <span className="font-semibold text-slate-600">Bản gốc ({m.language || 'auto'}):</span> {m.contentOriginal}
                                                     </div>
                                                 </div>
                                             ) : (
@@ -429,10 +467,10 @@ export default function ProcessTicketDetailPage() {
                     </div>
 
                     {/* MANUAL REPLY BOX */}
-                    <div className="p-4 bg-slate-900 border-t border-slate-800">
+                    <div className="p-3.5 bg-white border-t border-slate-200/90">
                         {ticket.aiLocked && (
-                            <div className="mb-2 text-xs font-semibold text-rose-400 flex items-center gap-1.5">
-                                <Lock size={13} /> Chế độ can thiệp thủ công: AI đã bị khóa cho ticket này. Mọi tin nhắn sẽ do bạn gửi trực tiếp.
+                            <div className="mb-2 text-[11px] font-semibold text-rose-600 flex items-center gap-1.5">
+                                <Lock size={12} /> Chế độ thủ công: AI đã bị khóa cho ticket này. Mọi tin nhắn sẽ do bạn gửi trực tiếp.
                             </div>
                         )}
                         <form onSubmit={handleSendReply} className="flex gap-2">
@@ -441,15 +479,15 @@ export default function ProcessTicketDetailPage() {
                                 placeholder={ticket.aiLocked ? "Nhập câu trả lời tay gửi khách hàng..." : "Nhập câu trả lời thủ công (sẽ ghi nhận dưới danh nghĩa Chuyên viên)..."}
                                 value={replyText}
                                 onChange={(e) => setReplyText(e.target.value)}
-                                className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                             />
                             <button
                                 type="submit"
                                 disabled={!replyText.trim() || sendingReply}
-                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow"
+                                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
                             >
-                                <Send size={15} />
-                                Gửi
+                                <Send size={14} />
+                                <span>Gửi</span>
                             </button>
                         </form>
                     </div>
@@ -457,33 +495,33 @@ export default function ProcessTicketDetailPage() {
 
                 {/* MODAL PHẢN HỒI NGHIỆP VỤ L13 */}
                 {showL13Modal && (
-                    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl space-y-4 p-6">
-                            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+                        <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl space-y-4 p-6">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="p-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
                                         <Zap size={18} />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-white">
+                                        <h3 className="text-base font-extrabold text-slate-900">
                                             Phản Hồi Nghiệp Vụ & Đóng Ticket (L13)
                                         </h3>
-                                        <p className="text-xs text-slate-400">
+                                        <p className="text-xs text-slate-500">
                                             AI Gemini sẽ trau chuốt giải pháp thô thành câu trả lời ân cần gửi khách hàng
                                         </p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setShowL13Modal(false)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
                                 >
                                     <X size={18} />
                                 </button>
                             </div>
 
                             {l13Notice && (
-                                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-2">
-                                    <Zap size={15} className="shrink-0 text-amber-400" />
+                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold flex items-center gap-2">
+                                    <Zap size={15} className="shrink-0 text-blue-600" />
                                     <span>{l13Notice}</span>
                                 </div>
                             )}
@@ -491,84 +529,78 @@ export default function ProcessTicketDetailPage() {
                             <form onSubmit={handleL13Submit} className="space-y-4">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-xs font-semibold text-slate-400 mb-1">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">
                                             Loại vụ việc (Case Type)
                                         </label>
                                         <select
                                             value={l13CaseType}
                                             onChange={(e) => setL13CaseType(e.target.value)}
-                                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
+                                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500"
                                         >
-                                            <option value="GENERAL">Hỗ trợ chung (GENERAL)</option>
-                                            <option value="COMPLAINT">Khiếu nại (COMPLAINT)</option>
-                                            <option value="REFUND">Hoàn tiền (REFUND)</option>
-                                            <option value="WARRANTY">Bảo hành (WARRANTY)</option>
+                                            <option value="GENERAL">Hỗ trợ chung</option>
+                                            <option value="COMPLAINT">Khiếu nại dịch vụ (L08)</option>
+                                            <option value="REFUND">Hoàn tiền đổi trả (L09)</option>
+                                            <option value="WARRANTY">Bảo hành kỹ thuật (L10)</option>
                                         </select>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-slate-400 mb-1">
-                                            Trạng thái xử lý
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                                            Trạng thái đóng Ticket
                                         </label>
                                         <select
                                             value={l13Status}
                                             onChange={(e) => setL13Status(e.target.value)}
-                                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
+                                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500"
                                         >
-                                            <option value="RESOLVED">RESOLVED (Đã giải quyết)</option>
-                                            <option value="PAID">PAID (Đã hoàn tiền)</option>
-                                            <option value="REJECTED">REJECTED (Từ chối hoàn tiền)</option>
-                                            <option value="CLOSED">CLOSED (Đóng ca bảo hành)</option>
+                                            <option value="RESOLVED">Đã giải quyết (RESOLVED)</option>
+                                            <option value="CLOSED">Đóng Ticket hoàn tất (CLOSED)</option>
+                                            <option value="IN_PROGRESS">Cần bổ sung thêm (IN_PROGRESS)</option>
                                         </select>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1">
-                                        Nội dung giải pháp thực tế từ nhân viên <span className="text-rose-400">*</span>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                                        Ghi chú / Giải pháp xử lý từ nhân viên:
                                     </label>
                                     <textarea
-                                        rows={4}
-                                        placeholder="Ví dụ: Kỹ thuật viên đã kiểm tra lại cấu hình tài khoản, xử lý xong lỗi đăng nhập và đồng bộ dữ liệu bình thường..."
+                                        rows={3}
                                         value={l13Note}
                                         onChange={(e) => setL13Note(e.target.value)}
-                                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                                        required
+                                        placeholder="Ví dụ: Đã kiểm tra serial máy hợp lệ, đã thay pin mới và tặng phiếu bảo dưỡng..."
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                                     />
-                                    <p className="text-[11px] text-slate-500 mt-1">
-                                        Chỉ cần ghi vắn tắt ý chính kỹ thuật, Gemini sẽ tự định dạng thư chào, xin lỗi và hướng dẫn khách.
-                                    </p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1">
-                                        Quà bồi thường / Tri ân (nếu có)
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                                        Bồi thường / Đền bù bổ sung (nếu có):
                                     </label>
                                     <input
                                         type="text"
-                                        placeholder="Ví dụ: Voucher giảm 10% (mã: VKU10), Đổi mới sản phẩm..."
                                         value={l13Compensation}
                                         onChange={(e) => setL13Compensation(e.target.value)}
-                                        className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                                        placeholder="Ví dụ: Tặng voucher giảm giá 50.000đ mã VC50K..."
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                                     />
                                 </div>
 
-                                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-800">
+                                <div className="flex justify-end gap-2.5 pt-2">
                                     <button
                                         type="button"
                                         onClick={() => setShowL13Modal(false)}
-                                        disabled={l13Submitting}
-                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+                                        className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
                                     >
                                         Hủy
                                     </button>
                                     <button
                                         type="submit"
-                                        disabled={!l13Note.trim() || l13Submitting}
-                                        className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 transition shadow-md disabled:opacity-50"
+                                        disabled={l13Submitting}
+                                        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
                                     >
                                         <Zap size={14} className={l13Submitting ? 'animate-spin' : ''} />
-                                        <span>{l13Submitting ? 'Đang gửi qua n8n AI...' : 'Xác nhận & Gửi phản hồi AI (L13)'}</span>
+                                        <span>{l13Submitting ? 'Đang kích hoạt...' : 'Kích hoạt Luồng 13 & Gửi'}</span>
                                     </button>
                                 </div>
                             </form>

@@ -101,7 +101,7 @@ export default function StaffWarrantyPage() {
                 if (Array.isArray(wData)) setWarranties(wData);
             }
         } catch (err) {
-            console.error('Lỗi tải dữ liệu bảo hành:', err);
+            console.error('Lỗi khi tải dữ liệu bảo hành:', err);
         } finally {
             setLoading(false);
         }
@@ -110,6 +110,11 @@ export default function StaffWarrantyPage() {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const formatCurrency = (amount: number | null) => {
+        if (!amount && amount !== 0) return 'Miễn phí';
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    };
 
     const formatDate = (iso: string) => {
         if (!iso) return 'N/A';
@@ -128,34 +133,60 @@ export default function StaffWarrantyPage() {
         }
     };
 
-    const handleAssignTech = (caseCode: string) => {
-        setActionMsg(`Đã tiếp nhận xử lý phiếu bảo hành ${caseCode}. Kỹ thuật viên (Trần Minh Tuấn) đang thực hiện kiểm tra.`);
-        setTimeout(() => setActionMsg(null), 4000);
+    const handleAssignTech = async (serial: string) => {
+        const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+        try {
+            const res = await fetch('http://localhost:8080/api/portal/warranty/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    serialNumber: serial,
+                    issueDescription: 'Kỹ thuật viên tiếp nhận bảo dưỡng tại trung tâm',
+                    faultType: 'HARDWARE',
+                    serviceCenter: 'TTBH Hà Nội (LotusCare Center)'
+                })
+            });
+
+            if (res.ok) {
+                setActionMsg(`Đã tạo phiếu bảo hành cho thiết bị [${serial}] thành công!`);
+                await fetchData();
+                setActiveTab('cases');
+                setTimeout(() => setActionMsg(null), 5000);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    const handleCompleteCase = async (caseId: number, caseCode: string) => {
+    const handleCompleteCase = async (caseId: number, code: string) => {
+        const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
         try {
-            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
             const res = await fetch(`http://localhost:8080/api/portal/warranty-cases/${caseId}/complete`, {
                 method: 'POST',
-                headers
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    resolutionNote: 'Đã hoàn tất thay thế linh kiện và kiểm định chất lượng',
+                    repairFee: 0
+                })
             });
+
             if (res.ok) {
-                setActionMsg(`Đã xác nhận hoàn tất sửa chữa phiếu ${caseCode}. Hệ thống tự động gửi Email thông báo cho khách hàng và đóng phiếu!`);
+                setActionMsg(`✅ Đã xác nhận hoàn tất sửa chữa cho phiếu #${code}. Hệ thống kích hoạt thông báo hoàn tất.`);
+                setWarrantyCases(prev => prev.map(c => c.id === caseId ? { ...c, status: 'COMPLETED' } : c));
                 if (selectedCase && selectedCase.id === caseId) {
                     setSelectedCase(prev => prev ? { ...prev, status: 'COMPLETED' } : null);
                 }
-                fetchData();
-            } else {
-                setActionMsg(`Lỗi khi cập nhật trạng thái phiếu ${caseCode}`);
+                setTimeout(() => setActionMsg(null), 5000);
             }
         } catch (err) {
-            console.error('Lỗi hoàn tất bảo hành:', err);
+            console.error(err);
         }
-        setTimeout(() => setActionMsg(null), 5000);
     };
 
     // Mở khung chat trao đổi với khách hàng theo Ticket của Warranty Case
@@ -172,8 +203,7 @@ export default function StaffWarrantyPage() {
                 id: 1,
                 senderType: 'CUSTOMER',
                 senderName: item.customerName || 'Khách hàng',
-                contentOriginal: item.issueDescription || 'Yêu cầu bảo hành thiết bị #' + item.caseCode,
-                content: item.issueDescription || 'Yêu cầu bảo hành thiết bị #' + item.caseCode,
+                content: item.issueDescription || `Yêu cầu bảo hành thiết bị ${item.productName} (${item.serialNumber})`,
                 createdAt: item.createdAt
             }]);
             setChatCustomerName(item.customerName || 'Khách hàng');
@@ -181,11 +211,11 @@ export default function StaffWarrantyPage() {
             return;
         }
 
-        try {
-            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
-            const headers: Record<string, string> = {};
-            if (token) headers['Authorization'] = `Bearer ${token}`;
+        const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
+        try {
             const res = await fetch(`http://localhost:8080/api/staff/tickets/${targetTicketId}`, { headers });
             if (res.ok) {
                 const ticketData = await res.json();
@@ -209,52 +239,66 @@ export default function StaffWarrantyPage() {
                     id: 1,
                     senderType: 'CUSTOMER',
                     senderName: item.customerName || 'Khách hàng',
-                    contentOriginal: item.issueDescription || 'Yêu cầu bảo hành thiết bị #' + item.caseCode,
-                    content: item.issueDescription || 'Yêu cầu bảo hành thiết bị #' + item.caseCode,
+                    contentOriginal: item.issueDescription || 'Yêu cầu bảo hành',
+                    content: item.issueDescription || 'Yêu cầu bảo hành',
                     createdAt: item.createdAt
                 }]);
             }
         } catch (err) {
-            console.error('Lỗi tải tin nhắn ticket bảo hành:', err);
+            console.error('Lỗi tải tin nhắn ticket:', err);
         } finally {
             setLoadingChat(false);
         }
     };
 
+    // Gửi phản hồi trong khung chat cho khách hàng
     const handleSendReply = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!replyText.trim() || sendingReply || !selectedCase) return;
 
         const targetTicketId = selectedCase.ticketId;
         if (!targetTicketId) {
-            alert('Phiếu bảo hành này chưa có Ticket ID liên kết để gửi tin nhắn.');
+            alert('Phiếu bảo hành này chưa liên kết với Ticket để trao đổi tin nhắn.');
             return;
         }
 
         setSendingReply(true);
+        const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
         try {
-            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            let staffName = 'Kỹ thuật viên CSKH';
+            let staffId = 4;
+            if (savedInfo) {
+                try {
+                    const u = JSON.parse(savedInfo);
+                    if (u.fullName || u.name) staffName = u.fullName || u.name;
+                    if (u.id) staffId = u.id;
+                } catch (e) {}
+            }
 
             const res = await fetch(`http://localhost:8080/api/staff/tickets/${targetTicketId}/reply`, {
                 method: 'POST',
-                headers,
-                body: JSON.stringify({ message: replyText.trim(), content: replyText.trim() })
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    message: replyText.trim(),
+                    staffId: staffId,
+                    staffName: staffName
+                })
             });
+
             if (res.ok) {
-                const newMsg = await res.json().catch(() => null);
-                setChatMessages(prev => [
-                    ...prev,
-                    {
-                        id: newMsg?.id || Date.now(),
-                        senderType: 'STAFF',
-                        senderName: newMsg?.senderName || 'Kỹ thuật viên CSKH',
-                        contentOriginal: replyText.trim(),
-                        content: replyText.trim(),
-                        createdAt: new Date().toISOString()
-                    }
-                ]);
+                const newMsg = {
+                    id: Date.now(),
+                    senderType: 'STAFF',
+                    senderName: staffName,
+                    contentOriginal: replyText.trim(),
+                    content: replyText.trim(),
+                    createdAt: new Date().toISOString()
+                };
+                setChatMessages(prev => [...prev, newMsg]);
                 setReplyText('');
             } else {
                 alert('Không thể gửi phản hồi tới khách hàng. Mã lỗi HTTP ' + res.status);
@@ -291,27 +335,34 @@ export default function StaffWarrantyPage() {
     return (
         <div className="p-6 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {/* HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/90">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                        <Shield className="text-amber-600" size={24} />
-                        <span>Tiếp Nhận & Xử Lý Bảo Hành Kỹ Thuật (Luồng L10)</span>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                            Luồng L10 • Kỹ Thuật & Bảo Hành
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">Trung tâm dịch vụ</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                        <Shield className="text-blue-600 shrink-0" size={26} />
+                        <span>Tiếp Nhận & Xử Lý Bảo Hành Kỹ Thuật</span>
                     </h1>
-                    <p className="text-xs text-slate-500 mt-1">
-                        Quản lý phiếu bảo hành khách hàng gửi • Tra cứu serial • Phân công kỹ thuật viên kiểm tra & sửa chữa
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                        Quản lý phiếu bảo hành • Tra cứu thiết bị CSDL • Phân công kỹ thuật viên & cập nhật tiến độ sửa chữa
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                     <button
                         onClick={fetchData}
                         disabled={loading}
-                        className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
-                        title="Làm mới"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-60"
+                        title="Làm mới dữ liệu"
                     >
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                        <RefreshCw size={15} className={loading ? 'animate-spin text-blue-600' : 'text-slate-400'} />
+                        <span>Làm mới</span>
                     </button>
-                    <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="text-xs font-bold font-mono px-3.5 py-2 rounded-xl bg-blue-50 text-blue-800 border border-blue-200">
                         {warrantyCases.length} Phiếu Yêu Cầu
                     </span>
                 </div>
@@ -319,38 +370,42 @@ export default function StaffWarrantyPage() {
 
             {/* ACTION ALERT */}
             {actionMsg && (
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 animate-in fade-in">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2 shadow-xs animate-in fade-in">
                     <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                     <span>{actionMsg}</span>
                 </div>
             )}
 
             {/* STATS OVERVIEW */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">PHIẾU BẢO HÀNH MỚI</span>
-                    <span className="text-xl font-black text-amber-600 mt-1 block">{warrantyCases.length} phiếu</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">PHIẾU BẢO HÀNH</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900 mt-1 block">{warrantyCases.length} phiếu</span>
+                    <span className="text-[11px] text-blue-600 font-semibold mt-1 block">Toàn bộ tiếp nhận</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CHỜ TIẾP NHẬN (CREATED)</span>
-                    <span className="text-xl font-black text-blue-600 mt-1 block">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CHỜ TIẾP NHẬN</span>
+                    <span className="text-xl sm:text-2xl font-black text-amber-600 mt-1 block">
                         {warrantyCases.filter(c => c.status === 'CREATED').length} phiếu
                     </span>
+                    <span className="text-[11px] text-amber-600 font-semibold mt-1 block">Cần kỹ thuật kiểm tra</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">THIẾT BỊ CSDL (WARRANTIES)</span>
-                    <span className="text-xl font-black text-slate-900 mt-1 block">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">THIẾT BỊ CSDL</span>
+                    <span className="text-xl sm:text-2xl font-black text-blue-700 mt-1 block">
                         {warranties.length} máy
                     </span>
+                    <span className="text-[11px] text-blue-600 font-semibold mt-1 block">Serial đã đăng ký</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CÒN HẠN BẢO HÀNH (ACTIVE)</span>
-                    <span className="text-xl font-black text-emerald-600 mt-1 block">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CÒN BẢO HÀNH (ACTIVE)</span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-600 mt-1 block">
                         {warranties.filter(w => w.status === 'ACTIVE').length} máy
                     </span>
+                    <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">Chính hãng LotusCare</span>
                 </div>
             </div>
 
@@ -360,30 +415,30 @@ export default function StaffWarrantyPage() {
                 <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
                     <button
                         onClick={() => setActiveTab('cases')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                             activeTab === 'cases' 
-                                ? 'bg-white text-slate-900 shadow-xs' 
-                                : 'text-slate-600 hover:text-slate-900'
+                                ? 'bg-blue-600 text-white shadow-sm' 
+                                : 'text-slate-600 hover:text-blue-700'
                         }`}
                     >
                         <FileText size={15} />
                         <span>Phiếu Yêu Cầu Bảo Hành</span>
-                        <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px]">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'cases' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
                             {warrantyCases.length}
                         </span>
                     </button>
 
                     <button
                         onClick={() => setActiveTab('devices')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                             activeTab === 'devices' 
-                                ? 'bg-white text-slate-900 shadow-xs' 
-                                : 'text-slate-600 hover:text-slate-900'
+                                ? 'bg-blue-600 text-white shadow-sm' 
+                                : 'text-slate-600 hover:text-blue-700'
                         }`}
                     >
                         <Cpu size={15} />
                         <span>Kho Dữ Liệu Thiết Bị</span>
-                        <span className="px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px]">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'devices' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
                             {warranties.length}
                         </span>
                     </button>
@@ -398,21 +453,21 @@ export default function StaffWarrantyPage() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder={activeTab === 'cases' ? "Tìm theo mã phiếu, serial, tên khách, ticket..." : "Tìm theo serial, sản phẩm, khách hàng..."}
-                            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 font-medium"
+                            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200/90 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium transition"
                         />
                     </div>
 
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
+                        className="px-3.5 py-2 bg-white border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-blue-500"
                     >
                         <option value="ALL">Tất cả</option>
                         {activeTab === 'cases' ? (
                             <>
                                 <option value="CREATED">Mới tạo (CREATED)</option>
                                 <option value="IN_PROGRESS">Đang xử lý (IN_PROGRESS)</option>
-                                <option value="RESOLVED">Hoàn tất (RESOLVED)</option>
+                                <option value="COMPLETED">Hoàn tất (COMPLETED)</option>
                             </>
                         ) : (
                             <>
@@ -426,126 +481,98 @@ export default function StaffWarrantyPage() {
 
             {/* TAB CONTENT: WARRANTY CASES (LUỒNG L10) */}
             {activeTab === 'cases' && (
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-bold">
-                                    <th className="p-4">Mã Phiếu & Ticket</th>
-                                    <th className="p-4">Sản Phẩm & Serial</th>
-                                    <th className="p-4">Khách Hàng</th>
-                                    <th className="p-4">Mô Tả Sự Cố</th>
-                                    <th className="p-4">Hình Thức / Địa Điểm</th>
-                                    <th className="p-4">Phí Dự Kiến</th>
-                                    <th className="p-4">Trạng Thái</th>
-                                    <th className="p-4 text-right">Thao Tác</th>
+                                <tr className="bg-slate-50/80 border-b border-slate-200/90 text-slate-500 uppercase tracking-wider font-bold text-[11px]">
+                                    <th className="py-3.5 px-4">Mã Phiếu & Ticket</th>
+                                    <th className="py-3.5 px-4">Sản Phẩm & Serial</th>
+                                    <th className="py-3.5 px-4">Khách Hàng</th>
+                                    <th className="py-3.5 px-4">Mô Tả Sự Cố</th>
+                                    <th className="py-3.5 px-4">Địa Điểm Sửa</th>
+                                    <th className="py-3.5 px-4">Phí Sửa Chữa</th>
+                                    <th className="py-3.5 px-4">Trạng Thái</th>
+                                    <th className="py-3.5 px-4 text-right">Thao Tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredCases.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="p-8 text-center text-slate-400">
-                                            Chưa có phiếu bảo hành nào được gửi đến
+                                        <td colSpan={8} className="p-10 text-center text-slate-400">
+                                            Chưa có phiếu bảo hành nào phù hợp
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredCases.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                                            <td className="p-4">
-                                                <div className="font-mono font-bold text-amber-700">{item.caseCode}</div>
-                                                {item.ticketCode ? (
-                                                    <Link 
-                                                        href={`/staff/inbox?search=${item.ticketCode}`} 
-                                                        className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
-                                                    >
-                                                        <span>#{item.ticketCode}</span>
-                                                        <ExternalLink size={10} />
-                                                    </Link>
-                                                ) : (
-                                                    <span className="text-[11px] text-slate-400">Không có Ticket</span>
+                                        <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                                            <td className="py-3.5 px-4 font-mono">
+                                                <div className="font-bold text-blue-700">#{item.caseCode}</div>
+                                                {item.ticketCode && (
+                                                    <div className="text-[11px] text-slate-400">
+                                                        Ticket: #{item.ticketCode}
+                                                    </div>
                                                 )}
-                                                <div className="text-[10px] text-slate-400 mt-1">{formatDate(item.createdAt)}</div>
                                             </td>
 
-                                            <td className="p-4">
+                                            <td className="py-3.5 px-4">
                                                 <div className="font-bold text-slate-800">{item.productName}</div>
-                                                <div className="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] inline-block mt-0.5">
-                                                    S/N: {item.serialNumber}
-                                                </div>
+                                                <div className="font-mono text-[11px] text-slate-500">SN: {item.serialNumber}</div>
                                             </td>
 
-                                            <td className="p-4">
+                                            <td className="py-3.5 px-4">
                                                 <div className="font-bold text-slate-800">{item.customerName}</div>
-                                                <div className="text-slate-500 text-[11px]">{item.customerEmail}</div>
-                                                {item.customerPhone && (
-                                                    <div className="text-slate-400 text-[10px]">{item.customerPhone}</div>
-                                                )}
+                                                <div className="text-[11px] text-slate-400">{item.customerPhone || item.customerEmail || '—'}</div>
                                             </td>
 
-                                            <td className="p-4 max-w-xs">
-                                                <p className="text-slate-700 line-clamp-2">{item.issueDescription}</p>
-                                                <span className="inline-block mt-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                                                    Lỗi: {item.faultType}
-                                                </span>
-                                            </td>
-
-                                            <td className="p-4 max-w-xs">
-                                                <div className="font-semibold text-slate-800 text-[11px]">
-                                                    {item.resolutionType === 'SERVICE_CENTER' ? 'Tại Trung tâm BH' :
-                                                     item.resolutionType === 'SHIP_IN' ? 'Gửi hàng (Ship-in)' :
-                                                     item.resolutionType === 'ONSITE' ? 'Hỗ trợ tận nơi' : item.resolutionType}
-                                                </div>
-                                                <div className="text-[10px] text-slate-500 truncate" title={item.serviceCenter}>
-                                                    {item.serviceCenter}
+                                            <td className="py-3.5 px-4 max-w-xs">
+                                                <div className="text-slate-700 text-xs font-medium line-clamp-2" title={item.issueDescription}>
+                                                    {item.issueDescription}
                                                 </div>
                                             </td>
 
-                                            <td className="p-4">
-                                                <span className={`font-bold text-xs ${
-                                                    !item.repairFee || item.repairFee === 0 ? 'text-emerald-600' : 'text-amber-600'
-                                                }`}>
-                                                    {!item.repairFee || item.repairFee === 0 
-                                                        ? 'MIỄN PHÍ' 
-                                                        : `${Number(item.repairFee).toLocaleString('vi-VN')} đ`}
-                                                </span>
+                                            <td className="py-3.5 px-4 text-slate-600 text-xs">
+                                                {item.serviceCenter || 'Trung tâm LotusCare'}
                                             </td>
 
-                                            <td className="p-4">
-                                                <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${
-                                                    item.status === 'CREATED' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                            <td className="py-3.5 px-4 font-bold text-slate-900">
+                                                {formatCurrency(item.repairFee)}
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
+                                                    item.status === 'COMPLETED' || item.status === 'CLOSED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                                                     item.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                                    'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                    'bg-amber-50 text-amber-700 border border-amber-200'
                                                 }`}>
                                                     {item.status}
                                                 </span>
                                             </td>
 
-                                            <td className="p-4 text-right">
+                                            <td className="py-3.5 px-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     {/* NÚT CHAT VỚI KHÁCH HÀNG */}
                                                     <button
                                                         onClick={() => handleOpenChat(item)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] border border-indigo-200 transition cursor-pointer active:scale-95 shadow-xs"
-                                                        title="Trò chuyện, tư vấn kỹ thuật hoặc cập nhật tình hình bảo hành với khách hàng"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100/90 text-blue-700 font-bold text-xs border border-blue-200/80 transition cursor-pointer active:scale-95 shadow-2xs"
+                                                        title="Trao đổi kỹ thuật với khách hàng"
                                                     >
                                                         <MessageSquare size={13} />
                                                         <span>Chat với khách</span>
                                                     </button>
 
-                                                    {item.status === 'COMPLETED' || item.status === 'CLOSED' ? (
-                                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200">
-                                                            <Check size={12} />
-                                                            <span>Đã Sửa Xong</span>
-                                                        </span>
-                                                    ) : (
+                                                    {/* NÚT HOÀN TẤT BẢO HÀNH */}
+                                                    {item.status !== 'COMPLETED' && item.status !== 'CLOSED' ? (
                                                         <button
                                                             onClick={() => handleCompleteCase(item.id, item.caseCode)}
-                                                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer flex items-center gap-1.5 shadow-xs"
-                                                            title="Nhấn để xác nhận đã sửa xong và gửi thông báo cho khách hàng"
+                                                            className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer active:scale-95 shadow-2xs"
                                                         >
-                                                            <CheckCircle2 size={13} />
-                                                            <span>Xác Nhận Đã Sửa Xong</span>
+                                                            Xác Nhận Đã Sửa Xong
                                                         </button>
+                                                    ) : (
+                                                        <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold text-[11px] inline-flex items-center gap-1">
+                                                            <CheckCircle2 size={12} className="text-emerald-600" /> Đã hoàn tất
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>
@@ -560,49 +587,49 @@ export default function StaffWarrantyPage() {
 
             {/* TAB CONTENT: WARRANTY DEVICES DATABASE */}
             {activeTab === 'devices' && (
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-bold">
-                                    <th className="p-4">Số Serial</th>
-                                    <th className="p-4">Tên Thiết Bị</th>
-                                    <th className="p-4">Khách Hàng</th>
-                                    <th className="p-4">Ngày Kích Hoạt</th>
-                                    <th className="p-4">Hạn Bảo Hành</th>
-                                    <th className="p-4">Tình Trạng</th>
-                                    <th className="p-4 text-right">Hành Động</th>
+                                <tr className="bg-slate-50/80 border-b border-slate-200/90 text-slate-500 uppercase tracking-wider font-bold text-[11px]">
+                                    <th className="py-3.5 px-4">Số Serial</th>
+                                    <th className="py-3.5 px-4">Tên Thiết Bị</th>
+                                    <th className="py-3.5 px-4">Khách Hàng</th>
+                                    <th className="py-3.5 px-4">Ngày Kích Hoạt</th>
+                                    <th className="py-3.5 px-4">Hạn Bảo Hành</th>
+                                    <th className="py-3.5 px-4">Tình Trạng</th>
+                                    <th className="py-3.5 px-4 text-right">Hành Động</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredWarranties.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                                        <td colSpan={7} className="p-10 text-center text-slate-400">
                                             Không tìm thấy thiết bị bảo hành phù hợp
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredWarranties.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                                            <td className="p-4 font-mono font-bold text-slate-900">{item.serialNumber}</td>
-                                            <td className="p-4 font-bold text-slate-800">{item.productName}</td>
-                                            <td className="p-4 text-slate-600">{item.customerName}</td>
-                                            <td className="p-4 text-slate-500">{formatDate(item.startDate)}</td>
-                                            <td className="p-4 font-bold text-slate-900">{formatDate(item.endDate)}</td>
-                                            <td className="p-4">
+                                        <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                                            <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{item.serialNumber}</td>
+                                            <td className="py-3.5 px-4 font-bold text-slate-800">{item.productName}</td>
+                                            <td className="py-3.5 px-4 text-slate-600">{item.customerName}</td>
+                                            <td className="py-3.5 px-4 text-slate-500 text-[11px]">{formatDate(item.startDate)}</td>
+                                            <td className="py-3.5 px-4 font-bold text-slate-900 text-[11px]">{formatDate(item.endDate)}</td>
+                                            <td className="py-3.5 px-4">
                                                 <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
                                                     item.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                                    'bg-slate-100 text-slate-600'
+                                                    'bg-slate-100 text-slate-600 border border-slate-200'
                                                 }`}>
                                                     {item.status}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-right">
+                                            <td className="py-3.5 px-4 text-right">
                                                 <button
                                                     onClick={() => handleAssignTech(item.serialNumber)}
-                                                    className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition cursor-pointer flex items-center gap-1 ml-auto"
+                                                    className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5 ml-auto shadow-2xs"
                                                 >
-                                                    <Wrench size={12} />
+                                                    <Wrench size={13} />
                                                     <span>Tạo Phiếu Xử Lý</span>
                                                 </button>
                                             </td>
@@ -614,43 +641,44 @@ export default function StaffWarrantyPage() {
                     </div>
                 </div>
             )}
+
             {/* MODAL CHAT VỚI KHÁCH HÀNG (LUỒNG L10) */}
             {chatModalOpen && selectedCase && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full flex flex-col max-h-[85vh] shadow-2xl overflow-hidden text-slate-100">
+                <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white border border-slate-200/90 rounded-3xl max-w-2xl w-full flex flex-col max-h-[85vh] shadow-2xl overflow-hidden">
                         {/* MODAL HEADER */}
-                        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-700 to-blue-600 text-white">
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                        Luồng L10 &bull; Hỗ trợ bảo hành
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30 uppercase tracking-wide">
+                                        Luồng L10 • Bảo hành
                                     </span>
-                                    <h3 className="font-black text-white text-base">
+                                    <h3 className="font-extrabold text-white text-base">
                                         Trao đổi phiếu #{selectedCase.caseCode}
                                     </h3>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-1">
-                                    Khách hàng: <strong className="text-white">{chatCustomerName}</strong> &bull; Thiết bị: <strong className="text-white">{selectedCase.productName}</strong> <span className="font-mono text-slate-300">({selectedCase.serialNumber})</span>
+                                <p className="text-xs text-blue-100 mt-1">
+                                    Khách hàng: <strong className="text-white">{chatCustomerName}</strong> &bull; Thiết bị: <strong className="text-white">{selectedCase.productName}</strong> <span className="font-mono text-blue-200">({selectedCase.serialNumber})</span>
                                 </p>
                             </div>
 
                             <button
                                 onClick={() => setChatModalOpen(false)}
-                                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                                className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
                             >
                                 <X size={18} />
                             </button>
                         </div>
 
                         {/* MESSAGES BODY */}
-                        <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3 bg-slate-900/60 min-h-[260px] max-h-[400px]">
+                        <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3 bg-slate-50/70 min-h-[260px] max-h-[400px]">
                             {loadingChat ? (
                                 <div className="text-center py-12 text-slate-400">
-                                    <RefreshCw className="animate-spin inline-block mb-2 text-amber-400" size={24} />
-                                    <p className="text-xs">Đang tải lịch sử trao đổi với khách hàng...</p>
+                                    <RefreshCw className="animate-spin inline-block mb-2 text-blue-600" size={24} />
+                                    <p className="text-xs font-semibold">Đang tải lịch sử trao đổi với khách hàng...</p>
                                 </div>
                             ) : chatMessages.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500 text-xs">
+                                <div className="text-center py-10 text-slate-400 text-xs font-medium">
                                     Chưa có tin nhắn trao đổi nào trước đó.
                                 </div>
                             ) : (
@@ -663,21 +691,21 @@ export default function StaffWarrantyPage() {
                                             key={msg.id || idx}
                                             className={`flex flex-col ${isCustomer ? 'items-start' : isAi ? 'items-center' : 'items-end'}`}
                                         >
-                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400">
+                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400 font-medium">
                                                 {isCustomer ? (
                                                     <>
-                                                        <User size={12} className="text-blue-400" />
-                                                        <span className="font-semibold text-blue-300">{msg.senderName || chatCustomerName}</span>
+                                                        <User size={12} className="text-blue-600" />
+                                                        <span className="font-semibold text-slate-700">{msg.senderName || chatCustomerName}</span>
                                                     </>
                                                 ) : isAi ? (
                                                     <>
-                                                        <Bot size={12} className="text-amber-400" />
-                                                        <span className="font-semibold text-amber-300">Trợ lý AI CSKH</span>
+                                                        <Bot size={12} className="text-amber-600" />
+                                                        <span className="font-semibold text-amber-700">Trợ lý AI CSKH</span>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <span className="font-semibold text-emerald-300">{msg.senderName || 'Kỹ thuật viên CSKH'}</span>
-                                                        <User size={12} className="text-emerald-400" />
+                                                        <span className="font-semibold text-blue-700">{msg.senderName || 'Kỹ thuật viên CSKH'}</span>
+                                                        <User size={12} className="text-blue-600" />
                                                     </>
                                                 )}
                                                 <span>&bull; {formatDate(msg.createdAt)}</span>
@@ -686,10 +714,10 @@ export default function StaffWarrantyPage() {
                                             <div
                                                 className={`p-3 rounded-2xl text-xs max-w-[85%] leading-relaxed ${
                                                     isCustomer
-                                                        ? 'bg-slate-800 text-slate-100 rounded-tl-xs border border-slate-700'
+                                                        ? 'bg-white text-slate-800 rounded-tl-xs border border-slate-200 shadow-2xs'
                                                         : isAi
-                                                        ? 'bg-amber-950/40 text-amber-200 border border-amber-800/50 text-center'
-                                                        : 'bg-emerald-600 text-white rounded-tr-xs shadow-md shadow-emerald-600/20'
+                                                        ? 'bg-sky-50 text-sky-900 border border-sky-200 text-center font-medium'
+                                                        : 'bg-blue-600 text-white rounded-tr-xs shadow-xs font-medium'
                                                 }`}
                                             >
                                                 {msg.contentOriginal || msg.contentTranslated || msg.content || msg.message || ''}
@@ -701,9 +729,9 @@ export default function StaffWarrantyPage() {
                         </div>
 
                         {/* QUICK ACTION BAR */}
-                        <div className="px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs">
-                            <span className="text-slate-400">
-                                Trạng thái: <strong className={selectedCase.status === 'COMPLETED' || selectedCase.status === 'CLOSED' ? 'text-emerald-400' : 'text-amber-400'}>{selectedCase.status}</strong>
+                        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200/90 flex items-center justify-between text-xs">
+                            <span className="text-slate-500">
+                                Trạng thái: <strong className={selectedCase.status === 'COMPLETED' || selectedCase.status === 'CLOSED' ? 'text-emerald-700' : 'text-amber-700'}>{selectedCase.status}</strong>
                             </span>
 
                             <div className="flex items-center gap-2">
@@ -711,16 +739,16 @@ export default function StaffWarrantyPage() {
                                     <Link
                                         href={`/staff/tickets/${selectedCase.ticketId}`}
                                         target="_blank"
-                                        className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-semibold text-[11px]"
+                                        className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 font-semibold text-[11px]"
                                     >
-                                        <span>Chi tiết Ticket #{selectedCase.ticketCode || selectedCase.ticketId}</span>
+                                        <span>Xem Ticket #{selectedCase.ticketCode || selectedCase.ticketId}</span>
                                         <ExternalLink size={12} />
                                     </Link>
                                 )}
                                 {selectedCase.status !== 'COMPLETED' && selectedCase.status !== 'CLOSED' && (
                                     <button
                                         onClick={() => handleCompleteCase(selectedCase.id, selectedCase.caseCode)}
-                                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[11px] transition cursor-pointer"
+                                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-[11px] transition cursor-pointer shadow-2xs"
                                     >
                                         Xác Nhận Đã Sửa Xong
                                     </button>
@@ -729,21 +757,21 @@ export default function StaffWarrantyPage() {
                         </div>
 
                         {/* INPUT FORM */}
-                        <form onSubmit={handleSendReply} className="p-3 bg-slate-950 border-t border-slate-800 flex gap-2">
+                        <form onSubmit={handleSendReply} className="p-3.5 bg-white border-t border-slate-100 flex gap-2">
                             <input
                                 type="text"
                                 value={replyText}
                                 onChange={(e) => setReplyText(e.target.value)}
                                 placeholder="Nhắn tin hướng dẫn kỹ thuật hoặc thông báo tình trạng cho khách hàng..."
                                 disabled={sendingReply}
-                                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                             />
                             <button
                                 type="submit"
                                 disabled={sendingReply || !replyText.trim()}
-                                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-indigo-600/30"
+                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
                             >
-                                <Send size={13} />
+                                <Send size={13} className={sendingReply ? 'animate-spin' : ''} />
                                 <span>{sendingReply ? 'Đang gửi...' : 'Gửi'}</span>
                             </button>
                         </form>
