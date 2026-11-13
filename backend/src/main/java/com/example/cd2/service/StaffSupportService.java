@@ -765,6 +765,20 @@ public class StaffSupportService {
             messages.save(msg);
         }
 
+        // Kích hoạt Luồng 13 (L13_Staff_Response) để Gemini biên tập và gửi Telegram/Email cho khách
+        try {
+            Map<String, Object> l13Payload = new HashMap<>();
+            l13Payload.put("ticket_id", t != null ? t.getId() : 1);
+            l13Payload.put("staff_id", s != null ? s.getId() : 5);
+            l13Payload.put("case_type", "WARRANTY");
+            l13Payload.put("status", "RESOLVED");
+            l13Payload.put("response_note", "Kỹ thuật viên đã kiểm tra và hoàn tất sửa chữa thiết bị theo phiếu " + wc.getCaseCode() + ". Thiết bị sẵn sàng bàn giao.");
+            l13Payload.put("compensation", "");
+            n8nService.triggerStaffResponse(l13Payload);
+        } catch (Exception ex) {
+            // log and continue
+        }
+
         // Đánh thức Luồng 10 (Wait - Theo dõi: Nhận máy -> Đang sửa -> Xong)
         Map<String, Object> resumeData = new HashMap<>();
         resumeData.put("case_code", wc.getCaseCode());

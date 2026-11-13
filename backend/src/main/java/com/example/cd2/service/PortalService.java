@@ -998,6 +998,20 @@ public class PortalService {
             // log and continue
         }
 
+        // Kích hoạt Luồng 13 (L13_Staff_Response) để Gemini biên tập và gửi Telegram/Email cho khách
+        try {
+            Map<String, Object> l13Payload = new HashMap<>();
+            l13Payload.put("ticket_id", c.getTicket() != null ? c.getTicket().getId() : 1);
+            l13Payload.put("staff_id", c.getStaff() != null ? c.getStaff().getId() : 4);
+            l13Payload.put("case_type", "COMPLAINT");
+            l13Payload.put("status", "RESOLVED");
+            l13Payload.put("response_note", resolution);
+            l13Payload.put("compensation", compensation);
+            n8nService.triggerStaffResponse(l13Payload);
+        } catch (Exception ex) {
+            // log and continue
+        }
+
         return Map.of(
                 "status", "RESOLVED",
                 "complaintCode", c.getComplaintCode(),
