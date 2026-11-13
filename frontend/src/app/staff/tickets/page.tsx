@@ -115,7 +115,7 @@ export default function StaffTicketListPage() {
         setRoutingL14(true);
         setSlaNotice(null);
         try {
-            const res = await fetch('http://localhost:8080/api/portal/departments/assign-all', {
+            const res = await fetch('http://localhost:8080/api/staff/tickets/auto-route-all', {
                 method: 'POST',
                 headers: getAuthHeaders(true)
             });

@@ -97,7 +97,12 @@ public class StaffSupportController {
     /**
      * Luồng L14: Kích hoạt phân chia phòng ban & điều phối nhân sự tự động cho 1 ticket
      */
-    @PostMapping({"/staff/tickets/{id}/auto-route", "/agent/tickets/{id}/auto-route", "/tickets/{id}/auto-route"})
+    @PostMapping({
+            "/staff/tickets/{id}/auto-route",
+            "/agent/tickets/{id}/auto-route",
+            "/tickets/{id}/auto-route",
+            "/portal/departments/assign/{id}"
+    })
     public ResponseEntity<Map<String, Object>> autoRouteTicket(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, Object> body) {
@@ -107,7 +112,12 @@ public class StaffSupportController {
     /**
      * Luồng L14: Kích hoạt phân chia phòng ban hàng loạt cho tất cả ticket chưa gán
      */
-    @PostMapping({"/staff/tickets/auto-route-all", "/admin/tickets/auto-route-all", "/tickets/auto-route-all"})
+    @PostMapping({
+            "/staff/tickets/auto-route-all",
+            "/admin/tickets/auto-route-all",
+            "/tickets/auto-route-all",
+            "/portal/departments/assign-all"
+    })
     public ResponseEntity<Map<String, Object>> autoRouteAllTickets() {
         return ResponseEntity.ok(service.autoRouteAllUnassignedTickets());
     }

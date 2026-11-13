@@ -156,14 +156,17 @@ export default function ProcessTicketDetailPage() {
         if (!ticketId) return;
         setRoutingL14(true);
         try {
-            const res = await fetch(`http://localhost:8080/api/portal/departments/assign/${ticketId}`, {
+            const res = await fetch(`http://localhost:8080/api/staff/tickets/${ticketId}/auto-route`, {
                 method: 'POST',
                 headers: getAuthHeaders(true)
             });
             const result = await res.json().catch(() => null);
             if (res.ok && result?.success) {
-                alert(`✅ Đã phân công thành công:\n- Phòng ban: ${result.department_name}\n- Nhân viên: ${result.assigned_staff_name}`);
-                await fetchDetail();
+                alert(`✅ ${result?.message || 'Đã kích hoạt luồng L14 phân chia phòng ban và gán nhân viên qua n8n thành công!'}`);
+                // Chờ n8n cập nhật MySQL rồi tải lại chi tiết
+                setTimeout(async () => {
+                    await fetchDetail();
+                }, 1200);
             } else {
                 alert(`⚠️ Phân ban thất bại: ${result?.message || 'Lỗi không xác định'}`);
             }
