@@ -183,26 +183,89 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
             {/* FLOATING QUICK-CONTACT DOCK GÓC DƯỚI PHẢI */}
             <FloatingContactDock />
 
-            {/* FOOTER ĐƠN GIẢN CHUYÊN NGHIỆP */}
-            <footer className="bg-white text-slate-500 border-t border-slate-200 py-10 mt-16 text-[13px]">
-                <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <BrandLogo variant="compact" />
-                        <span className="text-slate-300">|</span>
-                        <span>Omni-Channel Customer Care & Contact Center AI</span>
+            {/* FOOTER CHUYÊN NGHIỆP TRUNG TÂM CSKH */}
+            <footer className="bg-white text-slate-600 border-t border-slate-200 mt-20 text-[13px]">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-slate-100">
+                        {/* CỘT 1: THƯƠNG HIỆU */}
+                        <div className="space-y-3 md:col-span-1">
+                            <BrandLogo />
+                            <p className="text-xs text-slate-500 leading-relaxed pt-2">
+                                Hệ thống Chăm sóc & Tiếp nhận Yêu cầu Khách hàng LotusCare. Đồng hành giải quyết sự cố, bảo hành và hoàn tiền nhanh chóng 24/7.
+                            </p>
+                            <div className="flex items-center gap-2 pt-1 text-xs text-emerald-700 font-semibold">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>Hệ thống trực tuyến sẵn sàng</span>
+                            </div>
+                        </div>
+
+                        {/* CỘT 2: NGHIỆP VỤ HỖ TRỢ */}
+                        <div className="space-y-2.5">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 font-mono">Dịch Vụ Hỗ Trợ</h4>
+                            <ul className="space-y-2 text-xs">
+                                <li>
+                                    <Link href="/user/refund" className="hover:text-blue-600 transition flex items-center gap-1.5">
+                                        <RotateCcw size={13} className="text-blue-500" />
+                                        <span>Đổi trả & Hoàn tiền (L09)</span>
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/user/warranty" className="hover:text-blue-600 transition flex items-center gap-1.5">
+                                        <Shield size={13} className="text-blue-500" />
+                                        <span>Bảo hành & Sửa chữa (L10)</span>
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/user/complaint" className="hover:text-blue-600 transition flex items-center gap-1.5">
+                                        <AlertTriangle size={13} className="text-blue-500" />
+                                        <span>Khiếu nại & Phản ánh (L08)</span>
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/user/chat" className="hover:text-blue-600 transition flex items-center gap-1.5">
+                                        <MessageSquare size={13} className="text-blue-500" />
+                                        <span>Tư vấn Live Chat 24/7</span>
+                                    </Link>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* CỘT 3: TRA CỨU & TIỆN ÍCH */}
+                        <div className="space-y-2.5">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 font-mono">Tra Cứu & Tiện Ích</h4>
+                            <ul className="space-y-2 text-xs">
+                                <li><Link href="/user/tickets" className="hover:text-blue-600 transition">Theo dõi tiến trình vé hỗ trợ</Link></li>
+                                <li><Link href="/user/new" className="hover:text-blue-600 transition">Gửi phiếu yêu cầu mới</Link></li>
+                                <li><Link href="/user/faq" className="hover:text-blue-600 transition">Trung tâm câu hỏi thường gặp (FAQ)</Link></li>
+                                <li><Link href="/staff/login" className="hover:text-blue-600 transition text-slate-400">Cổng nhân viên nội bộ</Link></li>
+                            </ul>
+                        </div>
+
+                        {/* CỘT 4: THÔNG TIN LIÊN HỆ */}
+                        <div className="space-y-2.5">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 font-mono">Hotline & Kết Nối</h4>
+                            <div className="space-y-1.5 text-xs text-slate-600">
+                                <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                                    <PhoneCall size={13} className="text-emerald-600" />
+                                    <span>Hotline CSKH: 1900 6868</span>
+                                </p>
+                                <p>Email: <a href="mailto:support@lotuscare.vn" className="text-blue-600 hover:underline">support@lotuscare.vn</a></p>
+                                <p>Thời gian: 08:00 - 22:00 (Cả Thứ 7 & CN)</p>
+                                <p className="text-[11px] text-slate-400">Tiếp nhận Live Chat và Ticket trực tuyến 24/7 không gián đoạn.</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-6 text-[13px] font-medium text-slate-600">
-                        <Link href="/user" className="hover:text-blue-600 transition">Trang Chủ</Link>
-                        <Link href="/user/tickets" className="hover:text-blue-600 transition">Vé Hỗ Trợ</Link>
-                        <Link href="/user/new" className="hover:text-blue-600 transition">Gửi Yêu Cầu</Link>
-                        <Link href="/user/faq" className="hover:text-blue-600 transition">Trợ Giúp (FAQ)</Link>
-                        <Link href="/user/chat" className="hover:text-blue-600 transition">Livechat AI</Link>
+                    <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+                        <p>© 2026 LotusCare Platform. Bản quyền thuộc về Hệ thống Dịch vụ Khách hàng.</p>
+                        <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <span>Chính sách bảo mật</span>
+                            <span>•</span>
+                            <span>Điều khoản dịch vụ</span>
+                            <span>•</span>
+                            <span>Cam kết SLA</span>
+                        </div>
                     </div>
-
-                    <p className="text-[12px] text-slate-400">
-                        © 2026 LotusCare Platform. Powered by Spring Boot & MySQL.
-                    </p>
                 </div>
             </footer>
         </div>
