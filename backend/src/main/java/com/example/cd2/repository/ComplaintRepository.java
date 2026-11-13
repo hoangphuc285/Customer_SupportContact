@@ -17,8 +17,6 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
 
     List<Complaint> findAllByOrderByCreatedAtDesc();
 
-    List<Complaint> findAllByOrderByIdDesc();
-
     @Query("SELECT c FROM Complaint c WHERE (c.ticket IS NOT NULL AND c.ticket.customer.id = :customerId) OR (c.order IS NOT NULL AND c.order.customer.id = :customerId) ORDER BY c.createdAt DESC")
     List<Complaint> findByCustomerId(@Param("customerId") Long customerId);
 }

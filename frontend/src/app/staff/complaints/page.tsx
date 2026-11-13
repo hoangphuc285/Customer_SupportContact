@@ -14,11 +14,7 @@ import {
     Send,
     Bot,
     ExternalLink,
-    Zap,
-    MessageSquare,
-    User,
-    X,
-    RefreshCw
+    Zap
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -28,15 +24,6 @@ export default function StaffComplaintsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-    // Chat modal states
-    const [chatModalOpen, setChatModalOpen] = useState(false);
-    const [chatComplaint, setChatComplaint] = useState<any | null>(null);
-    const [chatMessages, setChatMessages] = useState<any[]>([]);
-    const [loadingChat, setLoadingChat] = useState(false);
-    const [replyText, setReplyText] = useState('');
-    const [sendingReply, setSendingReply] = useState(false);
-    const [chatCustomerName, setChatCustomerName] = useState('Khách hàng');
-
     // Giải pháp 3 Modal state
     const [selectedComplaint, setSelectedComplaint] = useState<any | null>(null);
     const [resolution, setResolution] = useState('Đã tiếp nhận phản ánh, tiến hành đổi sản phẩm mới và tặng voucher 50.000đ.');
@@ -44,46 +31,13 @@ export default function StaffComplaintsPage() {
     const [compensation, setCompensation] = useState('Voucher 50.000đ + Đổi sản phẩm miễn phí');
     const [submitting, setSubmitting] = useState(false);
 
-    const getAuthHeaders = (withJson = false): Record<string, string> => {
-        const headers: Record<string, string> = {};
-        if (withJson) headers['Content-Type'] = 'application/json';
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-        }
-        return headers;
-    };
-
-    const formatDate = (iso: string) => {
-        if (!iso) return 'N/A';
-        try {
-            const d = new Date(iso);
-            if (isNaN(d.getTime())) return iso;
-            const pad = (n: number) => n.toString().padStart(2, '0');
-            const hours = pad(d.getHours());
-            const minutes = pad(d.getMinutes());
-            const day = pad(d.getDate());
-            const month = pad(d.getMonth() + 1);
-            const year = d.getFullYear();
-            return `${hours}:${minutes} ${day}/${month}/${year}`;
-        } catch {
-            return iso || 'N/A';
-        }
-    };
-
     const fetchComplaints = async () => {
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:8080/api/staff/complaints', {
-                headers: getAuthHeaders()
-            });
+            const res = await fetch('http://localhost:8080/api/staff/complaints');
             if (res.ok) {
                 const data = await res.json();
-                if (Array.isArray(data)) {
-                    // Sắp xếp từ mới nhất đến cũ nhất
-                    const sorted = [...data].sort((a, b) => (b.id || 0) - (a.id || 0));
-                    setComplaints(sorted);
-                }
+                if (Array.isArray(data)) setComplaints(data);
             }
         } catch (err) {
             console.error('Lỗi tải danh sách khiếu nại:', err);
@@ -95,108 +49,6 @@ export default function StaffComplaintsPage() {
     useEffect(() => {
         fetchComplaints();
     }, []);
-
-    // Mở khung chat trao đổi với khách hàng theo Ticket của Khiếu nại
-    const handleOpenChat = async (item: any) => {
-        setChatComplaint(item);
-        setChatModalOpen(true);
-        setChatMessages([]);
-        setReplyText('');
-        setLoadingChat(true);
-
-        const targetTicketId = item.ticketId;
-        if (!targetTicketId) {
-            setChatMessages([{
-                id: 1,
-                senderType: 'CUSTOMER',
-                senderName: item.customerName || 'Khách hàng',
-                contentOriginal: item.description || 'Khách phản ánh khiếu nại #' + item.complaintCode,
-                content: item.description || 'Khách phản ánh khiếu nại #' + item.complaintCode,
-                createdAt: item.createdAt
-            }]);
-            setChatCustomerName(item.customerName || 'Khách hàng');
-            setLoadingChat(false);
-            return;
-        }
-
-        try {
-            const res = await fetch(`http://localhost:8080/api/staff/tickets/${targetTicketId}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const ticketData = await res.json();
-                const custName = ticketData.ticket?.customerName || ticketData.customerName || item.customerName || 'Khách hàng';
-                setChatCustomerName(custName);
-                const msgs = Array.isArray(ticketData.messages) ? ticketData.messages : [];
-                if (msgs.length === 0 && item.description) {
-                    setChatMessages([{
-                        id: 0,
-                        senderType: 'CUSTOMER',
-                        senderName: custName,
-                        contentOriginal: item.description,
-                        content: item.description,
-                        createdAt: item.createdAt
-                    }]);
-                } else {
-                    setChatMessages(msgs);
-                }
-            } else {
-                setChatMessages([{
-                    id: 1,
-                    senderType: 'CUSTOMER',
-                    senderName: item.customerName || 'Khách hàng',
-                    contentOriginal: item.description || 'Khách phản ánh khiếu nại #' + item.complaintCode,
-                    content: item.description || 'Khách phản ánh khiếu nại #' + item.complaintCode,
-                    createdAt: item.createdAt
-                }]);
-            }
-        } catch (err) {
-            console.error('Lỗi tải tin nhắn ticket khiếu nại:', err);
-        } finally {
-            setLoadingChat(false);
-        }
-    };
-
-    const handleSendReply = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!replyText.trim() || sendingReply || !chatComplaint) return;
-
-        const targetTicketId = chatComplaint.ticketId;
-        if (!targetTicketId) {
-            alert('Khiếu nại này chưa có Ticket ID liên kết để gửi tin nhắn phản hồi.');
-            return;
-        }
-
-        setSendingReply(true);
-        try {
-            const res = await fetch(`http://localhost:8080/api/staff/tickets/${targetTicketId}/reply`, {
-                method: 'POST',
-                headers: getAuthHeaders(true),
-                body: JSON.stringify({ message: replyText.trim(), content: replyText.trim() })
-            });
-            if (res.ok) {
-                const newMsg = await res.json().catch(() => null);
-                setChatMessages(prev => [
-                    ...prev,
-                    {
-                        id: newMsg?.id || Date.now(),
-                        senderType: 'STAFF',
-                        senderName: newMsg?.senderName || 'Chuyên viên CSKH',
-                        contentOriginal: replyText.trim(),
-                        content: replyText.trim(),
-                        createdAt: new Date().toISOString()
-                    }
-                ]);
-                setReplyText('');
-            } else {
-                alert('Không thể gửi phản hồi tới khách hàng. Mã lỗi HTTP ' + res.status);
-            }
-        } catch (err: any) {
-            alert('Lỗi kết nối khi gửi tin nhắn: ' + (err?.message || 'Unknown error'));
-        } finally {
-            setSendingReply(false);
-        }
-    };
 
     // GIẢI PHÁP 3: Gợi ý giải pháp thông minh theo loại khiếu nại (STAFF / DELIVERY / PRODUCT / PAYMENT / OTHER)
     const getSuggestedDefaults = (complaint: any) => {
@@ -280,14 +132,12 @@ export default function StaffComplaintsPage() {
         }
     };
 
-    const filtered = complaints
-        .filter(c => 
-            !searchTerm || 
-            (c.complaintCode && c.complaintCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (c.description && c.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (c.customerName && c.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-        .sort((a, b) => (b.id || 0) - (a.id || 0));
+    const filtered = complaints.filter(c => 
+        !searchTerm || 
+        (c.complaintCode && c.complaintCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (c.description && c.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (c.customerName && c.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -432,37 +282,25 @@ export default function StaffComplaintsPage() {
                                             </td>
 
                                             <td className="py-3.5 px-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {/* NÚT CHAT VỚI KHÁCH HÀNG */}
+                                                {c.status !== 'RESOLVED' && c.status !== 'CLOSED' ? (
                                                     <button
-                                                        onClick={() => handleOpenChat(c)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-bold text-xs border border-indigo-500/30 transition-colors shadow active:scale-95 cursor-pointer"
-                                                        title="Trao đổi trực tiếp với khách hàng theo Ticket"
+                                                        onClick={() => {
+                                                            setSelectedComplaint(c);
+                                                            const defaults = getSuggestedDefaults(c);
+                                                            setResolution(defaults.res);
+                                                            setRootCause(defaults.cause);
+                                                            setCompensation(defaults.comp);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors shadow"
                                                     >
-                                                        <MessageSquare size={13} />
-                                                        <span>Chat với khách</span>
+                                                        <Zap size={13} />
+                                                        Giải quyết & Đánh thức n8n
                                                     </button>
-
-                                                    {c.status !== 'RESOLVED' && c.status !== 'CLOSED' ? (
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedComplaint(c);
-                                                                const defaults = getSuggestedDefaults(c);
-                                                                setResolution(defaults.res);
-                                                                setRootCause(defaults.cause);
-                                                                setCompensation(defaults.comp);
-                                                            }}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors shadow active:scale-95 cursor-pointer"
-                                                        >
-                                                            <Zap size={13} />
-                                                            <span>Giải quyết & Đánh thức n8n</span>
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-xs text-emerald-400 font-bold flex items-center justify-end gap-1 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                                                            <Check size={14} /> Hoàn tất
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                ) : (
+                                                    <span className="text-xs text-emerald-400 font-bold flex items-center justify-end gap-1">
+                                                        <Check size={14} /> Hoàn tất
+                                                    </span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -555,150 +393,6 @@ export default function StaffComplaintsPage() {
                                     {submitting ? 'Đang gửi...' : 'Phê duyệt & Đánh thức n8n L08'}
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* MODAL CHAT VỚI KHÁCH HÀNG (L08 COMPLAINTS) */}
-                {chatModalOpen && chatComplaint && (
-                    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full flex flex-col max-h-[85vh] shadow-2xl overflow-hidden text-slate-100">
-                            {/* MODAL HEADER */}
-                            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                                            Luồng L08 &bull; Xử lý khiếu nại
-                                        </span>
-                                        <h3 className="font-black text-white text-base">
-                                            Trao đổi khiếu nại #{chatComplaint.complaintCode}
-                                        </h3>
-                                    </div>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        Khách hàng: <strong className="text-white">{chatCustomerName}</strong> &bull; Mức độ: <strong className="text-rose-400">{chatComplaint.severity || 'MAJOR'}</strong> &bull; Phòng ban: <strong className="text-slate-300">{chatComplaint.departmentName || 'Chăm sóc khách hàng'}</strong>
-                                    </p>
-                                </div>
-
-                                <button
-                                    onClick={() => setChatModalOpen(false)}
-                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
-                                >
-                                    <X size={18} />
-                                </button>
-                            </div>
-
-                            {/* MESSAGES BODY */}
-                            <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3 bg-slate-900/60 min-h-[260px] max-h-[400px]">
-                                {loadingChat ? (
-                                    <div className="text-center py-12 text-slate-400">
-                                        <RefreshCw className="animate-spin inline-block mb-2 text-indigo-400" size={24} />
-                                        <p className="text-xs">Đang tải lịch sử trao đổi khiếu nại...</p>
-                                    </div>
-                                ) : chatMessages.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-500 text-xs">
-                                        Chưa có tin nhắn trao đổi nào trước đó.
-                                    </div>
-                                ) : (
-                                    chatMessages.map((msg: any, idx: number) => {
-                                        const isCustomer = msg.senderType === 'CUSTOMER';
-                                        const isAi = msg.senderType === 'AI' || msg.senderType === 'SYSTEM';
-
-                                        return (
-                                            <div
-                                                key={msg.id || idx}
-                                                className={`flex flex-col ${isCustomer ? 'items-start' : isAi ? 'items-center' : 'items-end'}`}
-                                            >
-                                                <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400">
-                                                    {isCustomer ? (
-                                                        <>
-                                                            <User size={12} className="text-blue-400" />
-                                                            <span className="font-semibold text-blue-300">{msg.senderName || chatCustomerName}</span>
-                                                        </>
-                                                    ) : isAi ? (
-                                                        <>
-                                                            <Bot size={12} className="text-amber-400" />
-                                                            <span className="font-semibold text-amber-300">Trợ lý AI CSKH</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <span className="font-semibold text-indigo-300">{msg.senderName || 'Chuyên viên CSKH'}</span>
-                                                            <User size={12} className="text-indigo-400" />
-                                                        </>
-                                                    )}
-                                                    <span>&bull; {formatDate(msg.createdAt)}</span>
-                                                </div>
-
-                                                <div
-                                                    className={`p-3 rounded-2xl text-xs max-w-[85%] leading-relaxed ${
-                                                        isCustomer
-                                                            ? 'bg-slate-800 text-slate-100 rounded-tl-xs border border-slate-700'
-                                                            : isAi
-                                                            ? 'bg-amber-950/40 text-amber-200 border border-amber-800/50 text-center'
-                                                            : 'bg-indigo-600 text-white rounded-tr-xs shadow-md shadow-indigo-600/20'
-                                                    }`}
-                                                >
-                                                    {msg.contentOriginal || msg.contentTranslated || msg.content || msg.message || ''}
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-
-                            {/* QUICK ACTION BAR */}
-                            <div className="px-4 py-2.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs">
-                                <span className="text-slate-400">
-                                    Trạng thái: <strong className={chatComplaint.status === 'RESOLVED' ? 'text-emerald-400' : 'text-amber-400'}>{chatComplaint.status}</strong>
-                                </span>
-
-                                <div className="flex items-center gap-2">
-                                    {chatComplaint.ticketId && (
-                                        <Link
-                                            href={`/staff/tickets/${chatComplaint.ticketId}`}
-                                            target="_blank"
-                                            className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-semibold text-[11px]"
-                                        >
-                                            <span>Chi tiết Ticket #{chatComplaint.ticketCode || chatComplaint.ticketId}</span>
-                                            <ExternalLink size={12} />
-                                        </Link>
-                                    )}
-                                    {chatComplaint.status !== 'RESOLVED' && chatComplaint.status !== 'CLOSED' && (
-                                        <button
-                                            onClick={() => {
-                                                setSelectedComplaint(chatComplaint);
-                                                const defaults = getSuggestedDefaults(chatComplaint);
-                                                setResolution(defaults.res);
-                                                setRootCause(defaults.cause);
-                                                setCompensation(defaults.comp);
-                                                setChatModalOpen(false);
-                                            }}
-                                            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[11px] transition cursor-pointer flex items-center gap-1"
-                                        >
-                                            <Zap size={12} />
-                                            <span>Giải quyết & Đánh thức n8n</span>
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* REPLY FORM */}
-                            <form onSubmit={handleSendReply} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={replyText}
-                                    onChange={(e) => setReplyText(e.target.value)}
-                                    placeholder={`Nhắn tin phản hồi hoặc hướng dẫn xử lý cho ${chatCustomerName}...`}
-                                    className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={sendingReply || !replyText.trim()}
-                                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
-                                >
-                                    <Send size={13} />
-                                    <span>{sendingReply ? 'Đang gửi...' : 'Gửi'}</span>
-                                </button>
-                            </form>
                         </div>
                     </div>
                 )}

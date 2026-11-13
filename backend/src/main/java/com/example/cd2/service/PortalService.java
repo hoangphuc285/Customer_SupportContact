@@ -1252,7 +1252,7 @@ public class PortalService {
 
     // Quản lý khiếu nại (L08)
     public List<Map<String, Object>> getAllStaffComplaints() {
-        return complaints.findAllByOrderByIdDesc().stream().map(c -> {
+        return complaints.findAllByOrderByCreatedAtDesc().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", c.getId());
             m.put("complaintCode", c.getComplaintCode());
