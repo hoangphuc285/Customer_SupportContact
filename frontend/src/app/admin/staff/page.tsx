@@ -120,14 +120,36 @@ export default function AdminStaffPage() {
     const [editForm, setEditForm] = useState({ fullName: '', departmentCode: 'SUPPORT', telegramChatId: '' });
     const [editUpdating, setEditUpdating] = useState(false);
 
+    // Thông báo phản hồi và trạng thái xác thực
+    const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [authError, setAuthError] = useState<string | null>(null);
+
+    // Hàm lấy Authorization Bearer token từ localStorage
+    const getAuthHeaders = (withJson = false): Record<string, string> => {
+        const headers: Record<string, string> = {};
+        if (withJson) headers['Content-Type'] = 'application/json';
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('jwt_token') || localStorage.getItem('agent_token');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    };
+
     // Tải danh sách nhân sự từ backend MySQL
     const fetchStaffList = async () => {
         setLoading(true);
+        setAuthError(null);
         try {
+            const headers = getAuthHeaders();
             const [resStaff, resDept] = await Promise.all([
-                fetch('http://localhost:8080/api/admin/staff'),
-                fetch('http://localhost:8080/api/admin/departments')
+                fetch('http://localhost:8080/api/admin/staff', { headers }),
+                fetch('http://localhost:8080/api/admin/departments', { headers })
             ]);
+
+            if (resStaff.status === 401 || resStaff.status === 403) {
+                setAuthError('Phiên đăng nhập Admin đã hết hạn hoặc tài khoản chưa được cấp quyền ADMIN. Vui lòng đăng nhập lại.');
+                return;
+            }
 
             if (resStaff.ok) {
                 const data = await resStaff.json();
@@ -139,6 +161,7 @@ export default function AdminStaffPage() {
             }
         } catch (err) {
             console.error('Lỗi khi tải danh sách nhân sự:', err);
+            setActionMsg({ type: 'error', text: 'Không thể kết nối đến máy chủ backend.' });
         } finally {
             setLoading(false);
         }
@@ -158,7 +181,7 @@ export default function AdminStaffPage() {
         try {
             const res = await fetch('http://localhost:8080/api/admin/staff', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify({
                     fullName: createForm.fullName.trim(),
                     email: createForm.email.trim().toLowerCase(),
@@ -173,6 +196,7 @@ export default function AdminStaffPage() {
 
             if (res.ok) {
                 setCreateSuccess(`Đã tạo thành công tài khoản cho ${createForm.fullName} (${createForm.email})!`);
+                setActionMsg({ type: 'success', text: `Tạo tài khoản nhân sự ${createForm.fullName} thành công.` });
                 setCreateForm({
                     fullName: '',
                     email: '',
@@ -204,19 +228,20 @@ export default function AdminStaffPage() {
         try {
             const res = await fetch(`http://localhost:8080/api/admin/staff/${roleModalStaff.id}/role`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify({ role: selectedNewRole }),
             });
 
             if (res.ok) {
-                alert(`✅ Đã phân quyền thành công cho nhân sự ${roleModalStaff.fullName} sang vai trò ${selectedNewRole}!`);
+                setActionMsg({ type: 'success', text: `Đã phân quyền thành công cho nhân sự ${roleModalStaff.fullName} sang vai trò ${selectedNewRole}!` });
                 setRoleModalStaff(null);
                 fetchStaffList();
             } else {
-                alert('Phân quyền thất bại!');
+                const errData = await res.json().catch(() => null);
+                setActionMsg({ type: 'error', text: errData?.error || 'Phân quyền thất bại!' });
             }
         } catch (err) {
-            alert('Lỗi kết nối máy chủ!');
+            setActionMsg({ type: 'error', text: 'Lỗi kết nối máy chủ!' });
         } finally {
             setRoleUpdating(false);
         }
@@ -230,15 +255,18 @@ export default function AdminStaffPage() {
         try {
             const res = await fetch(`http://localhost:8080/api/admin/staff/${staff.id}/toggle-status`, {
                 method: 'POST',
+                headers: getAuthHeaders(),
             });
 
             if (res.ok) {
+                setActionMsg({ type: 'success', text: `Đã ${action} tài khoản "${staff.fullName}" thành công.` });
                 fetchStaffList();
             } else {
-                alert('Thao tác trạng thái thất bại!');
+                const errData = await res.json().catch(() => null);
+                setActionMsg({ type: 'error', text: errData?.error || 'Thao tác trạng thái thất bại!' });
             }
         } catch (err) {
-            alert('Lỗi kết nối máy chủ!');
+            setActionMsg({ type: 'error', text: 'Lỗi kết nối máy chủ!' });
         }
     };
 
@@ -250,19 +278,20 @@ export default function AdminStaffPage() {
         try {
             const res = await fetch(`http://localhost:8080/api/admin/staff/${editModalStaff.id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify(editForm),
             });
 
             if (res.ok) {
-                alert('✅ Đã cập nhật thông tin nhân sự thành công!');
+                setActionMsg({ type: 'success', text: `Đã cập nhật thông tin nhân sự "${editModalStaff.fullName}" thành công!` });
                 setEditModalStaff(null);
                 fetchStaffList();
             } else {
-                alert('Cập nhật thất bại!');
+                const errData = await res.json().catch(() => null);
+                setActionMsg({ type: 'error', text: errData?.error || 'Cập nhật thất bại!' });
             }
         } catch (err) {
-            alert('Lỗi kết nối máy chủ!');
+            setActionMsg({ type: 'error', text: 'Lỗi kết nối máy chủ!' });
         } finally {
             setEditUpdating(false);
         }
@@ -327,6 +356,36 @@ export default function AdminStaffPage() {
                     </button>
                 </div>
             </div>
+
+            {/* AUTH / ACTION FEEDBACK BANNER */}
+            {authError && (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                        <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                        <span className="font-medium">{authError}</span>
+                    </div>
+                    <Link
+                        href="/staff/login"
+                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition w-fit shrink-0"
+                    >
+                        Đăng nhập Admin →
+                    </Link>
+                </div>
+            )}
+
+            {actionMsg && (
+                <div className={`p-3.5 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-between border shadow-2xs transition-all ${
+                    actionMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+                }`}>
+                    <div className="flex items-center gap-2">
+                        {actionMsg.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600 shrink-0" /> : <AlertCircle size={16} className="text-rose-600 shrink-0" />}
+                        <span>{actionMsg.text}</span>
+                    </div>
+                    <button onClick={() => setActionMsg(null)} className="p-1 hover:opacity-75 cursor-pointer">
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
 
             {/* FILTER TOOLBAR */}
             <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
