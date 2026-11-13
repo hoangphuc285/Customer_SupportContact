@@ -14,7 +14,9 @@ import {
     ShieldAlert,
     ExternalLink,
     Image as ImageIcon,
-    MessageSquare
+    MessageSquare,
+    X,
+    Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -80,13 +82,15 @@ export default function StaffApprovalsPage() {
                     revisedContent: customText || ''
                 })
             });
+
             if (res.ok) {
                 setEditingTicket(null);
-                setRevisedContent('');
                 await fetchApprovals();
+            } else {
+                alert('Không thể thực hiện thao tác.');
             }
         } catch (err) {
-            console.error('Lỗi duyệt AI Draft:', err);
+            console.error(err);
         } finally {
             setActionLoading(false);
         }
@@ -94,19 +98,19 @@ export default function StaffApprovalsPage() {
 
     // Handle Refund actions
     const handleRefundAction = async (refundId: number, action: 'approve' | 'reject') => {
-        if (!confirm(`Bạn có chắc chắn muốn ${action === 'approve' ? 'PHÊ DUYỆT' : 'TỪ CHỐI'} đơn hoàn tiền này?`)) return;
         setActionLoading(true);
         try {
-            const res = await fetch(`http://localhost:8080/api/staff/refunds/${refundId}/${action}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
+            const res = await fetch(`http://localhost:8080/api/staff/approvals/refund/${refundId}/${action}`, {
+                method: 'POST'
             });
+
             if (res.ok) {
                 await fetchApprovals();
+            } else {
+                alert('Không thể thực hiện phê duyệt.');
             }
         } catch (err) {
-            console.error('Lỗi xử lý hoàn tiền:', err);
+            console.error(err);
         } finally {
             setActionLoading(false);
         }
@@ -114,56 +118,64 @@ export default function StaffApprovalsPage() {
 
     return (
         <ProtectedRoute>
-            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-slate-100">
+            <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
                 {/* HEADER */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/90">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                L05, L09, L03 (Thay Telegram Send and Wait)
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                                L03 • L05 • L09
                             </span>
-                            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-                                Hàng chờ Phê duyệt Tập trung
-                            </h1>
+                            <span className="text-xs text-slate-400 font-medium">Hàng chờ phê duyệt tập trung</span>
                         </div>
-                        <p className="text-sm text-slate-400 mt-1">
-                            Phê duyệt câu trả lời tự động của AI & đơn yêu cầu hoàn tiền trước khi gửi đến khách
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                            <CheckSquare className="text-blue-600 shrink-0" size={26} />
+                            <span>Hàng Chờ Phê Duyệt Tập Trung</span>
+                        </h1>
+                        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                            Phê duyệt câu trả lời tự động của AI & đơn yêu cầu hoàn tiền trước khi gửi đến khách hàng
                         </p>
                     </div>
 
                     <button
                         onClick={fetchApprovals}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 transition shadow-2xs cursor-pointer"
                     >
-                        <RotateCcw size={15} className={loading ? 'animate-spin' : ''} />
-                        Làm mới
+                        <RotateCcw size={14} className={loading ? 'animate-spin text-blue-600' : 'text-slate-400'} />
+                        <span>Làm mới</span>
                     </button>
                 </div>
 
                 {/* TABS */}
-                <div className="flex gap-3 border-b border-slate-800 pb-1">
+                <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 w-fit">
                     <button
                         onClick={() => setActiveTab('ai')}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer ${
                             activeTab === 'ai'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                                : 'bg-slate-900/60 text-slate-400 hover:text-white'
+                                ? 'bg-blue-600 text-white shadow-2xs'
+                                : 'text-slate-600 hover:text-blue-700'
                         }`}
                     >
-                        <Bot size={17} />
-                        Duyệt phản hồi AI ({data.pendingAiDrafts.length})
+                        <Bot size={16} />
+                        <span>Duyệt phản hồi AI</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'ai' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                            {data.pendingAiDrafts.length}
+                        </span>
                     </button>
 
                     <button
                         onClick={() => setActiveTab('refund')}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer ${
                             activeTab === 'refund'
-                                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
-                                : 'bg-slate-900/60 text-slate-400 hover:text-white'
+                                ? 'bg-blue-600 text-white shadow-2xs'
+                                : 'text-slate-600 hover:text-blue-700'
                         }`}
                     >
-                        <RefundIcon size={17} />
-                        Duyệt Hoàn tiền L09 ({data.pendingRefunds.length})
+                        <RefundIcon size={16} />
+                        <span>Duyệt Hoàn tiền L09</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'refund' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                            {data.pendingRefunds.length}
+                        </span>
                     </button>
                 </div>
 
@@ -171,54 +183,54 @@ export default function StaffApprovalsPage() {
                 {activeTab === 'ai' && (
                     <div className="space-y-4">
                         {data.pendingAiDrafts.length === 0 ? (
-                            <div className="p-12 text-center bg-slate-950 border border-slate-800 rounded-2xl text-slate-500">
-                                <CheckCircle2 size={40} className="mx-auto mb-3 text-emerald-400 opacity-60" />
-                                <h3 className="text-base font-bold text-slate-300">Không có bản thảo AI nào đang chờ duyệt</h3>
+                            <div className="p-14 text-center bg-white border border-slate-200/90 rounded-2xl text-slate-400 shadow-2xs">
+                                <CheckCircle2 size={42} className="mx-auto mb-3 text-emerald-500 opacity-80" />
+                                <h3 className="text-base font-bold text-slate-800">Không có bản thảo AI nào đang chờ duyệt</h3>
                                 <p className="text-xs text-slate-500 mt-1">Tất cả câu trả lời AI đều đạt chuẩn tự tin hoặc đã được duyệt.</p>
                             </div>
                         ) : (
                             data.pendingAiDrafts.map((t) => (
                                 <div
                                     key={t.id}
-                                    className="p-5 bg-slate-950 border border-slate-800 rounded-2xl shadow-xl flex flex-col md:flex-row gap-5 items-start justify-between"
+                                    className="p-5 bg-white border border-slate-200/90 rounded-2xl shadow-2xs flex flex-col md:flex-row gap-5 items-start justify-between hover:border-blue-200 transition"
                                 >
-                                    <div className="space-y-2 flex-1">
+                                    <div className="space-y-2.5 flex-1 min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-sm font-bold text-indigo-400">
+                                            <span className="font-mono text-sm font-bold text-blue-700">
                                                 #{t.ticketCode || t.id}
                                             </span>
-                                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                                                 {t.channel}
                                             </span>
-                                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-950 text-purple-300 border border-purple-800">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                                 {t.intent || 'CHỜ PHÂN LOẠI'}
                                             </span>
-                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                                                <ShieldAlert size={12} /> Cần can thiệp
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                <ShieldAlert size={11} /> Cần can thiệp
                                             </span>
                                         </div>
 
-                                        <h3 className="font-bold text-white text-base">
+                                        <h3 className="font-bold text-slate-900 text-base">
                                             {t.subject || 'Yêu cầu từ khách hàng'}
                                         </h3>
 
-                                        <div className="p-3.5 bg-slate-900 border border-slate-800/80 rounded-xl text-xs text-slate-300 leading-relaxed font-sans">
-                                            <div className="text-[11px] font-bold text-purple-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                                                <Bot size={13} /> Câu trả lời AI gợi ý (L05):
+                                        <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl text-xs text-slate-700 leading-relaxed font-sans">
+                                            <div className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                                <Bot size={13} className="text-blue-600" /> Câu trả lời AI gợi ý (L05):
                                             </div>
                                             Chào bạn, đội ngũ hỗ trợ đã kiểm tra yêu cầu của bạn. Chúng tôi xin hướng dẫn các bước xử lý phù hợp theo quy định bảo hành và đổi trả của hệ thống.
                                         </div>
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto">
+                                    <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-44">
                                         <button
                                             disabled={actionLoading}
                                             onClick={() => handleAiDraftAction(t.id, 'APPROVE')}
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-colors shadow"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition shadow-2xs cursor-pointer"
                                         >
-                                            <CheckCircle2 size={15} />
-                                            Duyệt & Gửi
+                                            <CheckCircle2 size={14} />
+                                            <span>Duyệt & Gửi</span>
                                         </button>
 
                                         <button
@@ -227,26 +239,27 @@ export default function StaffApprovalsPage() {
                                                 setEditingTicket(t);
                                                 setRevisedContent('Chào bạn, đội ngũ hỗ trợ đã kiểm tra yêu cầu của bạn. Chúng tôi xin thông báo...');
                                             }}
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl font-semibold text-xs transition-colors"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl font-bold text-xs transition shadow-2xs cursor-pointer"
                                         >
-                                            <Edit3 size={15} />
-                                            Sửa nội dung
+                                            <Edit3 size={14} />
+                                            <span>Sửa nội dung</span>
                                         </button>
 
                                         <button
                                             disabled={actionLoading}
                                             onClick={() => handleAiDraftAction(t.id, 'REJECT')}
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl font-semibold text-xs transition-colors"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl font-bold text-xs transition cursor-pointer"
                                         >
-                                            <XCircle size={15} />
-                                            Từ chối & Khóa AI
+                                            <XCircle size={14} />
+                                            <span>Từ chối</span>
                                         </button>
 
                                         <Link
                                             href={`/staff/tickets/${t.id}`}
-                                            className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-indigo-400 hover:underline"
+                                            className="flex items-center justify-center gap-1 px-3 py-1 text-xs text-blue-600 hover:text-blue-700 font-semibold"
                                         >
-                                            Xem chi tiết <ExternalLink size={12} />
+                                            <span>Chi tiết Ticket</span>
+                                            <ExternalLink size={12} />
                                         </Link>
                                     </div>
                                 </div>
@@ -259,26 +272,26 @@ export default function StaffApprovalsPage() {
                 {activeTab === 'refund' && (
                     <div className="space-y-4">
                         {data.pendingRefunds.length === 0 ? (
-                            <div className="p-12 text-center bg-slate-950 border border-slate-800 rounded-2xl text-slate-500">
-                                <CheckCircle2 size={40} className="mx-auto mb-3 text-emerald-400 opacity-60" />
-                                <h3 className="text-base font-bold text-slate-300">Không có yêu cầu hoàn tiền nào đang chờ duyệt</h3>
+                            <div className="p-14 text-center bg-white border border-slate-200/90 rounded-2xl text-slate-400 shadow-2xs">
+                                <CheckCircle2 size={42} className="mx-auto mb-3 text-emerald-500 opacity-80" />
+                                <h3 className="text-base font-bold text-slate-800">Không có yêu cầu hoàn tiền nào đang chờ duyệt</h3>
                                 <p className="text-xs text-slate-500 mt-1">Mọi yêu cầu đổi trả đều đã được xử lý thỏa đáng.</p>
                             </div>
                         ) : (
                             data.pendingRefunds.map((r) => (
                                 <div
                                     key={r.id}
-                                    className="p-5 bg-slate-950 border border-slate-800 rounded-2xl shadow-xl flex flex-col md:flex-row gap-5 items-start justify-between"
+                                    className="p-5 bg-white border border-slate-200/90 rounded-2xl shadow-2xs flex flex-col md:flex-row gap-5 items-start justify-between hover:border-blue-200 transition"
                                 >
-                                    <div className="space-y-2 flex-1">
+                                    <div className="space-y-2 flex-1 min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-sm font-bold text-amber-400">
+                                            <span className="font-mono text-sm font-bold text-blue-700">
                                                 #{r.refundCode}
                                             </span>
-                                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                                                 Đơn hàng: {r.orderCode}
                                             </span>
-                                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                 Cấp duyệt: {r.approvalLevel}
                                             </span>
                                             <span className="text-xs text-slate-400 font-medium ml-auto">
@@ -286,22 +299,22 @@ export default function StaffApprovalsPage() {
                                             </span>
                                         </div>
 
-                                        <div className="text-lg font-black text-emerald-400">
-                                            Số tiền đề xuất: {Number(r.amount).toLocaleString('vi-VN')} đ
+                                        <div className="text-xl font-black text-slate-900">
+                                            Số tiền đề xuất: <span className="text-blue-700">{Number(r.amount).toLocaleString('vi-VN')} đ</span>
                                         </div>
 
-                                        <p className="text-xs text-slate-300">
-                                            <strong className="text-slate-400">Lý do:</strong> {r.reason || 'Sản phẩm lỗi hoặc không đúng mô tả'}
+                                        <p className="text-xs text-slate-700">
+                                            <strong className="text-slate-500">Lý do:</strong> {r.reason || 'Sản phẩm lỗi hoặc không đúng mô tả'}
                                         </p>
 
                                         {r.evidenceUrl && (
                                             <div className="flex items-center gap-2 pt-1">
-                                                <span className="text-xs text-slate-400 font-semibold">Bằng chứng:</span>
+                                                <span className="text-xs text-slate-500 font-semibold">Bằng chứng:</span>
                                                 <a 
                                                     href={r.evidenceUrl} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 text-indigo-400 hover:text-indigo-300 text-xs font-bold border border-slate-700 transition"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold border border-blue-200 transition"
                                                 >
                                                     <ImageIcon size={13} />
                                                     <span>Xem ảnh lỗi</span>
@@ -311,31 +324,31 @@ export default function StaffApprovalsPage() {
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto">
+                                    <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-44">
                                         <Link
                                             href="/staff/refunds"
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded-xl font-bold text-xs border border-indigo-500/30 transition shadow"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs border border-blue-200 transition shadow-2xs"
                                         >
                                             <MessageSquare size={14} />
-                                            Chat & Chi tiết
+                                            <span>Chat & Chi tiết</span>
                                         </Link>
 
                                         <button
                                             disabled={actionLoading}
                                             onClick={() => handleRefundAction(r.id, 'approve')}
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-colors shadow"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition shadow-2xs cursor-pointer"
                                         >
                                             <CheckCircle2 size={15} />
-                                            Phê duyệt hoàn tiền
+                                            <span>Phê duyệt</span>
                                         </button>
 
                                         <button
                                             disabled={actionLoading}
                                             onClick={() => handleRefundAction(r.id, 'reject')}
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs transition-colors shadow"
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl font-bold text-xs transition cursor-pointer"
                                         >
                                             <XCircle size={15} />
-                                            Từ chối yêu cầu
+                                            <span>Từ chối</span>
                                         </button>
                                     </div>
                                 </div>
@@ -346,28 +359,36 @@ export default function StaffApprovalsPage() {
 
                 {/* EDIT MODAL */}
                 {editingTicket && (
-                    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-                            <h3 className="font-bold text-white text-base">
-                                Chỉnh sửa câu trả lời cho Ticket #{editingTicket.ticketCode || editingTicket.id}
-                            </h3>
+                    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+                        <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <h3 className="font-extrabold text-slate-900 text-base">
+                                    Chỉnh sửa câu trả lời Ticket #{editingTicket.ticketCode || editingTicket.id}
+                                </h3>
+                                <button
+                                    onClick={() => setEditingTicket(null)}
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl transition"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
                             <textarea
                                 rows={5}
                                 value={revisedContent}
                                 onChange={(e) => setRevisedContent(e.target.value)}
-                                className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                             />
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-2 pt-1">
                                 <button
                                     onClick={() => setEditingTicket(null)}
-                                    className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-700"
+                                    className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     onClick={() => handleAiDraftAction(editingTicket.id, 'APPROVE', revisedContent)}
                                     disabled={actionLoading}
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500"
+                                    className="px-5 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-2xs"
                                 >
                                     Lưu & Gửi ngay
                                 </button>

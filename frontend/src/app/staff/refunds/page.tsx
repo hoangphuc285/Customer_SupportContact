@@ -8,35 +8,33 @@ import {
     CheckCircle2, 
     Clock, 
     AlertCircle, 
-    DollarSign, 
-    Building2, 
     RefreshCw, 
     Filter,
-    Check,
-    X,
+    Calendar,
     ExternalLink,
-    ShieldAlert,
+    DollarSign,
+    Check,
+    FileText,
     MessageSquare,
     Send,
-    User,
+    X,
     Bot,
-    Sparkles
+    User
 } from 'lucide-react';
 
 interface RefundItem {
     id: number;
     refundCode: string;
     orderCode: string;
+    ticketId: number | null;
+    ticketCode: string | null;
+    customerEmail: string;
     amount: number;
     reason: string;
     status: string;
     approvalLevel: string;
+    evidenceUrl?: string;
     createdAt: string;
-    staffId?: number | null;
-    staffName?: string | null;
-    ticketCode?: string | null;
-    ticketId?: number | null;
-    evidenceUrl?: string | null;
 }
 
 export default function StaffRefundsPage() {
@@ -44,11 +42,11 @@ export default function StaffRefundsPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [selectedRefund, setSelectedRefund] = useState<RefundItem | null>(null);
     const [actionMsg, setActionMsg] = useState<string | null>(null);
 
     // Chat modal states
     const [chatModalOpen, setChatModalOpen] = useState(false);
-    const [selectedRefund, setSelectedRefund] = useState<RefundItem | null>(null);
     const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [loadingChat, setLoadingChat] = useState(false);
     const [replyText, setReplyText] = useState('');
@@ -74,7 +72,7 @@ export default function StaffRefundsPage() {
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
-                    // Sắp xếp từ mới nhất đến cũ nhất theo ID / thời gian
+                    // Sắp xếp ID lớn nhất / mới nhất lên đầu
                     const sorted = [...data].sort((a, b) => (b.id || 0) - (a.id || 0));
                     setRefunds(sorted);
                 }
@@ -90,8 +88,8 @@ export default function StaffRefundsPage() {
         fetchRefunds();
     }, []);
 
-    const formatCurrency = (val: number) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
     };
 
     const formatDate = (iso: string) => {
@@ -178,7 +176,6 @@ export default function StaffRefundsPage() {
                     setChatMessages(msgs);
                 }
             } else {
-                // Fallback nếu không tải được ticket chi tiết
                 setChatMessages([{
                     id: 1,
                     senderType: 'CUSTOMER',
@@ -201,33 +198,46 @@ export default function StaffRefundsPage() {
 
         const targetTicketId = selectedRefund.ticketId;
         if (!targetTicketId) {
-            alert('Đơn hoàn tiền này chưa có Ticket ID liên kết để gửi tin nhắn.');
+            alert('Yêu cầu này chưa liên kết với Ticket để trao đổi tin nhắn.');
             return;
         }
 
         setSendingReply(true);
         try {
+            const savedInfo = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            let staffName = 'Chuyên viên CSKH';
+            let staffId = 4;
+            if (savedInfo) {
+                try {
+                    const u = JSON.parse(savedInfo);
+                    if (u.fullName || u.name) staffName = u.fullName || u.name;
+                    if (u.id) staffId = u.id;
+                } catch (e) {}
+            }
+
             const res = await fetch(`http://localhost:8080/api/staff/tickets/${targetTicketId}/reply`, {
                 method: 'POST',
                 headers: getAuthHeaders(true),
-                body: JSON.stringify({ message: replyText.trim(), content: replyText.trim() })
+                body: JSON.stringify({
+                    message: replyText.trim(),
+                    staffId: staffId,
+                    staffName: staffName
+                })
             });
+
             if (res.ok) {
-                const newMsg = await res.json().catch(() => null);
-                setChatMessages(prev => [
-                    ...prev,
-                    {
-                        id: newMsg?.id || Date.now(),
-                        senderType: 'STAFF',
-                        senderName: newMsg?.senderName || 'Chuyên viên CSKH',
-                        contentOriginal: replyText.trim(),
-                        content: replyText.trim(),
-                        createdAt: new Date().toISOString()
-                    }
-                ]);
+                const newMsg = {
+                    id: Date.now(),
+                    senderType: 'STAFF',
+                    senderName: staffName,
+                    contentOriginal: replyText.trim(),
+                    content: replyText.trim(),
+                    createdAt: new Date().toISOString()
+                };
+                setChatMessages(prev => [...prev, newMsg]);
                 setReplyText('');
             } else {
-                alert('Không thể gửi phản hồi tới khách hàng. Mã lỗi HTTP ' + res.status);
+                alert('Không thể gửi phản hồi. Mã lỗi HTTP ' + res.status);
             }
         } catch (err: any) {
             alert('Lỗi kết nối khi gửi tin nhắn: ' + (err?.message || 'Unknown error'));
@@ -241,9 +251,9 @@ export default function StaffRefundsPage() {
             const matchesSearch = !searchTerm || 
                 r.refundCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.orderCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                r.reason.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter ||
-                (statusFilter === 'PENDING_APPROVAL' && (r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_INFO'));
+                r.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (r.ticketCode && r.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
             return matchesSearch && matchesStatus;
         })
         .sort((a, b) => (b.id || 0) - (a.id || 0));
@@ -251,27 +261,34 @@ export default function StaffRefundsPage() {
     return (
         <div className="p-6 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {/* HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/90">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                        <RotateCcw className="text-emerald-600" size={24} />
-                        <span>Quản Lý & Phê Duyệt Hoàn Tiền Đổi Trả (Luồng L09)</span>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                            Luồng L09 • Hoàn Tiền Đổi Trả
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">Chính sách 7 ngày</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                        <RotateCcw className="text-blue-600 shrink-0" size={26} />
+                        <span>Quản Lý & Phê Duyệt Hoàn Tiền Đổi Trả</span>
                     </h1>
-                    <p className="text-xs text-slate-500 mt-1">
-                        Thẩm định yêu cầu hoàn tiền 7 ngày • Trao đổi trực tiếp với khách • Duyệt hoặc từ chối chi trả
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                        Thẩm định yêu cầu hoàn tiền • Trao đổi trực tiếp với khách • Duyệt lệnh chi trả hoặc hướng dẫn khách hàng
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                     <button
                         onClick={fetchRefunds}
                         disabled={loading}
-                        className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 transition cursor-pointer"
-                        title="Làm mới"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-60"
+                        title="Làm mới dữ liệu"
                     >
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                        <RefreshCw size={15} className={loading ? 'animate-spin text-blue-600' : 'text-slate-400'} />
+                        <span>Làm mới</span>
                     </button>
-                    <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="text-xs font-bold font-mono px-3.5 py-2 rounded-xl bg-blue-50 text-blue-800 border border-blue-200">
                         {refunds.length} Yêu Cầu
                     </span>
                 </div>
@@ -279,40 +296,44 @@ export default function StaffRefundsPage() {
 
             {/* ACTION ALERT */}
             {actionMsg && (
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 animate-in fade-in">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2 shadow-xs animate-in fade-in">
                     <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                     <span>{actionMsg}</span>
                 </div>
             )}
 
             {/* STATS OVERVIEW */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">TỔNG HOÀN TIỀN</span>
-                    <span className="text-xl font-black text-slate-900 mt-1 block">
+                    <span className="text-xl sm:text-2xl font-black text-slate-900 mt-1 block">
                         {formatCurrency(refunds.reduce((acc, r) => acc + (r.amount || 0), 0))}
                     </span>
+                    <span className="text-[11px] text-blue-600 font-semibold mt-1 block">Toàn bộ yêu cầu</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">ĐÃ HOÀN TIỀN (PAID)</span>
-                    <span className="text-xl font-black text-emerald-600 mt-1 block">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">ĐÃ CHI TRẢ (PAID)</span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-600 mt-1 block">
                         {refunds.filter(r => r.status === 'PAID').length} ca
                     </span>
+                    <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">Hoàn tất giao dịch</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CHỜ DUYỆT (PENDING)</span>
-                    <span className="text-xl font-black text-amber-600 mt-1 block">
+                    <span className="text-xl sm:text-2xl font-black text-amber-600 mt-1 block">
                         {refunds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_INFO').length} ca
                     </span>
+                    <span className="text-[11px] text-amber-600 font-semibold mt-1 block">Cần kiểm tra thẩm định</span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CẤP QUẢN LÝ / TEAM LEAD</span>
-                    <span className="text-xl font-black text-blue-600 mt-1 block">
+                <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-200 transition">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CẤP QUẢN LÝ / LEAD</span>
+                    <span className="text-xl sm:text-2xl font-black text-blue-600 mt-1 block">
                         {refunds.filter(r => r.approvalLevel === 'TEAM_LEAD' || r.approvalLevel === 'MANAGER').length} ca
                     </span>
+                    <span className="text-[11px] text-blue-600 font-semibold mt-1 block">Quy trình thẩm định cao cấp</span>
                 </div>
             </div>
 
@@ -324,15 +345,15 @@ export default function StaffRefundsPage() {
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Tìm kiếm mã refund, mã đơn hàng (#ORD...), lý do..."
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                        placeholder="Tìm kiếm mã refund, mã đơn hàng (#ORD...), lý do hoàn..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium transition"
                     />
                 </div>
 
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
+                    className="px-3.5 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-blue-500"
                 >
                     <option value="ALL">Tất cả trạng thái</option>
                     <option value="PENDING_APPROVAL">Chờ duyệt (PENDING)</option>
@@ -342,66 +363,66 @@ export default function StaffRefundsPage() {
             </div>
 
             {/* TABLE LIST */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-bold">
-                                <th className="p-4">Mã Refund</th>
-                                <th className="p-4">Mã Đơn Hàng</th>
-                                <th className="p-4">Số Tiền</th>
-                                <th className="p-4">Cấp Duyệt</th>
-                                <th className="p-4">Lý Do Hoàn</th>
-                                <th className="p-4">Trạng Thái</th>
-                                <th className="p-4">Thời Gian</th>
-                                <th className="p-4 text-right">Thao Tác</th>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/90 text-slate-500 uppercase tracking-wider font-bold text-[11px]">
+                                <th className="py-3.5 px-4">Mã Refund</th>
+                                <th className="py-3.5 px-4">Mã Đơn Hàng</th>
+                                <th className="py-3.5 px-4">Số Tiền</th>
+                                <th className="py-3.5 px-4">Cấp Duyệt</th>
+                                <th className="py-3.5 px-4">Lý Do Hoàn</th>
+                                <th className="py-3.5 px-4">Trạng Thái</th>
+                                <th className="py-3.5 px-4">Thời Gian</th>
+                                <th className="py-3.5 px-4 text-right">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredRefunds.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-400">
+                                    <td colSpan={8} className="p-10 text-center text-slate-400">
                                         Không tìm thấy yêu cầu hoàn tiền nào phù hợp
                                     </td>
                                 </tr>
                             ) : (
                                 filteredRefunds.map((item) => (
-                                    <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                                        <td className="p-4 font-mono font-bold text-slate-900">
+                                    <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                                        <td className="py-3.5 px-4 font-mono font-bold text-blue-700">
                                             <span>{item.refundCode}</span>
                                             {item.ticketCode && (
-                                                <div className="text-[10px] text-indigo-600 font-normal">
+                                                <div className="text-[11px] text-slate-400 font-normal">
                                                     #{item.ticketCode}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="p-4 font-mono font-bold text-slate-700">
+                                        <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
                                             <span>{item.orderCode}</span>
                                         </td>
-                                        <td className="p-4 font-black text-slate-900">{formatCurrency(item.amount)}</td>
-                                        <td className="p-4">
+                                        <td className="py-3.5 px-4 font-black text-slate-900">{formatCurrency(item.amount)}</td>
+                                        <td className="py-3.5 px-4">
                                             <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                                item.approvalLevel === 'AUTO' ? 'bg-emerald-100 text-emerald-800' :
-                                                item.approvalLevel === 'TEAM_LEAD' ? 'bg-blue-100 text-blue-800' :
-                                                'bg-amber-100 text-amber-800'
+                                                item.approvalLevel === 'AUTO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                                item.approvalLevel === 'TEAM_LEAD' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                                'bg-amber-50 text-amber-700 border border-amber-200'
                                             }`}>
                                                 {item.approvalLevel}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-slate-600 max-w-xs truncate" title={item.reason}>
+                                        <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate" title={item.reason}>
                                             {item.reason}
                                             {item.evidenceUrl && (
                                                 <a 
                                                     href={item.evidenceUrl} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer" 
-                                                    className="block text-[11px] text-indigo-600 hover:underline font-semibold mt-0.5"
+                                                    className="block text-[11px] text-blue-600 hover:underline font-semibold mt-0.5"
                                                 >
                                                     🔗 Xem ảnh bằng chứng
                                                 </a>
                                             )}
                                         </td>
-                                        <td className="p-4">
+                                        <td className="py-3.5 px-4">
                                             <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
                                                 item.status === 'PAID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                                                 item.status === 'APPROVED' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
@@ -410,15 +431,15 @@ export default function StaffRefundsPage() {
                                                 {item.status === 'PENDING_APPROVAL' || item.status === 'PENDING_INFO' ? 'CHỜ DUYỆT' : item.status}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-slate-600 font-medium whitespace-nowrap">
+                                        <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap text-[11px]">
                                             {formatDate(item.createdAt)}
                                         </td>
-                                        <td className="p-4 text-right">
+                                        <td className="py-3.5 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 {/* NÚT CHAT VỚI KHÁCH HÀNG */}
                                                 <button
                                                     onClick={() => handleOpenChat(item)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] border border-indigo-200 transition cursor-pointer active:scale-95 shadow-xs"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100/90 text-blue-700 font-bold text-xs border border-blue-200/80 transition cursor-pointer active:scale-95 shadow-2xs"
                                                     title="Trò chuyện, tư vấn hoặc trao đổi giải pháp với khách hàng"
                                                 >
                                                     <MessageSquare size={13} />
@@ -429,13 +450,13 @@ export default function StaffRefundsPage() {
                                                 {item.status !== 'PAID' && item.status !== 'APPROVED' ? (
                                                     <button
                                                         onClick={() => handleApprove(item.id, item.refundCode)}
-                                                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer active:scale-95 shadow-xs"
+                                                        className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer active:scale-95 shadow-2xs"
                                                     >
                                                         Duyệt Chi Trả
                                                     </button>
                                                 ) : (
-                                                    <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg font-bold text-[10px] inline-flex items-center gap-1">
-                                                        <CheckCircle2 size={11} /> Đã chi trả
+                                                    <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold text-[11px] inline-flex items-center gap-1">
+                                                        <CheckCircle2 size={12} className="text-emerald-600" /> Đã chi trả
                                                     </span>
                                                 )}
                                             </div>
@@ -450,41 +471,41 @@ export default function StaffRefundsPage() {
 
             {/* MODAL CHAT VỚI KHÁCH HÀNG */}
             {chatModalOpen && selectedRefund && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full flex flex-col max-h-[85vh] shadow-2xl overflow-hidden text-slate-100">
+                <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white border border-slate-200/90 rounded-3xl max-w-2xl w-full flex flex-col max-h-[85vh] shadow-2xl overflow-hidden">
                         {/* MODAL HEADER */}
-                        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-700 to-blue-600 text-white">
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                        Luồng L09 &bull; Hỗ trợ hoàn tiền
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30 uppercase tracking-wide">
+                                        Luồng L09 • Hoàn Tiền
                                     </span>
-                                    <h3 className="font-black text-white text-base">
+                                    <h3 className="font-extrabold text-white text-base">
                                         Trao đổi yêu cầu #{selectedRefund.refundCode}
                                     </h3>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-1">
-                                    Khách hàng: <strong className="text-white">{chatCustomerName}</strong> &bull; Đơn hàng: <strong className="text-white">{selectedRefund.orderCode}</strong> &bull; Số tiền: <strong className="text-emerald-400">{formatCurrency(selectedRefund.amount)}</strong>
+                                <p className="text-xs text-blue-100 mt-1">
+                                    Khách hàng: <strong className="text-white">{chatCustomerName}</strong> &bull; Đơn hàng: <strong className="text-white">{selectedRefund.orderCode}</strong> &bull; Số tiền: <strong className="text-amber-200">{formatCurrency(selectedRefund.amount)}</strong>
                                 </p>
                             </div>
 
                             <button
                                 onClick={() => setChatModalOpen(false)}
-                                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                                className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
                             >
                                 <X size={18} />
                             </button>
                         </div>
 
                         {/* MESSAGES BODY */}
-                        <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3 bg-slate-900/60 min-h-[260px] max-h-[400px]">
+                        <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3 bg-slate-50/70 min-h-[260px] max-h-[400px]">
                             {loadingChat ? (
                                 <div className="text-center py-12 text-slate-400">
-                                    <RefreshCw className="animate-spin inline-block mb-2 text-indigo-400" size={24} />
-                                    <p className="text-xs">Đang tải lịch sử trao đổi với khách hàng...</p>
+                                    <RefreshCw className="animate-spin inline-block mb-2 text-blue-600" size={24} />
+                                    <p className="text-xs font-semibold">Đang tải lịch sử trao đổi với khách hàng...</p>
                                 </div>
                             ) : chatMessages.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500 text-xs">
+                                <div className="text-center py-10 text-slate-400 text-xs font-medium">
                                     Chưa có tin nhắn trao đổi nào trước đó.
                                 </div>
                             ) : (
@@ -497,21 +518,21 @@ export default function StaffRefundsPage() {
                                             key={msg.id || idx}
                                             className={`flex flex-col ${isCustomer ? 'items-start' : isAi ? 'items-center' : 'items-end'}`}
                                         >
-                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400">
+                                            <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-400 font-medium">
                                                 {isCustomer ? (
                                                     <>
-                                                        <User size={12} className="text-blue-400" />
-                                                        <span className="font-semibold text-blue-300">{msg.senderName || chatCustomerName}</span>
+                                                        <User size={12} className="text-blue-600" />
+                                                        <span className="font-semibold text-slate-700">{msg.senderName || chatCustomerName}</span>
                                                     </>
                                                 ) : isAi ? (
                                                     <>
-                                                        <Bot size={12} className="text-amber-400" />
-                                                        <span className="font-semibold text-amber-300">Trợ lý AI CSKH</span>
+                                                        <Bot size={12} className="text-amber-600" />
+                                                        <span className="font-semibold text-amber-700">Trợ lý AI CSKH</span>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <span className="font-semibold text-indigo-300">{msg.senderName || 'Chuyên viên CSKH'}</span>
-                                                        <User size={12} className="text-indigo-400" />
+                                                        <span className="font-semibold text-blue-700">{msg.senderName || 'Chuyên viên CSKH'}</span>
+                                                        <User size={12} className="text-blue-600" />
                                                     </>
                                                 )}
                                                 <span>&bull; {formatDate(msg.createdAt)}</span>
@@ -520,10 +541,10 @@ export default function StaffRefundsPage() {
                                             <div
                                                 className={`p-3 rounded-2xl text-xs max-w-[85%] leading-relaxed ${
                                                     isCustomer
-                                                        ? 'bg-slate-800 text-slate-100 rounded-tl-xs border border-slate-700'
+                                                        ? 'bg-white text-slate-800 rounded-tl-xs border border-slate-200 shadow-2xs'
                                                         : isAi
-                                                        ? 'bg-amber-950/40 text-amber-200 border border-amber-800/50 text-center'
-                                                        : 'bg-indigo-600 text-white rounded-tr-xs shadow-md shadow-indigo-600/20'
+                                                        ? 'bg-sky-50 text-sky-900 border border-sky-200 text-center font-medium'
+                                                        : 'bg-blue-600 text-white rounded-tr-xs shadow-xs font-medium'
                                                 }`}
                                             >
                                                 {msg.contentOriginal || msg.contentTranslated || msg.content || msg.message || ''}
@@ -535,9 +556,9 @@ export default function StaffRefundsPage() {
                         </div>
 
                         {/* QUICK ACTION BAR */}
-                        <div className="px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs">
-                            <span className="text-slate-400">
-                                Trạng thái: <strong className={selectedRefund.status === 'PAID' ? 'text-emerald-400' : 'text-amber-400'}>{selectedRefund.status}</strong>
+                        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200/90 flex items-center justify-between text-xs">
+                            <span className="text-slate-500">
+                                Trạng thái: <strong className={selectedRefund.status === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}>{selectedRefund.status}</strong>
                             </span>
 
                             <div className="flex items-center gap-2">
@@ -545,16 +566,16 @@ export default function StaffRefundsPage() {
                                     <Link
                                         href={`/staff/tickets/${selectedRefund.ticketId}`}
                                         target="_blank"
-                                        className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-semibold text-[11px]"
+                                        className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 font-semibold text-[11px]"
                                     >
-                                        <span>Chi tiết Ticket #{selectedRefund.ticketCode || selectedRefund.ticketId}</span>
+                                        <span>Xem Ticket #{selectedRefund.ticketCode || selectedRefund.ticketId}</span>
                                         <ExternalLink size={12} />
                                     </Link>
                                 )}
                                 {selectedRefund.status !== 'PAID' && selectedRefund.status !== 'APPROVED' && (
                                     <button
                                         onClick={() => handleApprove(selectedRefund.id, selectedRefund.refundCode)}
-                                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[11px] transition cursor-pointer"
+                                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-[11px] transition cursor-pointer shadow-2xs"
                                     >
                                         Duyệt Hoàn Tiền Ngay
                                     </button>
@@ -563,20 +584,20 @@ export default function StaffRefundsPage() {
                         </div>
 
                         {/* REPLY FORM */}
-                        <form onSubmit={handleSendReply} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center gap-2">
+                        <form onSubmit={handleSendReply} className="p-3.5 bg-white border-t border-slate-100 flex items-center gap-2">
                             <input
                                 type="text"
                                 value={replyText}
                                 onChange={(e) => setReplyText(e.target.value)}
                                 placeholder={`Nhắn tin phản hồi hoặc hướng dẫn xử lý cho ${chatCustomerName}...`}
-                                className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                             />
                             <button
                                 type="submit"
                                 disabled={sendingReply || !replyText.trim()}
-                                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow"
+                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
                             >
-                                <Send size={14} className={sendingReply ? 'animate-spin' : ''} />
+                                <Send size={13} className={sendingReply ? 'animate-spin' : ''} />
                                 <span>{sendingReply ? 'Đang gửi...' : 'Gửi'}</span>
                             </button>
                         </form>
