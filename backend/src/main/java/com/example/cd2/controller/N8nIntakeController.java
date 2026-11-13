@@ -25,11 +25,13 @@ public class N8nIntakeController {
     private static final Logger log = LoggerFactory.getLogger(N8nIntakeController.class);
     private final IntakeService intake;
     private final TicketRepository ticketRepository;
+    private final com.example.cd2.repository.MessageRepository messageRepository;
     private final com.example.cd2.service.SlaService slaService;
 
-    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository, com.example.cd2.service.SlaService slaService) {
+    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository, com.example.cd2.repository.MessageRepository messageRepository, com.example.cd2.service.SlaService slaService) {
         this.intake = intake;
         this.ticketRepository = ticketRepository;
+        this.messageRepository = messageRepository;
         this.slaService = slaService;
     }
 
@@ -99,14 +101,28 @@ public class N8nIntakeController {
                 log.info("N8nIntakeController: Tai su dung ticket da co #{} ({})", foundTicket.getId(), foundTicket.getTicketCode());
                 Long custId = foundTicket.getCustomer() != null ? foundTicket.getCustomer().getId() : 1L;
                 boolean isBrandNew = (foundTicket.getIntent() == null);
+                
+                Long latestMsgId = null;
+                if (body.get("message_id") != null && !body.get("message_id").toString().isBlank()) {
+                    try {
+                        latestMsgId = Long.parseLong(body.get("message_id").toString().trim());
+                    } catch (Exception ignored) {}
+                }
+                if (latestMsgId == null) {
+                    List<com.example.cd2.entity.Message> msgs = messageRepository.findByTicketIdOrderByCreatedAtAsc(foundTicket.getId());
+                    if (!msgs.isEmpty()) {
+                        latestMsgId = msgs.get(msgs.size() - 1).getId();
+                    }
+                }
+
                 return ResponseEntity.ok(new IntakeResponse(
                         foundTicket.getId(),
                         foundTicket.getTicketCode(),
                         foundTicket.getStatus().name(),
                         custId,
-                        null,
+                        latestMsgId,
                         true,
-                        isBrandNew,
+                        true, // Luôn true để n8n đưa tin nhắn vào luồng L02 phân loại & sinh câu trả lời AI
                         false
                 ));
             }

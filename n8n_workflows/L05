@@ -542,90 +542,6 @@
     },
     {
       "parameters": {
-        "operation": "sendAndWait",
-        "chatId": "9274620117",
-        "message": "={{ $json.approval_text }}",
-        "approvalOptions": {
-          "values": {
-            "approvalType": "double",
-            "approveLabel": "✅ Duyệt & gửi",
-            "disapproveLabel": "❌ Từ chối"
-          }
-        },
-        "options": {
-          "limitWaitTime": {
-            "values": {
-              "resumeAmount": 30,
-              "resumeUnit": "minutes"
-            }
-          }
-        }
-      },
-      "id": "ada99417-ff04-4793-a58d-15863023a9e2",
-      "name": "Telegram (Send and Wait) - Duyệt Human",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        -3728,
-        1744
-      ],
-      "webhookId": "48af3773-af25-4c0d-b481-84a026ec06d7",
-      "credentials": {
-        "telegramApi": {
-          "id": "0LI2dFdVJM6rrl0k",
-          "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "fe8a1fb7-07e4-4aba-bd67-9ec26bb7a466",
-              "leftValue": "={{ $json.data?.approved }}",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "0c1109cd-32bb-41a7-b21d-037c77f0a6a1",
-      "name": "IF - Human đã duyệt?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -4256,
-        1760
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Sau Telegram Send and Wait, item chỉ còn { data: { approved } } nên phải lấy lại ngữ cảnh.\nconst ctx = $('Code - Chuẩn hóa kết quả AI & Confidence').first().json;\nreturn { json: { ...ctx, approved_by_human: true } };"
-      },
-      "id": "137fc3b3-c9a4-45a7-811d-9a9b22fa228d",
-      "name": "Code - Khôi phục ngữ cảnh sau duyệt",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -4000,
-        1744
-      ]
-    },
-    {
-      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
@@ -734,7 +650,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $('IF - Cần dịch sang ngôn ngữ khách?').first().json;\nconst x = $input.first()?.json || {};\nconst translated = (typeof x.final_translated_text === 'string' && x.final_translated_text.trim()) ? x.final_translated_text.trim() : null;\nconst finalAnswer = translated || ctx.answer;\nconst esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst srcText = ctx.sources && ctx.sources.length ? ctx.sources.join(', ') : 'Chính sách VKU Store';\nreturn [{ json: {\n  ...ctx,\n  final_answer: finalAnswer,\n  translation_failed: ctx.language !== 'vi' && !translated,\n  final_answer_tg: esc(finalAnswer),\n  final_answer_html: esc(finalAnswer).replace(/\\n/g, '<br>'),\n  sources_html: esc(srcText)\n} }];"
+        "jsCode": "const ctx = $('IF - Cần dịch sang ngôn ngữ khách?').first().json;\nconst x = $input.first()?.json || {};\nconst translated = (typeof x.final_translated_text === 'string' && x.final_translated_text.trim()) ? x.final_translated_text.trim() : null;\nconst finalAnswer = translated || ctx.answer;\nconst esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst srcText = ctx.sources && ctx.sources.length ? ctx.sources.join(', ') : 'Chính sách VKU Store';\nreturn [{ json: {\n  ...ctx,\n  final_answer: finalAnswer,\n  translation_failed: ctx.language !== 'vi' && !translated,\n  final_answer_tg: esc(finalAnswer),\n  final_answer_html: esc(finalAnswer).replace(/\\n/g, '<br>'),\n  sources_html: esc(srcText)\n} }];",
+        "mode": "runOnceForAllItems"
       },
       "id": "5daa06ac-89c1-4799-80e4-98650f191426",
       "name": "Code - Chuẩn bị nội dung gửi",
@@ -747,93 +664,8 @@
     },
     {
       "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "loose",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "47a35ee3-059f-48d3-8434-d42dc3821332",
-                    "leftValue": "={{ $json.channel }}",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "rightValue": "EMAIL"
-                  },
-                  {
-                    "id": "1948b92e-d15d-4cab-8923-f1f21237116a",
-                    "leftValue": "={{ $json.customer_email }}",
-                    "operator": {
-                      "type": "string",
-                      "operation": "notEmpty",
-                      "singleValue": true
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "EMAIL"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "loose",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "c99928c3-22f8-476c-a58f-6ba884149267",
-                    "leftValue": "={{ $json.channel }}",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "rightValue": "TELEGRAM"
-                  },
-                  {
-                    "id": "66d2b92c-b81c-4e19-b5ff-ec49602d3240",
-                    "leftValue": "={{ $json.chat_id }}",
-                    "operator": {
-                      "type": "string",
-                      "operation": "notEmpty",
-                      "singleValue": true
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "TELEGRAM"
-            }
-          ]
-        },
-        "options": {
-          "fallbackOutput": "extra"
-        }
-      },
-      "id": "6693c456-e4e6-4d4f-bd68-1584f13b29aa",
-      "name": "Switch - Kênh gửi gốc (Email / Telegram)",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.4,
-      "position": [
-        -2928,
-        1744
-      ]
-    },
-    {
-      "parameters": {
         "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "={{ $json.customer_email || $('MySQL - Lấy ticket & khách').first()?.json?.customer_email || \"hoangphuc2855@gmail.com\" }}",
+        "toEmail": "={{ $('MySQL - Lấy ticket & khách').first()?.json?.customer_email || $('Code - Chuẩn bị nội dung gửi').first()?.json?.customer_email || \"hoangphuc2855@gmail.com\" }}",
         "subject": "=[VKU Store] Phản hồi yêu cầu hỗ trợ #{{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_code }}",
         "html": "<h3>Kính gửi Quý khách,</h3>\n<p>VKU Store xin được giải đáp thắc mắc theo Ticket <strong>#{{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_code }}</strong> như sau:</p>\n<blockquote style=\"background:#f8fafc; padding:12px; border-left:4px solid #1976d2; margin: 12px 0;\">\n{{ $('Code - Chuẩn bị nội dung gửi').first().json.final_answer_html }}\n</blockquote>\n<p><small style=\"color: #64748b;\">Tài liệu tham khảo: {{ $('Code - Chuẩn bị nội dung gửi').first().json.sources_html }}</small></p>\n<p>Quý khách có thể phản hồi trực tiếp trên Cổng Hỗ trợ Khách hàng.</p>\n<p>Trân trọng cảm ơn Quý khách!</p>",
         "options": {}
@@ -855,78 +687,6 @@
       },
       "continueOnFail": true,
       "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "chatId": "9274620117",
-        "text": "=💬 <b>VKU STORE - PHẢN HỒI YÊU CẦU #{{ $json.ticket_code }}</b>\n\n{{ $json.final_answer_tg }}\n\n📚 Nguồn tham khảo: {{ $json.sources_html }}\nTrân trọng cảm ơn Quý khách!",
-        "additionalFields": {
-          "appendAttribution": false,
-          "parse_mode": "HTML"
-        }
-      },
-      "id": "9a6edcb5-d3ac-4b95-8292-e2e0efdcb341",
-      "name": "Telegram - Gửi câu trả lời cho khách",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        -2672,
-        1776
-      ],
-      "webhookId": "49ffab4e-0fb6-46f2-9bcb-1ba7beb2fd59",
-      "credentials": {
-        "telegramApi": {
-          "id": "0LI2dFdVJM6rrl0k",
-          "name": "Telegram account"
-        }
-      },
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "bc5bf8d1-9d4a-4066-b34d-73fa8009465a",
-              "name": "reason_code",
-              "value": "CHANNEL_NOT_SUPPORTED",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "d298de27-f348-462d-a7de-981754455a72",
-      "name": "Edit Fields - Lý do: kênh chưa hỗ trợ",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -3440,
-        1792
-      ]
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "8b846d10-b902-43a7-bce8-41eef5edf5df",
-              "name": "reason_code",
-              "value": "SEND_FAILED",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "0d856cfa-3b91-403b-a199-2714977a74b9",
-      "name": "Edit Fields - Lý do: gửi thất bại",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -2416,
-        1808
-      ]
     },
     {
       "parameters": {
@@ -974,80 +734,8 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "c272d82d-3540-4f90-b892-182770402ef1",
-              "leftValue": "={{ $('Code - Chuẩn bị nội dung gửi').first().json.channel }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "rightValue": "TELEGRAM"
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "2df8c49e-4547-4970-a459-ab60cae4c50a",
-      "name": "IF - Kênh Telegram để gửi CSAT?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -1792,
-        1472
-      ]
-    },
-    {
-      "parameters": {
-        "amount": 1,
-        "unit": "hours"
-      },
-      "id": "d0da739d-a470-4d95-9b70-593162812e8d",
-      "name": "Wait - Chờ 1 giờ (Khảo sát CSAT)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        -1536,
-        1456
-      ],
-      "webhookId": "f44b562c-9a82-492f-beb0-3b461625600a"
-    },
-    {
-      "parameters": {
-        "chatId": "9274620117",
-        "text": "=⭐ KHẢO SÁT CHẤT LƯỢNG HỖ TRỢ - TICKET #{{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_code }}\n\nKính gửi Quý khách,\nVKU Store rất mong nhận được đánh giá của Quý khách về câu trả lời hỗ trợ vừa qua.\nQuý khách vui lòng phản hồi bằng một số từ 1 đến 5:\n\n5 - Rất hài lòng\n4 - Hài lòng\n3 - Bình thường\n2 - Chưa hài lòng\n1 - Rất thất vọng\n\nÝ kiến của Quý khách giúp chúng tôi hoàn thiện chất lượng phục vụ. Trân trọng cảm ơn!",
-        "additionalFields": {
-          "appendAttribution": false
-        }
-      },
-      "id": "18c5cfc3-b588-483f-a8c0-f190274b1415",
-      "name": "Telegram - Gửi khảo sát CSAT 1-5 sao",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        -1280,
-        1456
-      ],
-      "webhookId": "f22b27a9-e43f-44c5-b126-9403a9ff03e6",
-      "credentials": {
-        "telegramApi": {
-          "id": "0LI2dFdVJM6rrl0k",
-          "name": "Telegram account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "const item = $input.first()?.json || {};\nconst ctx = $('Code - Chuẩn hóa tham số đầu vào').first().json;\nconst ai = $('Code - Chuẩn hóa kết quả AI & Confidence').isExecuted ? $('Code - Chuẩn hóa kết quả AI & Confidence').first().json : null;\nconst flt = $('Code - Lọc chunk theo ngưỡng tương đồng').isExecuted ? $('Code - Lọc chunk theo ngưỡng tương đồng').first().json : null;\n\nlet reason = item.reason_code;\nif (!reason) {\n  if (item.data && item.data.approved !== true) reason = 'HUMAN_NOT_APPROVED';\n  else if (item.has_chunks === false) reason = 'NO_CHUNKS';\n  else reason = 'LOW_CONFIDENCE';\n}\nconst TEXT = {\n  NO_CHUNKS: 'Không tìm thấy tài liệu phù hợp trong kho tri thức',\n  LOW_CONFIDENCE: 'AI không đủ tự tin (confidence thấp)',\n  HUMAN_NOT_APPROVED: 'Nhân viên từ chối hoặc không duyệt kịp thời hạn',\n  CHANNEL_NOT_SUPPORTED: 'Kênh gốc chưa hỗ trợ gửi tự động hoặc thiếu thông tin liên hệ',\n  SEND_FAILED: 'Gửi câu trả lời cho khách thất bại'\n};\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst lines = [\n  '⚠️ <b>CẦN NHÂN VIÊN XỬ LÝ - TICKET #' + esc(ctx.ticket_code) + '</b>',\n  '📌 Lý do: ' + esc(TEXT[reason] || reason),\n  '❓ Câu hỏi: ' + esc(ctx.message),\n  '📡 Kênh: ' + esc(ctx.channel)\n];\nif (ai) lines.push('🎯 Độ tin cậy AI: ' + (ai.confidence * 100).toFixed(1) + '%');\nif (flt && flt.retrieval_error) lines.push('🛠 Lỗi truy xuất Qdrant - hãy kiểm tra kho tri thức');\nif (ai && ai.answer) lines.push('📝 AI đề xuất (tham khảo): ' + esc(ai.answer.slice(0, 500)));\nlines.push('👨‍💼 Vui lòng phản hồi thủ công cho khách.');\n\nreturn [{ json: {\n  ...ctx,\n  reason_code: reason,\n  needs_gap: reason === 'NO_CHUNKS' || reason === 'LOW_CONFIDENCE',\n  alert_html: lines.join('\\n')\n} }];"
+        "jsCode": "const item = $input.first()?.json || {};\nconst ctx = $('Code - Chuẩn hóa tham số đầu vào').first().json;\nconst ai = $('Code - Chuẩn hóa kết quả AI & Confidence').isExecuted ? $('Code - Chuẩn hóa kết quả AI & Confidence').first().json : null;\nconst flt = $('Code - Lọc chunk theo ngưỡng tương đồng').isExecuted ? $('Code - Lọc chunk theo ngưỡng tương đồng').first().json : null;\n\nlet reason = item.reason_code;\nif (!reason) {\n  if (item.data && item.data.approved !== true) reason = 'HUMAN_NOT_APPROVED';\n  else if (item.has_chunks === false) reason = 'NO_CHUNKS';\n  else reason = 'LOW_CONFIDENCE';\n}\nconst TEXT = {\n  NO_CHUNKS: 'Không tìm thấy tài liệu phù hợp trong kho tri thức',\n  LOW_CONFIDENCE: 'AI không đủ tự tin (confidence thấp)',\n  HUMAN_NOT_APPROVED: 'Nhân viên từ chối hoặc không duyệt kịp thời hạn',\n  CHANNEL_NOT_SUPPORTED: 'Kênh gốc chưa hỗ trợ gửi tự động hoặc thiếu thông tin liên hệ',\n  SEND_FAILED: 'Gửi câu trả lời cho khách thất bại'\n};\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst lines = [\n  '⚠️ <b>CẦN NHÂN VIÊN XỬ LÝ - TICKET #' + esc(ctx.ticket_code) + '</b>',\n  '📌 Lý do: ' + esc(TEXT[reason] || reason),\n  '❓ Câu hỏi: ' + esc(ctx.message),\n  '📡 Kênh: ' + esc(ctx.channel)\n];\nif (ai) lines.push('🎯 Độ tin cậy AI: ' + (ai.confidence * 100).toFixed(1) + '%');\nif (flt && flt.retrieval_error) lines.push('🛠 Lỗi truy xuất Qdrant - hãy kiểm tra kho tri thức');\nif (ai && ai.answer) lines.push('📝 AI đề xuất (tham khảo): ' + esc(ai.answer.slice(0, 500)));\nlines.push('👨‍💼 Vui lòng phản hồi thủ công cho khách.');\n\nreturn [{ json: {\n  ...ctx,\n  reason_code: reason,\n  needs_gap: reason === 'NO_CHUNKS' || reason === 'LOW_CONFIDENCE',\n  alert_html: lines.join('\\n')\n} }];",
+        "mode": "runOnceForAllItems"
       },
       "id": "5e2e09db-964f-434d-9923-c04c853a1317",
       "name": "Code - Chuẩn bị chuyển người",
@@ -1137,8 +825,8 @@
       "parameters": {
         "fromEmail": "phucnh.24it@vku.udn.vn",
         "toEmail": "hoangphuc2855@gmail.com",
-        "subject": "=[CẦN HỖ TRỢ] Ticket #{{ $json.ticket_code }} cần chuyên viên hỗ trợ",
-        "html": "<h2>[CẦN CHUYÊN VIÊN HỖ TRỢ] TICKET #{{ $json.ticket_code }}</h2>\n<p>Hệ thống AI chưa đủ thông tin hoặc cần nhân viên hỗ trợ trực tiếp cho khách hàng:</p>\n<table border=\"1\" cellpadding=\"8\" style=\"border-collapse: collapse; width: 100%; max-width: 650px;\">\n  <tr><td style=\"width: 30%; background: #f8fafc;\"><strong>Mã Ticket</strong></td><td>#{{ $json.ticket_code }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Lý do</strong></td><td>{{ $json.reason_code }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Câu hỏi của khách</strong></td><td>{{ $json.message }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Kênh</strong></td><td>{{ $json.channel || 'WEB' }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Email khách hàng</strong></td><td>{{ $json.customer_email || 'N/A' }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Độ tin cậy AI</strong></td><td>{{ $json.confidence ? ($json.confidence * 100).toFixed(1) + '%' : 'N/A' }}</td></tr>\n</table>\n<p style=\"margin-top: 15px;\">Vui lòng đăng nhập Cổng Quản lý Chăm sóc Khách hàng để phản hồi cho khách.</p>",
+        "subject": "=[CẦN HỖ TRỢ] Ticket #{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_code }} cần chuyên viên hỗ trợ",
+        "html": "<h2>[CẦN CHUYÊN VIÊN HỖ TRỢ] TICKET #{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_code }}</h2>\n<p>Hệ thống AI chưa đủ thông tin hoặc cần nhân viên hỗ trợ trực tiếp cho khách hàng:</p>\n<table border=\"1\" cellpadding=\"8\" style=\"border-collapse: collapse; width: 100%; max-width: 650px;\">\n  <tr><td style=\"width: 30%; background: #f8fafc;\"><strong>Mã Ticket</strong></td><td>#{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_code }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Lý do</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.reason_code }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Câu hỏi của khách</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.message }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Kênh</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.channel || 'WEB' }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Email khách hàng</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.customer_email || 'N/A' }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Độ tin cậy AI</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.confidence ? ($('Code - Chuẩn bị chuyển người').first().json.confidence * 100).toFixed(1) + '%' : 'N/A' }}</td></tr>\n</table>\n<p style=\"margin-top: 15px;\">Vui lòng đăng nhập Cổng Quản lý Chăm sóc Khách hàng để phản hồi cho khách.</p>",
         "options": {}
       },
       "id": "da7b1cca-27c5-4014-b5d6-2eaa504b24ec",
@@ -1162,7 +850,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at)\nVALUES (\n  {{ $json.ticket_id }},\n  'AI',\n  'WEB',\n  'Yêu cầu của Quý khách đã được tiếp nhận và chuyển đến chuyên viên hỗ trợ. Đội ngũ CSKH sẽ phản hồi trong thời gian sớm nhất.',\n  'Yêu cầu của Quý khách đã được tiếp nhận và chuyển đến chuyên viên hỗ trợ. Đội ngũ CSKH sẽ phản hồi trong thời gian sớm nhất.',\n  'vi',\n  0,\n  NOW(6),\n  NOW(6)\n);",
+        "query": "INSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, approved_by_human, created_at, updated_at)\nVALUES (\n  {{ $('Code - Chuẩn bị chuyển người').first()?.json?.ticket_id || $('MySQL - Lấy ticket & khách').first()?.json?.id || 1 }},\n  'AI',\n  'WEB',\n  'Yêu cầu của Quý khách đã được tiếp nhận và chuyển đến chuyên viên hỗ trợ. Đội ngũ CSKH sẽ phản hồi trong thời gian sớm nhất.',\n  'Yêu cầu của Quý khách đã được tiếp nhận và chuyển đến chuyên viên hỗ trợ. Đội ngũ CSKH sẽ phản hồi trong thời gian sớm nhất.',\n  'vi',\n  0,\n  NOW(6),\n  NOW(6)\n);",
         "options": {}
       },
       "id": "6b3dfcd5-4d54-4e63-b014-0486cc5522e1",
@@ -1564,6 +1252,11 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "Gmail / Email - Gửi câu trả lời": {
+      "main": [
+        []
       ]
     }
   },

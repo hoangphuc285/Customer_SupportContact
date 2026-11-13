@@ -74,6 +74,17 @@ export default function FloatingContactDock() {
 
         const fullMessage = attachmentUrl ? `${textToSend}\n[Đính kèm ảnh: ${attachmentUrl}]` : textToSend;
 
+        // Lấy thông tin tài khoản đăng nhập hiện tại nếu có
+        let activeUser: any = null;
+        try {
+            const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            if (saved) activeUser = JSON.parse(saved);
+        } catch (e) {}
+
+        const currentCustomerId = activeUser?.customerId || activeUser?.id || 1;
+        const currentEmail = activeUser?.email || 'customer@example.com';
+        const currentName = activeUser?.fullName || activeUser?.name || 'Khách hàng Web';
+
         const optimisticUserMsg = {
             id: Date.now(),
             senderType: 'CUSTOMER',
@@ -92,10 +103,10 @@ export default function FloatingContactDock() {
                     channel: 'WEB',
                     sender: {
                         id: conversationId || '7919420845',
-                        name: 'Khách hàng Web'
+                        name: currentName
                     },
-                    email: 'nguyenphucphi213@gmail.com',
-                    phone: '0901234567',
+                    email: currentEmail,
+                    phone: activeUser?.phone || '0901234567',
                     message: {
                         text: fullMessage
                     }
@@ -112,7 +123,7 @@ export default function FloatingContactDock() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationId,
-                    customerId: 2,
+                    customerId: currentCustomerId,
                     message: fullMessage,
                     language,
                 }),
@@ -150,13 +161,20 @@ export default function FloatingContactDock() {
     // Chuyển gặp nhân viên (L06 Escalation)
     const handleEscalateToHuman = async () => {
         setEscalateLoading(true);
+        let activeUser: any = null;
+        try {
+            const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
+            if (saved) activeUser = JSON.parse(saved);
+        } catch (e) {}
+        const currentCustomerId = activeUser?.customerId || activeUser?.id || 1;
+
         try {
             await fetch('http://localhost:8080/api/chat/escalate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationId,
-                    customerId: 2,
+                    customerId: currentCustomerId,
                     reason: 'Khách hàng bấm nút Gặp nhân viên từ Chat Widget',
                 }),
             });

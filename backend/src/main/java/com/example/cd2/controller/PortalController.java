@@ -108,9 +108,15 @@ public class PortalController {
     @GetMapping("/portal/tickets")
     public List<TicketDto> myTickets(@AuthenticationPrincipal AccountPrincipal p,
                                      @RequestParam(required = false) Long customerId,
-                                     @RequestParam(required = false) String email) {
+                                     @RequestParam(required = false) String email,
+                                     @RequestParam(required = false) String code,
+                                     @RequestParam(required = false) String q) {
         Long cId = (p != null && p.getCustomerId() != null) ? p.getCustomerId() : customerId;
         String userEmail = (p != null && p.getUsername() != null) ? p.getUsername() : email;
+        String searchTerm = (code != null && !code.isBlank()) ? code : q;
+        if (searchTerm != null && !searchTerm.isBlank()) {
+            return portal.searchTickets(cId, userEmail, searchTerm);
+        }
         return portal.myTickets(cId, userEmail);
     }
 

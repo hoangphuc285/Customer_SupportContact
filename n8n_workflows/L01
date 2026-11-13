@@ -566,16 +566,6 @@
                 "operation": "false",
                 "singleValue": true
               }
-            },
-            {
-              "id": "check-is-new-ticket",
-              "leftValue": "={{ $json.newTicket }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
             }
           ],
           "combinator": "and"
@@ -738,13 +728,14 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets \nSET status = IF(status = 'PENDING_CUSTOMER', 'OPEN', status), \n    updated_at = NOW() \nWHERE id = {{ $json.ticketId }};\n\nINSERT INTO audit_logs (\n  created_at, updated_at, action, actor,\n  entity_type, entity_id, workflow, detail\n)\nVALUES (\n  NOW(), NOW(),\n  'MESSAGE_APPENDED', 'SYSTEM',\n  'TICKET',\n  {{ $json.ticketId }},\n  'L01_Intake',\n  '{{ JSON.stringify({ ticket_code: $json.ticketCode, channel: $(\"Set Header\").first().json.channel, sender_id: $(\"Set Header\").first().json.sender_id }) }}'\n);"
+        "query": "UPDATE tickets \nSET status = IF(status = 'PENDING_CUSTOMER', 'OPEN', status), \n    updated_at = NOW() \nWHERE id = {{ $json.ticketId }};\n\nINSERT INTO audit_logs (\n  created_at, updated_at, action, actor,\n  entity_type, entity_id, workflow, detail\n)\nVALUES (\n  NOW(), NOW(),\n  'MESSAGE_APPENDED', 'SYSTEM',\n  'TICKET',\n  {{ $json.ticketId }},\n  'L01_Intake',\n  '{{ JSON.stringify({ ticket_code: $json.ticketCode, channel: $(\"Set Header\").first().json.channel, sender_id: $(\"Set Header\").first().json.sender_id }) }}'\n);",
+        "options": {}
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
         2464,
-        260
+        272
       ],
       "id": "e1f2a3b4-5678-4c90-9abc-def123456789",
       "name": "Cập nhật Ticket & Ghi nhận bổ sung",
@@ -802,8 +793,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        2650,
-        260
+        2656,
+        272
       ],
       "id": "f2a3b4c5-6789-4d01-abcd-ef1234567890",
       "name": "Call L06_Escalation (Kiểm tra rủi ro)"
@@ -1048,35 +1039,7 @@
       ]
     }
   },
-  "pinData": {
-    "Webhook": [
-      {
-        "headers": {
-          "host": "localhost:5678",
-          "user-agent": "curl/8.18.0",
-          "accept": "*/*",
-          "content-type": "application/json",
-          "content-length": "265"
-        },
-        "params": {},
-        "query": {},
-        "body": {
-          "channel": "TELEGRAM",
-          "sender": {
-            "id": "7919420845",
-            "name": "Nguyen Van Test"
-          },
-          "email": "nguyenphucphi213@gmail.com",
-          "phone": "0901234567",
-          "message": {
-            "text": "Cho mình hỏi chính sách đổi trả của shop như thế nào, được đổi trong bao nhiêu ngày?"
-          }
-        },
-        "webhookUrl": "http://localhost:5678/webhook/intake-omnichannel",
-        "executionMode": "production"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"

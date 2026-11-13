@@ -107,7 +107,8 @@ public class ChatController {
     }
 
     @GetMapping("/history/{convId}")
-    public List<Map<String, Object>> getHistory(@PathVariable String convId) {
+    public List<Map<String, Object>> getHistory(@PathVariable String convId,
+                                                @RequestParam(required = false) Long afterId) {
         if (convId == null || convId.isBlank()) return List.of();
 
         // 1. Tìm theo ticketCode (dành cho User Chat: CHAT-..., TK-...)
@@ -127,7 +128,11 @@ public class ChatController {
 
         if (ticketOpt.isEmpty()) return List.of();
 
-        List<Message> msgs = messageRepo.findByTicketIdOrderByCreatedAtAsc(ticketOpt.get().getId());
+        List<Message> msgs = messageRepo.findByTicketIdOrderByIdAsc(ticketOpt.get().getId());
+        if (afterId != null && afterId > 0) {
+            msgs = msgs.stream().filter(m -> m.getId() != null && m.getId() > afterId).toList();
+        }
+
         return msgs.stream().map(m -> {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", m.getId());
@@ -165,59 +170,39 @@ public class ChatController {
             return ticketRepo.save(t);
         });
 
-        // 1. Luu tin nhan cua khach hang vao DB
+        // 1. Lưu tin nhắn của khách hàng vào CSDL
         Message custMsg = new Message();
         custMsg.setTicket(ticket);
         custMsg.setSenderType(SenderType.CUSTOMER);
         custMsg.setContentOriginal(userText);
         custMsg.setContentTranslated(userText);
         custMsg.setChannel(Channel.LIVECHAT);
-        messageRepo.save(custMsg);
+        custMsg = messageRepo.save(custMsg);
 
-        // 2. Kich hoat webhook n8n L01_Intake (chuan theo l01_test_curls.sh), L05_AutoReply & L06_Escalation
+        // 2. Kích hoạt webhook n8n L01_Intake (duy nhất luồng tiếp nhận L01, L01 sẽ gọi L02 để phân loại & gọi L05/L08/L09/L10)
         Map<String, Object> intakePayload = new HashMap<>();
         intakePayload.put("channel", "WEB");
         Map<String, Object> senderMap = new HashMap<>();
-        senderMap.put("id", customer.getId() != null ? customer.getId().toString() : "7919420845");
-        senderMap.put("name", customer.getFullName() != null ? customer.getFullName() : "Nguyen Van Test");
+        senderMap.put("id", customer.getId() != null ? customer.getId().toString() : "1");
+        senderMap.put("name", customer.getFullName() != null ? customer.getFullName() : "Khách hàng");
         intakePayload.put("sender", senderMap);
-        intakePayload.put("email", customer.getEmail() != null ? customer.getEmail() : "nguyenphucphi213@gmail.com");
-        intakePayload.put("phone", customer.getPhone() != null ? customer.getPhone() : "0901234567");
-        intakePayload.put("message", Map.of("text", userText));
+        intakePayload.put("email", customer.getEmail() != null ? customer.getEmail() : "customer@example.com");
+        intakePayload.put("phone", customer.getPhone() != null ? customer.getPhone() : "");
+        intakePayload.put("message", userText);
+        intakePayload.put("text", userText);
         intakePayload.put("ticket_id", ticket.getId());
         intakePayload.put("ticket_code", ticket.getTicketCode());
+        intakePayload.put("message_id", custMsg.getId());
         n8nService.triggerIntakeOmnichannel(intakePayload);
 
-        Map<String, Object> n8nPayload = new HashMap<>();
-        n8nPayload.put("ticket_id", ticket.getId());
-        n8nPayload.put("ticket_code", ticket.getTicketCode());
-        n8nPayload.put("customer_id", customer.getId());
-        n8nPayload.put("message_id", custMsg.getId());
-        n8nPayload.put("message", userText);
-        n8nService.triggerAutoReply(n8nPayload);
-
-        Map<String, Object> escPayload = new HashMap<>();
-        escPayload.put("ticket_id", ticket.getId());
-        escPayload.put("message_content", userText);
-        n8nService.triggerEscalation(escPayload);
-
-        // 3. Information Extractor: Trich xuat thong tin don hang va serial tu cau chat (L02, L09, L10)
-        String botReply = generateSmartReply(userText);
-
-        // 4. Luu cau tra loi cua Bot vao DB
-        Message botMsg = new Message();
-        botMsg.setTicket(ticket);
-        botMsg.setSenderType(SenderType.AI);
-        botMsg.setContentOriginal(botReply);
-        botMsg.setContentTranslated(botReply);
-        botMsg.setChannel(Channel.LIVECHAT);
-        messageRepo.save(botMsg);
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("id", botMsg.getId());
-        res.put("senderType", "AI");
-        res.put("contentOriginal", botReply);
-        res.put("createdAt", Instant.now().toString());
+        // 3. Trả về kết quả tiếp nhận hàng đợi cho Frontend (Frontend sẽ hiển thị typing indicator và poll đợi câu trả lời từ n8n)
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("status", "QUEUED");
+        res.put("conversationId", ticket.getTicketCode());
+        res.put("ticketId", ticket.getId());
+        res.put("ticketCode", ticket.getTicketCode());
+        res.put("customerMessageId", custMsg.getId());
+        res.put("message", "Đã tiếp nhận tin nhắn, hệ thống AI đang xử lý.");
         return ResponseEntity.ok(res);
     }
 
