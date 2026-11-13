@@ -12,5 +12,6 @@ import java.util.Optional;
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
     List<Message> findByTicketIdOrderByCreatedAtAsc(Long ticketId);
+    List<Message> findByTicketIdOrderByIdAsc(Long ticketId);
     Optional<Message> findByChannelAndExternalId(Channel channel, String externalId);
 }

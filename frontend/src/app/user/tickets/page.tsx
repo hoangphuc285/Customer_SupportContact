@@ -80,8 +80,8 @@ function UserTicketsContent() {
         }
     }, []);
 
-    // Tải danh sách vé từ Backend theo tài khoản đăng nhập
-    const fetchTicketsFromBackend = async (currentUser?: any) => {
+    // Tải danh sách vé từ Backend theo tài khoản đăng nhập (hoặc tìm kiếm vé theo mã)
+    const fetchTicketsFromBackend = async (currentUser?: any, queryOverride?: string) => {
         const activeUser = currentUser || user;
         if (!activeUser) {
             setTickets([]);
@@ -96,30 +96,26 @@ function UserTicketsContent() {
 
             const emailParam = activeUser.email ? `email=${encodeURIComponent(activeUser.email)}` : '';
             const custIdParam = (activeUser.customerId || activeUser.id) ? `customerId=${activeUser.customerId || activeUser.id}` : '';
-            const queryParams = [emailParam, custIdParam].filter(Boolean).join('&');
+            
+            const effectiveQuery = (queryOverride !== undefined ? queryOverride : (searchParams.get('q') || searchCode || '')).trim();
+            const qParam = effectiveQuery ? `q=${encodeURIComponent(effectiveQuery)}` : '';
+
+            const queryParams = [emailParam, custIdParam, qParam].filter(Boolean).join('&');
             const url = `http://localhost:8080/api/portal/tickets${queryParams ? `?${queryParams}` : ''}`;
 
             const res = await fetch(url, { headers });
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
-                    // Lọc chỉ hiển thị vé thuộc tài khoản của người dùng
-                    const userTickets = data.filter((t: TicketItem) => {
-                        if (activeUser.email && t.customerEmail) {
-                            return t.customerEmail.trim().toLowerCase() === activeUser.email.trim().toLowerCase();
-                        }
-                        return true;
-                    });
+                    setTickets(data);
 
-                    setTickets(userTickets);
-
-                    // Nếu có tham số ?q=... trên URL thì tìm và chọn ticket đó
-                    const query = searchParams.get('q');
-                    if (query) {
-                        const cleanQ = query.trim().toLowerCase();
-                        const found = userTickets.find(t => 
+                    // Nếu có mã vé tìm kiếm thì tự động chọn ticket đó
+                    if (effectiveQuery) {
+                        const cleanQ = effectiveQuery.toLowerCase();
+                        const found = data.find(t => 
                             t.ticketCode?.toLowerCase() === cleanQ ||
-                            t.ticketCode?.toLowerCase().includes(cleanQ)
+                            t.ticketCode?.toLowerCase().includes(cleanQ) ||
+                            t.subject?.toLowerCase().includes(cleanQ)
                         );
                         if (found) {
                             setSelectedTicket(found);
@@ -134,6 +130,14 @@ function UserTicketsContent() {
             setLoading(false);
         }
     };
+
+    // Đồng bộ searchCode khi URL searchParams thay đổi
+    useEffect(() => {
+        const qFromUrl = searchParams.get('q');
+        if (qFromUrl !== null) {
+            setSearchCode(qFromUrl);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (user) {
@@ -208,28 +212,45 @@ function UserTicketsContent() {
         setTimeout(() => setCopiedCode(null), 2000);
     };
 
-    const handleSearchSubmit = (e: React.FormEvent) => {
+    const handleSearchSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const cleanCode = searchCode.trim().toLowerCase();
-        if (!cleanCode) return;
+        const cleanCode = searchCode.trim();
+        if (!cleanCode) {
+            window.history.replaceState(null, '', '/user/tickets');
+            fetchTicketsFromBackend(user, '');
+            return;
+        }
 
-        const match = filteredTickets.find(t => 
-            t.ticketCode?.toLowerCase().includes(cleanCode) ||
-            t.subject?.toLowerCase().includes(cleanCode)
+        window.history.replaceState(null, '', `/user/tickets?q=${encodeURIComponent(cleanCode)}`);
+
+        const lowerCode = cleanCode.toLowerCase();
+        const match = tickets.find(t => 
+            t.ticketCode?.toLowerCase().includes(lowerCode) ||
+            t.subject?.toLowerCase().includes(lowerCode)
         );
         if (match) {
             handleSelectTicket(match);
+        } else {
+            // Tra cứu từ backend nếu chưa có trong bộ nhớ cục bộ
+            await fetchTicketsFromBackend(user, cleanCode);
         }
     };
 
-    // Tìm kiếm tức thì theo mã vé, tiêu đề, trạng thái, kênh, người xử lý
+    const handleClearSearch = () => {
+        setSearchCode('');
+        window.history.replaceState(null, '', '/user/tickets');
+        fetchTicketsFromBackend(user, '');
+    };
+
+    // Tìm kiếm tức thì theo mã vé, tiêu đề, trạng thái, kênh, người xử lý, email
     const filteredTickets = tickets.filter(t => {
         const q = searchCode.trim().toLowerCase();
         const matchesCode = !q || 
             (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
             (t.subject && t.subject.toLowerCase().includes(q)) ||
             (t.channel && t.channel.toLowerCase().includes(q)) ||
-            (t.assigneeName && t.assigneeName.toLowerCase().includes(q));
+            (t.assigneeName && t.assigneeName.toLowerCase().includes(q)) ||
+            (t.customerEmail && t.customerEmail.toLowerCase().includes(q));
         const matchesStatus = filterStatus === 'ALL' || t.status === filterStatus;
         return matchesCode && matchesStatus;
     });
@@ -286,7 +307,7 @@ function UserTicketsContent() {
                             {searchCode && (
                                 <button
                                     type="button"
-                                    onClick={() => setSearchCode('')}
+                                    onClick={handleClearSearch}
                                     className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
                                     title="Xóa tìm kiếm"
                                 >
@@ -558,6 +579,15 @@ function UserTicketsContent() {
                                 </p>
                             </div>
                             <div className="flex items-center justify-center gap-3 pt-2">
+                                {searchCode && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearSearch}
+                                        className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer"
+                                    >
+                                        Xem Tất Cả Vé
+                                    </button>
+                                )}
                                 <Link
                                     href="/user/new"
                                     className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-xs"

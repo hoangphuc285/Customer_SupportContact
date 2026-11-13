@@ -177,7 +177,7 @@ public class StaffSupportService {
         Ticket t = tickets.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy Ticket id=" + id));
         Map<String, Object> m = mapTicketToSummary(t);
 
-        List<Message> msgList = messages.findByTicketIdOrderByCreatedAtAsc(id);
+        List<Message> msgList = messages.findByTicketIdOrderByIdAsc(id);
         List<Map<String, Object>> msgs = msgList.stream().map(msg -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", msg.getId());
@@ -514,7 +514,7 @@ public class StaffSupportService {
         Long ticketId = parseConvId(convId);
         if (ticketId == null) return List.of();
 
-        List<Message> list = messages.findByTicketIdOrderByCreatedAtAsc(ticketId);
+        List<Message> list = messages.findByTicketIdOrderByIdAsc(ticketId);
         return list.stream().map(m -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", m.getId());

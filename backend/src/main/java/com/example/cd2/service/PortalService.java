@@ -182,6 +182,34 @@ public class PortalService {
         return myTickets(customerId, null);
     }
 
+    public List<TicketDto> searchTickets(Long customerId, String email, String searchCode) {
+        if (searchCode != null && !searchCode.isBlank()) {
+            String clean = searchCode.trim();
+            // 1. Tìm chính xác theo mã vé (Ticket Code)
+            Optional<Ticket> exact = tickets.findByTicketCode(clean);
+            if (exact.isEmpty() && !clean.startsWith("TK-") && !clean.startsWith("CHAT-")) {
+                exact = tickets.findByTicketCode("TK-" + clean);
+            }
+            if (exact.isPresent()) {
+                return List.of(toDto(exact.get()));
+            }
+
+            // 2. Tìm tương đối trong toàn bộ vé theo ticketCode hoặc subject
+            String lower = clean.toLowerCase();
+            List<TicketDto> matches = tickets.findAllByOrderByCreatedAtDesc().stream()
+                    .filter(t -> (t.getTicketCode() != null && t.getTicketCode().toLowerCase().contains(lower)) ||
+                                 (t.getSubject() != null && t.getSubject().toLowerCase().contains(lower)))
+                    .map(this::toDto)
+                    .toList();
+            if (!matches.isEmpty()) {
+                return matches;
+            }
+        }
+
+        // Mặc định trả về vé của người dùng
+        return myTickets(customerId, email);
+    }
+
     public List<TicketDto> myTickets(Long customerId, String email) {
         if (customerId == null && email != null && !email.isBlank()) {
             customerId = customers.findByEmail(email.trim().toLowerCase())
@@ -198,7 +226,7 @@ public class PortalService {
     public List<MessageDto> myTicketMessages(Long customerId, Long ticketId) {
         Ticket t = tickets.findById(ticketId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Khong tim thay ticket"));
-        return messages.findByTicketIdOrderByCreatedAtAsc(ticketId).stream()
+        return messages.findByTicketIdOrderByIdAsc(ticketId).stream()
                 .filter(m -> m.getSenderType() != SenderType.SYSTEM)
                 .map(m -> new MessageDto(m.getId(), m.getSenderType().name(), m.getContentOriginal(), m.getCreatedAt()))
                 .toList();
@@ -901,7 +929,7 @@ public class PortalService {
 
     public Map<String, Object> getStaffTicketDetail(Long id) {
         Ticket t = tickets.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy ticket #" + id));
-        List<Message> msgs = messages.findByTicketIdOrderByCreatedAtAsc(id);
+        List<Message> msgs = messages.findByTicketIdOrderByIdAsc(id);
         List<Map<String, Object>> msgList = msgs.stream().map(m -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", m.getId());

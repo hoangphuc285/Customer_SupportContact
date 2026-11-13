@@ -24,7 +24,9 @@ import {
     Volume2,
     VolumeX,
     PanelLeftClose,
-    PanelLeftOpen
+    PanelLeftOpen,
+    RefreshCw,
+    ChevronDown
 } from 'lucide-react';
 
 interface ChatSession {
@@ -50,8 +52,40 @@ export default function UserPortalChatPage() {
     const [voiceReplyEnabled, setVoiceReplyEnabled] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [loadingSessions, setLoadingSessions] = useState(false);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+    const isAutoScrollEnabled = useRef<boolean>(true);
+    const pollingActiveRef = useRef<boolean>(false);
+    const pollingTimerRef = useRef<any>(null);
+
+    const scrollToBottom = (smooth = true) => {
+        if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTo({
+                top: chatContainerRef.current.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+        }
+        setShowScrollBottom(false);
+    };
+
+    const handleScroll = () => {
+        if (!chatContainerRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        const nearBottom = distanceFromBottom < 100;
+        isAutoScrollEnabled.current = nearBottom;
+        setShowScrollBottom(!nearBottom && scrollHeight > clientHeight + 50);
+    };
+
+    // Dọn dẹp polling khi component unmount
+    useEffect(() => {
+        return () => {
+            pollingActiveRef.current = false;
+            if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
+        };
+    }, []);
 
     // Khởi tạo tài khoản
     useEffect(() => {
@@ -140,24 +174,103 @@ export default function UserPortalChatPage() {
         }
     };
 
-    // Tải lịch sử tin nhắn của một phiên chat
+    // Tải lịch sử tin nhắn của một phiên chat (luôn sắp xếp đúng thứ tự ID tăng dần)
     const fetchChatHistory = async (convId: string) => {
         if (!convId) return;
         try {
             const res = await fetch(`http://localhost:8080/api/chat/history/${encodeURIComponent(convId)}`);
             if (res.ok) {
                 const data = await res.json();
-                setMessages(data);
+                if (Array.isArray(data)) {
+                    const sorted = [...data].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+                    setMessages(sorted);
+                }
             }
         } catch (err) {
             console.error('Lỗi tải lịch sử chat:', err);
         }
     };
 
-    // Cuộn xuống tin nhắn mới nhất
+    // Định kỳ đồng bộ tin nhắn ngầm (5 giây/lần) khi không trong trạng thái chờ tin nhắn
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (!conversationId) return;
+
+        const interval = setInterval(() => {
+            if (!pollingActiveRef.current && !loading) {
+                fetch(`http://localhost:8080/api/chat/history/${encodeURIComponent(conversationId)}`)
+                    .then(res => res.ok ? res.json() : null)
+                    .then(data => {
+                        if (data && Array.isArray(data)) {
+                            const sorted = [...data].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+                            setMessages(prev => {
+                                if (sorted.length !== prev.length || (sorted.length > 0 && prev.length > 0 && sorted[sorted.length - 1].id !== prev[prev.length - 1].id)) {
+                                    return sorted;
+                                }
+                                return prev;
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [conversationId, loading]);
+
+    // Cuộn xuống tin nhắn mới nhất nếu người dùng đang ở cuối khung chat
+    useEffect(() => {
+        if (isAutoScrollEnabled.current) {
+            scrollToBottom(true);
+        }
     }, [messages, loading]);
+
+    // Hàm Polling đợi câu trả lời từ Backend sau khi n8n xử lý xong
+    const pollForReply = (convId: string, afterMsgId: number) => {
+        pollingActiveRef.current = true;
+        setLoading(true);
+
+        let attempts = 0;
+        const maxAttempts = 30; // 30 lần * 1.5s = 45s (đủ thời gian cho AI & RAG xử lý)
+
+        const checkOnce = async () => {
+            if (!pollingActiveRef.current) return;
+
+            try {
+                const url = `http://localhost:8080/api/chat/history/${encodeURIComponent(convId)}?afterId=${afterMsgId}`;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const newMsgs: any[] = await res.json();
+                    if (Array.isArray(newMsgs) && newMsgs.length > 0) {
+                        const reply = newMsgs.find(m => m.senderType === 'AI' || m.senderType === 'STAFF' || m.senderType === 'SYSTEM');
+                        if (reply) {
+                            // n8n đã hoàn tất và ghi vào DB
+                            pollingActiveRef.current = false;
+                            setLoading(false);
+                            await fetchChatHistory(convId);
+                            if (voiceReplyEnabled && reply.contentOriginal) {
+                                speakReply(reply.contentOriginal);
+                            }
+                            return;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Lỗi kiểm tra tin nhắn mới từ n8n:', err);
+            }
+
+            attempts++;
+            if (attempts < maxAttempts && pollingActiveRef.current) {
+                pollingTimerRef.current = setTimeout(checkOnce, 1500);
+            } else {
+                pollingActiveRef.current = false;
+                setLoading(false);
+                await fetchChatHistory(convId);
+            }
+        };
+
+        // Lần kiểm tra đầu tiên sau 1.5 giây
+        pollingTimerRef.current = setTimeout(checkOnce, 1500);
+    };
 
     // Gửi tin nhắn
     const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
@@ -168,17 +281,23 @@ export default function UserPortalChatPage() {
         setInput('');
         setLoading(true);
 
+        // Hủy polling cũ nếu có
+        pollingActiveRef.current = false;
+        if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
+
+        isAutoScrollEnabled.current = true;
+        const tempId = Date.now();
         const optimisticMessage = {
-            id: Date.now(),
+            id: tempId,
             senderType: 'CUSTOMER',
             contentOriginal: textToSend,
             createdAt: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, optimisticMessage]);
+        setTimeout(() => scrollToBottom(true), 50);
 
         try {
-            // Gửi lên Backend Spring Boot:
-            // Backend lưu tin nhắn vào DB, đồng thời kích hoạt Luồng 1 (L01 Intake Omnichannel) và Luồng 5 (Auto Reply)
+            // Gửi lên Backend Spring Boot: Lưu tin nhắn khách hàng & kích hoạt duy nhất n8n L01 Intake
             const res = await fetch('http://localhost:8080/api/chat/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -191,11 +310,11 @@ export default function UserPortalChatPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                setMessages((prev) => [...prev, data]);
-                if (data.senderType === 'AI' && data.contentOriginal) {
-                    speakReply(data.contentOriginal);
-                }
+                const custMsgId = data.customerMessageId || tempId;
+                // Bắt đầu quy trình Polling đợi n8n xử lý xong và ghi câu trả lời vào DB
+                pollForReply(conversationId, custMsgId);
             } else {
+                setLoading(false);
                 setMessages((prev) => [
                     ...prev,
                     {
@@ -207,6 +326,7 @@ export default function UserPortalChatPage() {
                 ]);
             }
         } catch (err) {
+            setLoading(false);
             setMessages((prev) => [
                 ...prev,
                 {
@@ -216,8 +336,6 @@ export default function UserPortalChatPage() {
                     createdAt: new Date().toISOString(),
                 },
             ]);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -322,29 +440,39 @@ export default function UserPortalChatPage() {
             </div>
 
             {/* KHUNG CHAT HAI CỘT: DANH SÁCH PHIÊN CHAT + KHUNG HỘI THOẠI HIỆN TẠI */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-12 h-[75vh] overflow-hidden">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-row h-[78vh] min-h-[550px] overflow-hidden relative">
                 
                 {/* CỘT BÊN TRÁI: LỊCH SỬ CÁC PHIÊN CHAT */}
-                <div className={`md:col-span-4 lg:col-span-3 border-r border-slate-200 flex flex-col bg-slate-50/70 ${sidebarOpen ? 'block' : 'hidden md:flex'}`}>
+                <div className={`${sidebarOpen ? 'w-72 sm:w-80 flex' : 'hidden'} border-r border-slate-200 flex-col bg-slate-50/70 h-full min-h-0 shrink-0 transition-all duration-200`}>
                     {/* Header cột lịch sử */}
-                    <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-white">
+                    <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
                         <div className="flex items-center gap-2">
                             <Clock size={16} className="text-indigo-600" />
                             <span className="text-xs font-bold text-slate-800">Lịch Sử Hội Thoại</span>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => handleStartNewChat()}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
-                            title="Tạo cuộc hội thoại mới"
-                        >
-                            <Plus size={13} />
-                            <span>Mới</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => handleStartNewChat()}
+                                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                title="Tạo cuộc hội thoại mới"
+                            >
+                                <Plus size={13} />
+                                <span>Mới</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSidebarOpen(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                                title="Ẩn danh sách"
+                            >
+                                <PanelLeftClose size={15} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Danh sách các phiên trò chuyện */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                    <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1.5">
                         {loadingSessions ? (
                             <div className="p-4 text-center text-xs text-slate-400">
                                 Đang tải danh sách...
@@ -363,6 +491,7 @@ export default function UserPortalChatPage() {
                                         onClick={() => {
                                             setConversationId(s.conversationId);
                                             fetchChatHistory(s.conversationId);
+                                            isAutoScrollEnabled.current = true;
                                         }}
                                         className={`w-full p-2.5 rounded-xl text-left transition flex items-start justify-between gap-2 cursor-pointer ${
                                             isActive
@@ -395,18 +524,20 @@ export default function UserPortalChatPage() {
                 </div>
 
                 {/* CỘT BÊN PHẢI: GIAO DIỆN CHAT HIỆN TẠI */}
-                <div className="md:col-span-8 lg:col-span-9 flex flex-col h-full bg-white">
+                <div className="flex-1 flex flex-col h-full min-w-0 min-h-0 bg-white relative">
                     {/* Thanh tiêu đề phiên chat */}
-                    <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between gap-3">
+                    <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
                         <div className="flex items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setSidebarOpen(!sidebarOpen)}
-                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-white text-slate-600 md:hidden"
-                                title="Đóng/Mở lịch sử chat"
-                            >
-                                {sidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
-                            </button>
+                            {!sidebarOpen && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSidebarOpen(true)}
+                                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-white text-slate-600 transition"
+                                    title="Mở danh sách phiên chat"
+                                >
+                                    <PanelLeftOpen size={16} />
+                                </button>
+                            )}
 
                             <div className="relative">
                                 {needHumanSupport ? (
@@ -437,6 +568,14 @@ export default function UserPortalChatPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fetchChatHistory(conversationId)}
+                                className="p-1.5 rounded-xl border border-slate-200 hover:bg-white text-slate-600 transition"
+                                title="Làm mới lịch sử chat"
+                            >
+                                <RefreshCw size={14} className={loading ? 'animate-spin text-indigo-600' : ''} />
+                            </button>
                             {!needHumanSupport && (
                                 <button
                                     type="button"
@@ -462,7 +601,21 @@ export default function UserPortalChatPage() {
                     </div>
 
                     {/* VÙNG HIỂN THỊ TIN NHẮN */}
-                    <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/40">
+                    <div
+                        ref={chatContainerRef}
+                        onScroll={handleScroll}
+                        className="flex-1 min-h-0 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/40 relative"
+                    >
+                        {showScrollBottom && (
+                            <button
+                                type="button"
+                                onClick={() => scrollToBottom(true)}
+                                className="sticky top-2 float-right px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition flex items-center gap-1 text-xs font-semibold z-20 cursor-pointer"
+                            >
+                                <ChevronDown size={14} />
+                                <span>Cuộn xuống mới nhất</span>
+                            </button>
+                        )}
                         {messages.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4 max-w-md mx-auto">
                                 <div className="w-14 h-14 rounded-3xl bg-sky-100/80 border border-sky-200 flex items-center justify-center shadow-xs">
@@ -521,9 +674,20 @@ export default function UserPortalChatPage() {
                             })
                         )}
                         {loading && (
-                            <div className="flex items-center gap-2 text-xs text-slate-400 italic">
-                                <div className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                                <span>Đang xử lý và phản hồi...</span>
+                            <div className="flex items-start gap-2.5">
+                                <div className="w-7 h-7 rounded-xl bg-sky-50 border border-sky-200 p-0.5 flex items-center justify-center shrink-0 text-xs font-bold shadow-xs">
+                                    <SupportMascot size="sm" showHalo={false} />
+                                </div>
+                                <div className="bg-white border border-slate-200 text-slate-700 rounded-2xl rounded-tl-none p-3 shadow-xs flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 py-1">
+                                        <span className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]" />
+                                        <span className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.15s]" />
+                                        <span className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce" />
+                                    </div>
+                                    <span className="text-xs text-slate-500 font-medium">
+                                        Trợ lý AI đang xử lý qua luồng n8n...
+                                    </span>
+                                </div>
                             </div>
                         )}
                         <div ref={messagesEndRef} />
