@@ -156,13 +156,13 @@ export default function UserCreateTicketPage() {
                     <div className="space-y-2">
                         <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5">
                             <Sparkles size={13} />
-                            Đã kết nối Backend & Kích hoạt Luồng tiếp nhận (L01 Intake)
+                            Đã tiếp nhận yêu cầu & Chuyển phòng ban chuyên trách
                         </span>
                         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                             Gửi Yêu Cầu Hỗ Trợ Thành Công!
                         </h2>
                         <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto">
-                            Yêu cầu của bạn đã được ghi nhận vào hệ thống. Hệ thống AI đang phân tích nội dung để điều phối xử lý theo đúng quy trình.
+                            Yêu cầu của bạn đã được ghi nhận vào hệ thống LotusCare. Nhân viên chuyên trách sẽ phản hồi sớm nhất theo cam kết thời gian SLA.
                         </p>
                     </div>
 
@@ -171,7 +171,7 @@ export default function UserCreateTicketPage() {
                         <div className="flex items-center justify-between">
                             <span className="text-xs text-slate-500 font-semibold">Mã phiếu Ticket:</span>
                             <div className="flex items-center gap-2">
-                                <span className="font-mono text-lg font-black text-indigo-700">{result.ticketCode}</span>
+                                <span className="font-mono text-lg font-black text-blue-700">{result.ticketCode}</span>
                                 <button
                                     type="button"
                                     onClick={() => copyCode(result.ticketCode)}
@@ -198,12 +198,12 @@ export default function UserCreateTicketPage() {
 
                     {countdown !== null && countdown > 0 && (
                         <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5">
-                            <Clock size={13} className="animate-spin text-indigo-600" />
-                            <span>Tự động chuyển tiếp sang trang tiến trình ticket sau <strong>{countdown} giây</strong>...</span>
+                            <Clock size={13} className="animate-spin text-blue-600" />
+                            <span>Tự động chuyển tiếp sang trang theo dõi sau <strong>{countdown} giây</strong>...</span>
                             <button
                                 type="button"
                                 onClick={() => setCountdown(null)}
-                                className="text-indigo-600 hover:underline font-semibold ml-2 cursor-pointer"
+                                className="text-blue-600 hover:underline font-semibold ml-2 cursor-pointer"
                             >
                                 (Dừng chuyển)
                             </button>
@@ -214,7 +214,7 @@ export default function UserCreateTicketPage() {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
                         <Link
                             href={`/user/tickets?q=${encodeURIComponent(result.ticketCode)}`}
-                            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
                         >
                             <span>Xem Tiến Trình Ticket Này Ngay</span>
                             <ArrowRight size={15} />
@@ -249,13 +249,13 @@ export default function UserCreateTicketPage() {
                     <div className="p-6 sm:p-8 bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-700 text-white space-y-2">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-white backdrop-blur-md">
                             <Sparkles size={13} />
-                            <span>Cổng Tiếp Nhận Hỗ Trợ Khách Hàng (Luồng L01 Intake)</span>
+                            <span>Trung Tâm Tiếp Nhận & Hỗ Trợ Khách Hàng LotusCare</span>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
                             Gửi Phiếu Yêu Cầu Hỗ Trợ
                         </h1>
                         <p className="text-sky-100 text-xs sm:text-sm">
-                            Điền thông tin yêu cầu của bạn (hỏi đáp chính sách, bảo hành, hoàn tiền hoặc khiếu nại). Hệ thống sẽ tự động phân tích và xử lý theo đúng quy trình.
+                            Điền thông tin yêu cầu của bạn (hỏi đáp chính sách, bảo hành, hoàn tiền hoặc khiếu nại). Đội ngũ chuyên trách sẽ tiếp nhận và phản hồi nhanh chóng.
                         </p>
                     </div>
 
