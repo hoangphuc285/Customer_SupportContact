@@ -16,7 +16,8 @@ import {
     Menu, 
     X, 
     PhoneCall, 
-    ArrowRight
+    ArrowRight,
+    Bell
 } from 'lucide-react';
 
 export default function UserPortalLayout({ children }: { children: React.ReactNode }) {
@@ -24,11 +25,32 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState<number>(0);
 
     useEffect(() => {
         const saved = localStorage.getItem('user_account') || localStorage.getItem('user_info');
         if (saved) {
-            try { setUser(JSON.parse(saved)); } catch { setUser(null); }
+            try { 
+                const u = JSON.parse(saved);
+                setUser(u);
+                
+                // Fetch unread notifications count
+                const customerId = u.customerId || u.id;
+                const email = u.email;
+                const params = new URLSearchParams();
+                if (customerId) params.set('customerId', String(customerId));
+                if (email) params.set('email', email);
+
+                fetch(`http://localhost:8080/api/portal/notifications?${params.toString()}`)
+                    .then(res => res.ok ? res.json() : [])
+                    .then(data => {
+                        if (Array.isArray(data)) {
+                            const unread = data.filter((n: any) => !n.isRead).length;
+                            setUnreadCount(unread);
+                        }
+                    })
+                    .catch(() => {});
+            } catch { setUser(null); }
         }
     }, [pathname]);
 
@@ -46,6 +68,7 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
         { href: '/user', label: 'Trang Chủ', exact: true },
         { href: '/user/faq', label: 'Trợ Giúp (FAQ)' },
         { href: '/user/tickets', label: 'Vé Hỗ Trợ' },
+        { href: '/user/notifications', label: 'Thông Báo', badge: unreadCount > 0 ? unreadCount : undefined },
         { href: '/user/new', label: 'Gửi Yêu Cầu' },
     ];
 
@@ -104,6 +127,20 @@ export default function UserPortalLayout({ children }: { children: React.ReactNo
                         >
                             <span className="whitespace-nowrap">Tư vấn ngay</span>
                             <ArrowRight size={14} className="shrink-0" />
+                        </Link>
+
+                        {/* QUẢ CHUÔNG THÔNG BÁO CHỦ ĐỘNG (L21) */}
+                        <Link
+                            href="/user/notifications"
+                            title="Thông báo của tôi (L21)"
+                            className="relative p-2.5 rounded-full text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition shrink-0 cursor-pointer"
+                        >
+                            <Bell size={19} />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-xs border-2 border-white animate-pulse">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
                         </Link>
 
                         {/* TÀI KHOẢN ĐĂNG NHẬP / ĐĂNG XUẤT */}

@@ -19,7 +19,8 @@ import {
     Award,
     Activity,
     ChevronRight,
-    Sparkles
+    Sparkles,
+    Bell
 } from 'lucide-react';
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -112,6 +113,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 { name: 'Kho Tri thức RAG (L04)', path: '/staff/knowledge', icon: BookOpen },
                 { name: 'Đánh giá QA AI (L11)', path: '/staff/qa', icon: Award },
                 { name: 'Báo cáo & Thống kê (L12)', path: '/staff/reports', icon: BarChart3 },
+                { name: 'Thông báo chủ động (L21)', path: '/staff/notifications', icon: Bell, badge: 'L21', badgeColor: 'bg-indigo-100 text-indigo-700 font-bold' },
             ]
         }
     ];

@@ -123,6 +123,7 @@ CREATE TABLE `customers` (
   `preferred_language` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `telegram_id` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `vip` bit(1) NOT NULL,
+  `notify_opt_out` tinyint(1) NOT NULL DEFAULT 0,
   `zalo_id` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_customer_email` (`email`),
@@ -293,6 +294,7 @@ CREATE TABLE `orders` (
   `created_at` datetime(6) NOT NULL,
   `updated_at` datetime(6) NOT NULL,
   `delivered_at` datetime(6) DEFAULT NULL,
+  `expected_delivery_at` datetime(6) DEFAULT NULL,
   `order_code` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,
   `ordered_at` datetime(6) NOT NULL,
   `payment_method` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -306,6 +308,39 @@ CREATE TABLE `orders` (
   KEY `idx_order_customer` (`customer_id`),
   CONSTRAINT `FKpxtb8awmi0dk6smoh2vp1litg` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `notifications`
+--
+
+DROP TABLE IF EXISTS `notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `notifications` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `customer_id` bigint NOT NULL,
+  `ticket_id` bigint DEFAULT NULL,
+  `event_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ref_id` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `channel` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'WEB',
+  `status` enum('PENDING','SCHEDULED','SENT','FAILED','SKIPPED_OPT_OUT') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING',
+  `dedupe_key` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci,
+  `metadata` json DEFAULT NULL,
+  `sent_at` datetime(6) DEFAULT NULL,
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_notifications_dedupe` (`dedupe_key`),
+  KEY `idx_notifications_customer` (`customer_id`),
+  KEY `idx_notifications_status` (`status`),
+  KEY `idx_notifications_event_type` (`event_type`),
+  CONSTRAINT `fk_notifications_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`),
+  CONSTRAINT `fk_notifications_ticket` FOREIGN KEY (`ticket_id`) REFERENCES `tickets` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

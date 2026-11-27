@@ -1,0 +1,645 @@
+{
+  "name": "Luồng 21: L21_Proactive_Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f8a60085-85f3-4755-b5a5-66dc2c4ec606",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notify-event",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        240
+      ],
+      "id": "9c42f4e5-435b-49a4-857a-9e81aabf8d73",
+      "name": "Webhook notify-event",
+      "webhookId": "notify-event"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  'ORDER_DELIVERED' AS event_type,\n  o.id AS ref_id,\n  o.customer_id,\n  NULL AS ticket_id,\n  'WEB' AS channel,\n  CONCAT('ORDER_DELIVERED:', o.id) AS dedupe_key,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  c.phone AS customer_phone,\n  COALESCE(c.notify_opt_out, 0) AS notify_opt_out,\n  c.preferred_language,\n  o.order_code,\n  o.total_amount,\n  o.delivered_at\nFROM orders o\nJOIN customers c ON o.customer_id = c.id\nWHERE o.status = 'DELIVERED'\n  AND NOT EXISTS (\n    SELECT 1 FROM notifications n WHERE n.dedupe_key = CONCAT('ORDER_DELIVERED:', o.id)\n  )\nORDER BY o.updated_at DESC\nLIMIT 20;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        260,
+        -200
+      ],
+      "id": "7cba54b5-f333-44fc-8262-9d7bf9206b39",
+      "name": "MySQL - ORDER_DELIVERED",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  'ORDER_LATE' AS event_type,\n  o.id AS ref_id,\n  o.customer_id,\n  NULL AS ticket_id,\n  'WEB' AS channel,\n  CONCAT('ORDER_LATE:', o.id) AS dedupe_key,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  c.phone AS customer_phone,\n  COALESCE(c.notify_opt_out, 0) AS notify_opt_out,\n  c.preferred_language,\n  o.order_code,\n  o.status AS order_status,\n  o.expected_delivery_at,\n  o.ordered_at\nFROM orders o\nJOIN customers c ON o.customer_id = c.id\nWHERE o.status IN ('PENDING', 'SHIPPING')\n  AND (\n    (o.expected_delivery_at IS NOT NULL AND o.expected_delivery_at < NOW())\n    OR (o.expected_delivery_at IS NULL AND o.ordered_at < DATE_SUB(NOW(), INTERVAL 3 DAY))\n  )\n  AND NOT EXISTS (\n    SELECT 1 FROM notifications n WHERE n.dedupe_key = CONCAT('ORDER_LATE:', o.id)\n  )\nORDER BY o.updated_at DESC\nLIMIT 20;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        260,
+        -70
+      ],
+      "id": "f0427716-9017-4c8b-872f-57d8fdfb5727",
+      "name": "MySQL - ORDER_LATE",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  'WARRANTY_STATUS' AS event_type,\n  wc.id AS ref_id,\n  COALESCE(w.customer_id, t.customer_id) AS customer_id,\n  wc.ticket_id,\n  'WEB' AS channel,\n  CONCAT('WARRANTY_STATUS:', wc.id, ':', wc.status) AS dedupe_key,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  c.phone AS customer_phone,\n  COALESCE(c.notify_opt_out, 0) AS notify_opt_out,\n  c.preferred_language,\n  wc.case_code,\n  wc.status AS warranty_status,\n  wc.issue_description\nFROM warranty_cases wc\nLEFT JOIN warranties w ON wc.warranty_id = w.id\nLEFT JOIN tickets t ON wc.ticket_id = t.id\nJOIN customers c ON c.id = COALESCE(w.customer_id, t.customer_id)\nWHERE wc.status IN ('RECEIVED', 'REPAIRING', 'COMPLETED')\n  AND NOT EXISTS (\n    SELECT 1 FROM notifications n WHERE n.dedupe_key = CONCAT('WARRANTY_STATUS:', wc.id, ':', wc.status)\n  )\nORDER BY wc.updated_at DESC\nLIMIT 20;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        260,
+        60
+      ],
+      "id": "51f2e932-fb18-4e8d-94b6-e574cf022032",
+      "name": "MySQL - WARRANTY_STATUS",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  'REFUND_RESULT' AS event_type,\n  r.id AS ref_id,\n  COALESCE(o.customer_id, t.customer_id) AS customer_id,\n  r.ticket_id,\n  'WEB' AS channel,\n  CONCAT('REFUND_RESULT:', r.id, ':', r.status) AS dedupe_key,\n  c.full_name AS customer_name,\n  c.email AS customer_email,\n  c.phone AS customer_phone,\n  COALESCE(c.notify_opt_out, 0) AS notify_opt_out,\n  c.preferred_language,\n  r.refund_code,\n  r.status AS refund_status,\n  r.amount,\n  r.payment_ref,\n  r.reason\nFROM refunds r\nLEFT JOIN orders o ON r.order_id = o.id\nLEFT JOIN tickets t ON r.ticket_id = t.id\nJOIN customers c ON c.id = COALESCE(o.customer_id, t.customer_id)\nWHERE r.status IN ('PAID', 'REJECTED')\n  AND NOT EXISTS (\n    SELECT 1 FROM notifications n WHERE n.dedupe_key = CONCAT('REFUND_RESULT:', r.id, ':', r.status)\n  )\nORDER BY r.updated_at DESC\nLIMIT 20;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        260,
+        190
+      ],
+      "id": "79d4803e-40ae-417a-a90e-452f0bbe4f0f",
+      "name": "MySQL - REFUND_RESULT",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "empty"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        540,
+        0
+      ],
+      "id": "41a0b318-d9d1-413d-ae5d-c39149343b2d",
+      "name": "Merge gom các nguồn sự kiện"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 8. Code chuẩn hóa sự kiện\nconst items = $input.all();\nconst normalized = [];\n\nfor (const item of items) {\n  const d = item.json;\n  if (!d || !d.event_type) continue;\n  \n  const event_type = String(d.event_type).toUpperCase();\n  const ref_id = String(d.ref_id || d.refId || '0');\n  const sub_status = d.sub_status || d.warranty_status || d.refund_status || d.order_status || '';\n  const dedupe_key = d.dedupe_key || (event_type + ':' + ref_id + (sub_status ? ':' + sub_status : ''));\n  \n  normalized.push({\n    json: {\n      event_type,\n      ref_id,\n      sub_status,\n      customer_id: d.customer_id ? Number(d.customer_id) : 1,\n      ticket_id: d.ticket_id ? Number(d.ticket_id) : null,\n      channel: d.channel || 'WEB',\n      dedupe_key,\n      customer_name: d.customer_name || 'Quý khách',\n      customer_email: d.customer_email || '',\n      customer_phone: d.customer_phone || '',\n      notify_opt_out: Number(d.notify_opt_out || 0),\n      preferred_language: d.preferred_language || 'vi',\n      order_code: d.order_code || '',\n      case_code: d.case_code || '',\n      refund_code: d.refund_code || '',\n      amount: d.amount || 0,\n      payment_ref: d.payment_ref || '',\n      reason: d.reason || '',\n      issue_description: d.issue_description || ''\n    }\n  });\n}\n\nreturn normalized;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        0
+      ],
+      "id": "ad4716b2-01fb-4437-bd68-a279b4ef7d30",
+      "name": "Code chuẩn hóa dữ liệu"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        960,
+        0
+      ],
+      "id": "dadd7f09-781d-4ce7-8dae-6f27707a280d",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT IGNORE INTO notifications (\n  customer_id, ticket_id, event_type, ref_id, channel, status, dedupe_key, title, content, is_read, created_at, updated_at\n) VALUES (\n  {{ $json.customer_id }},\n  {{ $json.ticket_id ? $json.ticket_id : 'NULL' }},\n  '{{ $json.event_type }}',\n  '{{ $json.ref_id }}',\n  '{{ $json.channel || \"WEB\" }}',\n  'PENDING',\n  '{{ $json.dedupe_key }}',\n  'Thông báo tiến độ dịch vụ',\n  'Đang cập nhật nội dung...',\n  0,\n  NOW(6),\n  NOW(6)\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1180,
+        0
+      ],
+      "id": "4638fe22-8a3f-4de9-8cf4-33fe3abbcd15",
+      "name": "MySQL - Insert notifications (IGNORE) chống trùng",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "opt_out_check",
+              "leftValue": "={{ $json.notify_opt_out }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1420,
+        0
+      ],
+      "id": "32b67d89-453f-44c7-991d-f8e42acde623",
+      "name": "IF kiểm tra khách từ chối (notify_opt_out)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "quiet_hours_check",
+              "leftValue": "={{ (function() { const h = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: 'numeric', hour12: false }).format(new Date())); return (h >= 21 || h < 8) ? 1 : 0; })() }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1660,
+        100
+      ],
+      "id": "ee172343-b959-4ffe-830c-d5ee16b7762c",
+      "name": "IF kiểm tra giờ yên lặng (21:00 – 08:00)"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ORDER_DELIVERED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ORDER_LATE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "WARRANTY_STATUS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "REFUND_RESULT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1920,
+        200
+      ],
+      "id": "8e080e99-0806-4eb0-a92e-c3a813165ddd",
+      "name": "Switch chọn mẫu tin theo 4 loại sự kiện"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 14. Code định dạng nội dung thông báo chuẩn xác\nconst item = $input.first().json;\nlet title = 'Thông báo từ hệ thống CSKH';\nlet content = 'Hệ thống có cập nhật mới về dịch vụ của quý khách.';\n\nswitch (item.event_type) {\n  case 'ORDER_DELIVERED':\n    title = `Đơn hàng #${item.order_code || item.ref_id} đã giao thành công!`;\n    content = `Kính gửi ${item.customer_name}, đơn hàng #${item.order_code || item.ref_id} đã được giao thành công. Vui lòng kiểm tra kiện hàng. Cảm ơn quý khách đã mua sắm!`;\n    break;\n  case 'ORDER_LATE':\n    title = `Cập nhật tiến độ: Đơn hàng #${item.order_code || item.ref_id} đang được giao gấp`;\n    content = `Kính gửi ${item.customer_name}, đơn hàng #${item.order_code || item.ref_id} của quý khách đang được đôn đốc đơn vị vận chuyển giao gấp trong thời gian sớm nhất. Xin lỗi quý khách vì sự chậm trễ này!`;\n    break;\n  case 'WARRANTY_STATUS':\n    if (item.sub_status === 'COMPLETED') {\n      title = `Bảo hành hoàn tất cho phiếu #${item.case_code || item.ref_id}`;\n      content = `Kính gửi ${item.customer_name}, sản phẩm bảo hành theo phiếu #${item.case_code || item.ref_id} đã được xử lý hoàn tất và đang trên đường gửi trả quý khách.`;\n    } else if (item.sub_status === 'REPAIRING') {\n      title = `Đang sửa chữa bảo hành #${item.case_code || item.ref_id}`;\n      content = `Kính gửi ${item.customer_name}, phiếu bảo hành #${item.case_code || item.ref_id} đang được kỹ thuật viên xử lý và thay thế linh kiện chính hãng.`;\n    } else {\n      title = `Đã tiếp nhận sản phẩm bảo hành #${item.case_code || item.ref_id}`;\n      content = `Kính gửi ${item.customer_name}, trung tâm bảo hành đã tiếp nhận sản phẩm cho phiếu #${item.case_code || item.ref_id} để tiến hành kiểm tra.`;\n    }\n    break;\n  case 'REFUND_RESULT':\n    if (item.sub_status === 'PAID') {\n      title = `Hoàn tiền thành công cho yêu cầu #${item.refund_code || item.ref_id}`;\n      content = `Kính gửi ${item.customer_name}, yêu cầu hoàn tiền #${item.refund_code || item.ref_id} đã được giải ngân thành công qua số tài khoản của quý khách.`;\n    } else {\n      title = `Kết quả xử lý yêu cầu hoàn tiền #${item.refund_code || item.ref_id}`;\n      content = `Kính gửi ${item.customer_name}, yêu cầu hoàn tiền #${item.refund_code || item.ref_id} chưa được phê duyệt do chưa đủ điều kiện theo chính sách đổi trả.`;\n    }\n    break;\n}\n\nreturn [{\n  json: {\n    ...item,\n    title,\n    content,\n    needs_translation: item.preferred_language && item.preferred_language !== 'vi',\n    status: 'SENT'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        200
+      ],
+      "id": "af07dc11-4d4e-48ab-a549-42800a63ff9a",
+      "name": "Code định dạng nội dung thông báo chuẩn xác"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/notifications/events",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event_type: $json.event_type, ref_id: $json.ref_id, customer_id: $json.customer_id, ticket_id: $json.ticket_id, title: $json.title, content: $json.content, status: \"SENT\" }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2420,
+        200
+      ],
+      "id": "3edaa7bc-3716-46ab-9bc2-bdd1369016d2",
+      "name": "HTTP Request gửi sang L15 hoặc cập nhật thông báo"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE notifications\nSET status = 'SENT',\n    title = '{{ $json.title ? $json.title.replace(/'/g, \"\\\\'\") : \"Thông báo tiến độ dịch vụ\" }}',\n    content = '{{ $json.content ? $json.content.replace(/'/g, \"\\\\'\") : \"Nội dung thông báo\" }}',\n    sent_at = NOW(6),\n    updated_at = NOW(6)\nWHERE dedupe_key = '{{ $json.dedupe_key }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        2660,
+        200
+      ],
+      "id": "539c3446-d0c7-4b79-bc0f-8aa5ef574126",
+      "name": "MySQL - Cập nhật notifications (SENT/FAILED, sent_at)",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (workflow, entity_type, entity_id, action, actor, detail, created_at)\nVALUES (\n  'L21_Proactive_Notification',\n  'proactive_notification',\n  {{ $('Loop Over Items').last()?.json?.ref_id ? $('Loop Over Items').last().json.ref_id : 0 }},\n  'PROACTIVE_NOTIFICATION_SENT',\n  'N8N_WORKFLOW',\n  JSON_OBJECT('event_type', '{{ $('Loop Over Items').last()?.json?.event_type }}', 'dedupe_key', '{{ $('Loop Over Items').last()?.json?.dedupe_key }}', 'status', 'SENT'),\n  NOW(6)\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        2900,
+        200
+      ],
+      "id": "92ca818b-b9c4-45d9-8e39-503af41cf691",
+      "name": "Aggregate + MySQL ghi audit_logs phục vụ báo cáo Luồng 12",
+      "credentials": {
+        "mySql": {
+          "id": "Qv3XGa071WrdyeEA",
+          "name": "MySQL account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "MySQL - ORDER_DELIVERED",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MySQL - ORDER_LATE",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MySQL - WARRANTY_STATUS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MySQL - REFUND_RESULT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook notify-event": {
+      "main": [
+        [
+          {
+            "node": "Code chuẩn hóa dữ liệu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - ORDER_DELIVERED": {
+      "main": [
+        [
+          {
+            "node": "Merge gom các nguồn sự kiện",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - ORDER_LATE": {
+      "main": [
+        [
+          {
+            "node": "Merge gom các nguồn sự kiện",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "MySQL - WARRANTY_STATUS": {
+      "main": [
+        [
+          {
+            "node": "Merge gom các nguồn sự kiện",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - REFUND_RESULT": {
+      "main": [
+        [
+          {
+            "node": "Merge gom các nguồn sự kiện",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge gom các nguồn sự kiện": {
+      "main": [
+        [
+          {
+            "node": "Code chuẩn hóa dữ liệu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code chuẩn hóa dữ liệu": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "MySQL - Insert notifications (IGNORE) chống trùng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Insert notifications (IGNORE) chống trùng": {
+      "main": [
+        [
+          {
+            "node": "IF kiểm tra khách từ chối (notify_opt_out)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF kiểm tra khách từ chối (notify_opt_out)": {
+      "main": [
+        [],
+        [
+          {
+            "node": "IF kiểm tra giờ yên lặng (21:00 – 08:00)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF kiểm tra giờ yên lặng (21:00 – 08:00)": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Switch chọn mẫu tin theo 4 loại sự kiện",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch chọn mẫu tin theo 4 loại sự kiện": {
+      "main": [
+        [
+          {
+            "node": "Code định dạng nội dung thông báo chuẩn xác",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code định dạng nội dung thông báo chuẩn xác",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code định dạng nội dung thông báo chuẩn xác",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code định dạng nội dung thông báo chuẩn xác",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code định dạng nội dung thông báo chuẩn xác": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request gửi sang L15 hoặc cập nhật thông báo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request gửi sang L15 hoặc cập nhật thông báo": {
+      "main": [
+        [
+          {
+            "node": "MySQL - Cập nhật notifications (SENT/FAILED, sent_at)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL - Cập nhật notifications (SENT/FAILED, sent_at)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate + MySQL ghi audit_logs phục vụ báo cáo Luồng 12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate + MySQL ghi audit_logs phục vụ báo cáo Luồng 12": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
