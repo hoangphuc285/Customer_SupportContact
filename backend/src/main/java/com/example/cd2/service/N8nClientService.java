@@ -107,6 +107,14 @@ public class N8nClientService {
         return sendSync("/webhook/department-assign", payload != null ? payload : Map.of(), "L14_Department_Routing");
     }
 
+    public void triggerProactiveNotification(Map<String, Object> payload) {
+        sendAsync("/webhook/notify-event", payload != null ? payload : Map.of(), "L21_Proactive_Notification");
+    }
+
+    public boolean triggerProactiveNotificationSync(Map<String, Object> payload) {
+        return sendSync("/webhook/notify-event", payload != null ? payload : Map.of(), "L21_Proactive_Notification");
+    }
+
     public void resumeWaitingWebhook(String webhookIdOrUrl, Map<String, Object> payload) {
         if (webhookIdOrUrl != null && webhookIdOrUrl.startsWith("http")) {
             sendFullUrlAsync(webhookIdOrUrl, payload, "Resume_Wait_Webhook_Direct");

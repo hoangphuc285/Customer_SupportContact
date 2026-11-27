@@ -51,6 +51,9 @@ public class Customer extends BaseEntity {
     @Column(nullable = false)
     private boolean vip = false;
 
+    @Column(name = "notify_opt_out", nullable = false)
+    private boolean notifyOptOut = false;
+
     @Column(columnDefinition = "text")
     private String notes;
 }
