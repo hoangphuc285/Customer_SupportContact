@@ -49,6 +49,9 @@ public class CustomerOrder extends BaseEntity {
     @Column(name = "delivered_at")
     private Instant deliveredAt;          // dung de tinh han doi tra (L09)
 
+    @Column(name = "expected_delivery_at")
+    private Instant expectedDeliveryAt;   // dung de phat hien don tre hen (L21)
+
     @Column(name = "tracking_code", length = 60)
     private String trackingCode;
 }
