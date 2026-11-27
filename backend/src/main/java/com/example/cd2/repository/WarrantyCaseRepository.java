@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface WarrantyCaseRepository extends JpaRepository<WarrantyCase, Long> {
     List<WarrantyCase> findAllByOrderByCreatedAtDesc();
 
+    List<WarrantyCase> findByStatusIn(Collection<WarrantyCaseStatus> statuses);
+
     Optional<WarrantyCase> findByCaseCode(String caseCode);
 
     List<WarrantyCase> findByWarrantyCustomerIdOrderByCreatedAtDesc(Long customerId);
