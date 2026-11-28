@@ -115,6 +115,12 @@ public class Ticket extends BaseEntity {
     @Column(name = "csat_comment", columnDefinition = "text")
     private String csatComment;           // nhận xét CSAT của khách hàng (L16)
 
+    @Column(name = "csat_reminded_at")
+    private Instant csatRemindedAt;       // thời điểm đã nhắc CSAT 1 lần (L16)
+
+    @Column(name = "close_warned_at")
+    private Instant closeWarnedAt;        // thời điểm đã cảnh báo sắp tự đóng (L16)
+
     @Column(name = "closed_at")
     private Instant closedAt;             // thời điểm đóng ticket (L16)
 
