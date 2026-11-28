@@ -1039,7 +1039,36 @@
       ]
     }
   },
-  "pinData": {},
+  "pinData": {
+    "Webhook": [
+      {
+        "headers": {
+          "content-length": "283",
+          "host": "localhost:5678",
+          "user-agent": "Java-http-client/21.0.12.1",
+          "content-type": "application/json"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "sender": {
+            "name": "Nguyen Van Test",
+            "id": "cust_2"
+          },
+          "phone": "0901234567",
+          "ticket_code": "TK-33BD42CE",
+          "channel": "WEB",
+          "message": {
+            "text": "sản phẩm lỗi thì hoàn tiền bao lâu: sản phẩm lỗi thì hoàn tiền bao lâu"
+          },
+          "ticket_id": 194,
+          "email": "nguyenphucphi213@gmail.com"
+        },
+        "webhookUrl": "http://localhost:5678/webhook/intake-omnichannel",
+        "executionMode": "production"
+      }
+    ]
+  },
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"

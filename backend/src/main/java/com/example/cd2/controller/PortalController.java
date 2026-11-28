@@ -2,6 +2,7 @@ package com.example.cd2.controller;
 
 import com.example.cd2.dto.*;
 import com.example.cd2.security.AccountPrincipal;
+import com.example.cd2.service.CsatAutoCloseService;
 import com.example.cd2.service.PortalService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +16,11 @@ import java.util.Map;
 public class PortalController {
 
     private final PortalService portal;
+    private final CsatAutoCloseService csatService;
 
-    public PortalController(PortalService portal) {
+    public PortalController(PortalService portal, CsatAutoCloseService csatService) {
         this.portal = portal;
+        this.csatService = csatService;
     }
 
     // ---- Khach hang & Cong Help Center ho tro tra cuu tu SQL ----
@@ -279,5 +282,12 @@ public class PortalController {
     @PostMapping({"/staff/reports/tasks", "/portal/improvement-tasks", "/improvement-tasks"})
     public Map<String, Object> handleImprovementTask(@RequestBody Map<String, Object> req) {
         return portal.handleImprovementTask(req);
+    }
+
+    @PostMapping("/portal/tickets/{id}/csat")
+    public Map<String, Object> submitPortalCsat(@PathVariable Long id, @RequestBody Map<String, Object> req) {
+        Map<String, Object> payload = new java.util.HashMap<>(req != null ? req : Map.of());
+        payload.putIfAbsent("source", "WEB");
+        return csatService.submitCsat(id, payload);
     }
 }

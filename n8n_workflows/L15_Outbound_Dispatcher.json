@@ -51,7 +51,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=http://localhost:8080/api/n8n/messages/pending",
+        "url": "=http://backend:8080/api/n8n/messages/pending",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "options": {
@@ -748,7 +748,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://localhost:8080/api/n8n/messages/{{ $json.message_id }}/delivery",
+        "url": "=http://backend:8080/api/n8n/messages/{{ $json.message_id }}/delivery",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -793,7 +793,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://localhost:8080/api/n8n/messages/{{ $json.message_id }}/delivery",
+        "url": "=http://backend:8080/api/n8n/messages/{{ $json.message_id }}/delivery",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,

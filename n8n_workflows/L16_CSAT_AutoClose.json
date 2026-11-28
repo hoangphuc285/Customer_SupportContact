@@ -1,0 +1,1294 @@
+{
+  "name": "L16_CSAT_AutoClose",
+  "nodes": [
+    {
+      "id": "7d19570a-1474-466d-9185-40faa283c118",
+      "name": "Schedule Trigger – Mỗi 15 phút",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b5044f38-9e2f-4259-a2e8-6faf5a5e48c9",
+      "name": "Edit Fields – Hằng số cấu hình L16",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf856c4f-1f33-40d1-83b4-3552a020e2c3",
+              "name": "CSAT_DELAY_HOURS",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "ff628cdc-e192-4a0c-969a-b061c6e36360",
+              "name": "CSAT_REMINDER_HOURS",
+              "value": 24,
+              "type": "number"
+            },
+            {
+              "id": "ea9fbb49-4cfe-4cf8-ad96-100a36fc18ae",
+              "name": "AUTO_CLOSE_WARN_HOURS",
+              "value": 48,
+              "type": "number"
+            },
+            {
+              "id": "2de5b79e-0697-4709-b946-30f9800a41a4",
+              "name": "AUTO_CLOSE_FINAL_HOURS",
+              "value": 72,
+              "type": "number"
+            },
+            {
+              "id": "05bdfc59-8edd-4d2e-ac52-e5831b1a61a8",
+              "name": "WORK_START_HOUR",
+              "value": 8,
+              "type": "number"
+            },
+            {
+              "id": "0c1d05d6-668a-4394-b7d5-e7bae31dd0c0",
+              "name": "WORK_END_HOUR",
+              "value": 21,
+              "type": "number"
+            },
+            {
+              "id": "a817d0b4-e8e3-4309-a278-edae4431933d",
+              "name": "BACKEND_URL",
+              "value": "http://backend:8080",
+              "type": "string"
+            },
+            {
+              "id": "6935e6d7-677b-4087-9ce3-d60a5e993a6a",
+              "name": "PORTAL_BASE_URL",
+              "value": "http://localhost:3000",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "31ff4b0c-cfba-4cab-8824-20e0d1851ed9",
+      "name": "HTTP Request – GET csat-due",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        40
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.BACKEND_URL }}/api/n8n/tickets/csat-due",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "7e69ed60-6c9e-4b91-8917-662424c8e84d",
+      "name": "IF – Trong giờ làm việc (08:00-21:00)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e681b457-5e4b-4a15-8c5c-5de831f17a0e",
+              "leftValue": "={{ Boolean($json.ticketId) && (new Date().getHours() >= $(\"Edit Fields – Hằng số cấu hình L16\").first().json.WORK_START_HOUR && new Date().getHours() < $(\"Edit Fields – Hằng số cấu hình L16\").first().json.WORK_END_HOUR) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "03534b63-6cd7-4463-8b45-acf413e9ff41",
+      "name": "Code – Soạn tin CSAT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        20
+      ],
+      "parameters": {
+        "jsCode": "const cfg = $('Edit Fields – Hằng số cấu hình L16').first().json;\nreturn $input.all().map(item => {\n  const t = item.json;\n  const ticketId = t.ticketId;\n  const ticketCode = t.ticketCode || ('#' + ticketId);\n  const channel = (t.channel || 'WEB').toUpperCase();\n  const token = t.csatToken || '';\n  const baseUrl = `${cfg.PORTAL_BASE_URL}/csat?ticketId=${ticketId}&token=${token}`;\n\n  const replyMarkup = {\n    inline_keyboard: [[\n      { text: '⭐ 1', callback_data: `csat:${ticketId}:1` },\n      { text: '⭐⭐ 2', callback_data: `csat:${ticketId}:2` },\n      { text: '⭐⭐⭐ 3', callback_data: `csat:${ticketId}:3` },\n      { text: '⭐⭐⭐⭐ 4', callback_data: `csat:${ticketId}:4` },\n      { text: '⭐⭐⭐⭐⭐ 5', callback_data: `csat:${ticketId}:5` }\n    ]]\n  };\n\n  let content = `Cảm ơn Quý khách đã liên hệ VKU Store về yêu cầu ${ticketCode}. Quý khách vui lòng đánh giá mức độ hài lòng từ 1 đến 5 sao:`;\n  if (channel === 'EMAIL' || channel === 'WEB' || channel === 'LIVECHAT') {\n    content += `\\nĐánh giá nhanh tại: ${baseUrl}`;\n  }\n\n  return {\n    json: {\n      ticket_id: ticketId,\n      ticket_code: ticketCode,\n      channel,\n      sender_type: 'SYSTEM',\n      content,\n      reply_markup: channel === 'TELEGRAM' ? replyMarkup : null,\n      needs_translation: (t.preferredLanguage && t.preferredLanguage !== 'vi')\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "37382be9-dfbc-40dc-858f-bc6aa59aa44f",
+      "name": "Execute Workflow – Gọi L15 (Gửi CSAT)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        20
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L15_Outbound_Dispatcher",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticket_id }}",
+            "ticket_code": "={{ $json.ticket_code }}",
+            "channel": "={{ $json.channel }}",
+            "sender_type": "={{ $json.sender_type }}",
+            "content": "={{ $json.content }}",
+            "reply_markup": "={{ $json.reply_markup }}",
+            "needs_translation": "={{ $json.needs_translation }}"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3d34b046-a158-4521-acea-45ee09b834a9",
+      "name": "HTTP Request – Đánh dấu csat_requested_at",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        20
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Edit Fields – Hằng số cấu hình L16\").first().json.BACKEND_URL }}/api/n8n/tickets/{{ $(\"Code – Soạn tin CSAT\").item.json.ticket_id }}/csat-requested",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "980676f8-a374-4820-801f-56deb7371a21",
+      "name": "MySQL – Ghi audit_logs (CSAT_REQUESTED)",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1680,
+        20
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (actor, action, entity_type, entity_id, detail, created_at, updated_at) VALUES ('L16', 'CSAT_REQUESTED', 'TICKET', $1, $2, NOW(6), NOW(6));",
+        "options": {
+          "queryReplacement": "={{ [$json.ticketId || $(\"Code – Soạn tin CSAT\").item.json.ticket_id, JSON.stringify({ message: \"Đã gửi khảo sát CSAT\" })] }}"
+        }
+      }
+    },
+    {
+      "id": "1b370432-5ed7-4180-b3b8-943571d42a48",
+      "name": "HTTP Request – GET csat-reminder-due",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.BACKEND_URL }}/api/n8n/tickets/csat-reminder-due",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "8a3a3e41-0779-4f4c-870d-96c46bef940d",
+      "name": "IF – Trong giờ làm việc (Nhắc CSAT)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9c4a5bcf-32ce-42e0-bd3e-a522fb6742d6",
+              "leftValue": "={{ Boolean($json.ticketId) && (new Date().getHours() >= $(\"Edit Fields – Hằng số cấu hình L16\").first().json.WORK_START_HOUR && new Date().getHours() < $(\"Edit Fields – Hằng số cấu hình L16\").first().json.WORK_END_HOUR) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1ab829f-71e7-4585-baf4-2c8a1a15b97f",
+      "name": "Code – Soạn tin nhắc CSAT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        280
+      ],
+      "parameters": {
+        "jsCode": "const cfg = $('Edit Fields – Hằng số cấu hình L16').first().json;\nreturn $input.all().map(item => {\n  const t = item.json;\n  const ticketId = t.ticketId;\n  const ticketCode = t.ticketCode || ('#' + ticketId);\n  const channel = (t.channel || 'WEB').toUpperCase();\n  const replyMarkup = channel === 'TELEGRAM' ? {\n    inline_keyboard: [[\n      { text: '⭐ 1', callback_data: `csat:${ticketId}:1` },\n      { text: '⭐⭐ 2', callback_data: `csat:${ticketId}:2` },\n      { text: '⭐⭐⭐ 3', callback_data: `csat:${ticketId}:3` },\n      { text: '⭐⭐⭐⭐ 4', callback_data: `csat:${ticketId}:4` },\n      { text: '⭐⭐⭐⭐⭐ 5', callback_data: `csat:${ticketId}:5` }\n    ]]\n  } : null;\n  const content = `Nhắc nhẹ: VKU Store rất mong nhận được đánh giá của Quý khách cho yêu cầu ${ticketCode} để cải thiện chất lượng phục vụ.`;\n  return {\n    json: {\n      ticket_id: ticketId,\n      ticket_code: ticketCode,\n      channel,\n      sender_type: 'SYSTEM',\n      content,\n      reply_markup: replyMarkup\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "385f232d-ecc2-4fa1-8c7d-a09548653f8a",
+      "name": "Execute Workflow – Gọi L15 (Nhắc CSAT)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        280
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L15_Outbound_Dispatcher",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticket_id }}",
+            "ticket_code": "={{ $json.ticket_code }}",
+            "channel": "={{ $json.channel }}",
+            "sender_type": "={{ $json.sender_type }}",
+            "content": "={{ $json.content }}",
+            "reply_markup": "={{ $json.reply_markup }}"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "71df7820-a409-4be2-9c38-1d6c4ddef894",
+      "name": "HTTP Request – Đánh dấu csat_reminded_at",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        280
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Edit Fields – Hằng số cấu hình L16\").first().json.BACKEND_URL }}/api/n8n/tickets/{{ $(\"Code – Soạn tin nhắc CSAT\").item.json.ticket_id }}/csat-reminded",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "beaf55d4-02d0-42a2-8db8-079d515aebd9",
+      "name": "HTTP Request – GET auto-close-due",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        560
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.BACKEND_URL }}/api/n8n/tickets/auto-close-due",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "ca2ff6f2-28df-459a-ba88-1d4fa610c10d",
+      "name": "Loop Over Items – Từng ticket quá hạn",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        720,
+        560
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "12ee4a86-7cb0-4184-a68d-83ca7b1a92d9",
+      "name": "IF – Đã cảnh báo sắp đóng?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        560
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "44d63164-a458-4c4d-a398-e2bed2325b8a",
+              "leftValue": "={{ $json.shouldClose === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8a6b5bef-8f92-4cad-b98b-281110ced0cb",
+      "name": "HTTP Request – POST close ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Edit Fields – Hằng số cấu hình L16\").first().json.BACKEND_URL }}/api/n8n/tickets/{{ $json.ticketId }}/close",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ reason: \"AUTO_NO_RESPONSE\" }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "523e9279-6a18-4e0a-8a16-d9f1f042cf03",
+      "name": "Execute Workflow – Gọi L15 (Thông báo đã đóng)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        480
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L15_Outbound_Dispatcher",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Loop Over Items – Từng ticket quá hạn\").item.json.ticketId }}",
+            "ticket_code": "={{ $(\"Loop Over Items – Từng ticket quá hạn\").item.json.ticketCode }}",
+            "channel": "={{ $(\"Loop Over Items – Từng ticket quá hạn\").item.json.channel }}",
+            "sender_type": "SYSTEM",
+            "content": "=Yêu cầu {{ $(\"Loop Over Items – Từng ticket quá hạn\").item.json.ticketCode }} đã được tự động đóng do không có phản hồi mới. Nếu cần hỗ trợ thêm, Quý khách hãy nhắn lại bất cứ lúc nào!"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a8658f86-763d-414b-87da-32e656c755af",
+      "name": "MySQL – Ghi audit_logs (AUTO_CLOSED)",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1680,
+        480
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_logs (actor, action, entity_type, entity_id, detail, created_at, updated_at) VALUES ('L16', 'AUTO_CLOSED', 'TICKET', $1, $2, NOW(6), NOW(6));",
+        "options": {
+          "queryReplacement": "={{ [$(\"Loop Over Items – Từng ticket quá hạn\").item.json.ticketId, JSON.stringify({ reason: \"AUTO_NO_RESPONSE\" })] }}"
+        }
+      }
+    },
+    {
+      "id": "23373628-6c53-4474-b10b-be4a6d0346d0",
+      "name": "Execute Workflow – Gọi L15 (Cảnh báo sắp đóng)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        680
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L15_Outbound_Dispatcher",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticketId }}",
+            "ticket_code": "={{ $json.ticketCode }}",
+            "channel": "={{ $json.channel }}",
+            "sender_type": "SYSTEM",
+            "content": "=Yêu cầu {{ $json.ticketCode }} của Quý khách sẽ được đóng sau 24 giờ nếu không có phản hồi."
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "75fb3b51-06ac-4707-a32c-af14a0d214df",
+      "name": "HTTP Request – Đánh dấu close_warned_at",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        680
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Edit Fields – Hằng số cấu hình L16\").first().json.BACKEND_URL }}/api/n8n/tickets/{{ $(\"Loop Over Items – Từng ticket quá hạn\").item.json.ticketId }}/close-warned",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "e8364d58-a0c7-4f68-ab1e-d19b27391a55",
+      "name": "Execute Workflow Trigger – Callback L01",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        960
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "97e484e3-a5bb-4c0b-bb8e-bd16fba7ec3c",
+      "name": "Code – Kiểm tra callback Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        960
+      ],
+      "parameters": {
+        "jsCode": "const d = $input.first().json || {};\nconst cbData = String(d.callback_data || '');\nconst parts = cbData.split(':');\nif (parts.length !== 3 || parts[0] !== 'csat') {\n  throw new Error('Callback data không hợp lệ: ' + cbData);\n}\nconst ticketId = Number(parts[1]);\nconst score = Number(parts[2]);\nif (!ticketId || score < 1 || score > 5) {\n  throw new Error('ticketId hoặc score không hợp lệ');\n}\nreturn [{\n  json: {\n    ticket_id: ticketId,\n    score,\n    source: 'TELEGRAM',\n    chat_id: d.chat_id ? String(d.chat_id) : null,\n    message_id: d.message_id || null,\n    callback_query_id: d.callback_query_id || null\n  }\n}];"
+      }
+    },
+    {
+      "id": "574fdef0-9bcb-4f0e-b16f-31e3982b9729",
+      "name": "HTTP Request – POST lưu CSAT (Telegram)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8080/api/n8n/tickets/{{ $json.ticket_id }}/csat",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ score: $json.score, source: \"TELEGRAM\", chatId: $json.chat_id }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "cbd4a2d0-b71b-42b7-9d16-c43e295a0d77",
+      "name": "Telegram – Cập nhật tin nhắn & Ẩn nút",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        960
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "resource": "message",
+        "operation": "editMessageText",
+        "chatId": "={{ $(\"Code – Kiểm tra callback Telegram\").first().json.chat_id }}",
+        "messageId": "={{ $(\"Code – Kiểm tra callback Telegram\").first().json.message_id }}",
+        "text": "=Cảm ơn Quý khách đã đánh giá {{ $(\"Code – Kiểm tra callback Telegram\").first().json.score }}/5 ⭐ cho VKU Store!",
+        "additionalFields": {
+          "reply_markup": "{\"inline_keyboard\":[]}"
+        }
+      }
+    },
+    {
+      "id": "eb805c86-5524-4f05-b160-1aaf8b86269d",
+      "name": "IF – Điểm <= 2 (Telegram)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        960
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "44fa9b7b-24d4-433c-8e25-836a2f122cb9",
+              "leftValue": "={{ $(\"Code – Kiểm tra callback Telegram\").first().json.score }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "26f70402-1490-4d0f-b5c3-29c059d9e366",
+      "name": "Telegram – Hỏi lý do (Send and Wait)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        940
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $(\"Code – Kiểm tra callback Telegram\").first().json.chat_id }}",
+        "message": "Rất tiếc vì trải nghiệm chưa tốt. Quý khách vui lòng chia sẻ ngắn gọn lý do để VKU Store khắc phục ngay ạ:",
+        "responseType": "freeText",
+        "options": {}
+      }
+    },
+    {
+      "id": "fa274cd5-54bb-4621-b5d1-ca229a575a1a",
+      "name": "HTTP Request – POST lưu csat_comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        940
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8080/api/n8n/tickets/{{ $(\"Code – Kiểm tra callback Telegram\").first().json.ticket_id }}/csat-comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ comment: $json.data?.text || $json.text || $json.response || \"\" }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "908a9e96-384a-448b-8819-d78095503aab",
+      "name": "Execute Workflow – Gọi L14 (CSAT_LOW, TEAM_LEAD)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1680,
+        940
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L14_Department_Routing",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code – Kiểm tra callback Telegram\").first().json.ticket_id }}",
+            "reason": "CSAT_LOW",
+            "force_level": "TEAM_LEAD"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b1b06bd2-86b5-45a5-b7ca-ab9ba2aabffc",
+      "name": "Execute Workflow – Gọi L19 Assist (CSAT thấp)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1920,
+        940
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L19_Agent_Assist",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code – Kiểm tra callback Telegram\").first().json.ticket_id }}"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6969a5bf-bdf1-4331-99bd-35cc616e28a2",
+      "name": "Webhook – csat-submit (Web/Email)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1240
+      ],
+      "webhookId": "csat-submit",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "csat-submit",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "13773b93-8f54-463d-8657-5e7e9b785141",
+      "name": "Code – Chuẩn hóa Web/Email CSAT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1240
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst d = raw.body || raw;\nreturn [{\n  json: {\n    ticket_id: Number(d.ticketId || d.ticket_id),\n    score: Number(d.score),\n    comment: d.comment || null,\n    token: d.token || null,\n    source: (d.source || 'WEB').toUpperCase()\n  }\n}];"
+      }
+    },
+    {
+      "id": "de838ead-2435-46ff-b7d2-6bbc22aeab2b",
+      "name": "HTTP Request – POST lưu CSAT (Web/Email)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        1240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8080/api/n8n/tickets/{{ $json.ticket_id }}/csat",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ score: $json.score, comment: $json.comment, token: $json.token, source: $json.source }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "4a014e5f-15a2-40e9-b826-0a1c98c5117a",
+      "name": "IF – Điểm <= 2 (Web/Email)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        1240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9ff906d4-df56-42c9-a8fc-c00506d19965",
+              "leftValue": "={{ $json.lowScore === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "154f5061-1ae1-4c3e-8a69-516a9024f7bd",
+      "name": "Execute Workflow – Gọi L14 (Web/Email CSAT_LOW)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        1220
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L14_Department_Routing",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code – Chuẩn hóa Web/Email CSAT\").first().json.ticket_id }}",
+            "reason": "CSAT_LOW",
+            "force_level": "TEAM_LEAD"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "52ae3fa5-f341-4512-9381-77bebf655d12",
+      "name": "Execute Workflow – Gọi L19 Assist (Web/Email)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        1220
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L19_Agent_Assist",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code – Chuẩn hóa Web/Email CSAT\").first().json.ticket_id }}"
+          }
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger – Mỗi 15 phút": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields – Hằng số cấu hình L16",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields – Hằng số cấu hình L16": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – GET csat-due",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request – GET csat-reminder-due",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request – GET auto-close-due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – GET csat-due": {
+      "main": [
+        [
+          {
+            "node": "IF – Trong giờ làm việc (08:00-21:00)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Trong giờ làm việc (08:00-21:00)?": {
+      "main": [
+        [
+          {
+            "node": "Code – Soạn tin CSAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Soạn tin CSAT": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L15 (Gửi CSAT)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – Gọi L15 (Gửi CSAT)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – Đánh dấu csat_requested_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – Đánh dấu csat_requested_at": {
+      "main": [
+        [
+          {
+            "node": "MySQL – Ghi audit_logs (CSAT_REQUESTED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – GET csat-reminder-due": {
+      "main": [
+        [
+          {
+            "node": "IF – Trong giờ làm việc (Nhắc CSAT)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Trong giờ làm việc (Nhắc CSAT)?": {
+      "main": [
+        [
+          {
+            "node": "Code – Soạn tin nhắc CSAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Soạn tin nhắc CSAT": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L15 (Nhắc CSAT)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – Gọi L15 (Nhắc CSAT)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – Đánh dấu csat_reminded_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – GET auto-close-due": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items – Từng ticket quá hạn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items – Từng ticket quá hạn": {
+      "main": [
+        [],
+        [
+          {
+            "node": "IF – Đã cảnh báo sắp đóng?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Đã cảnh báo sắp đóng?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST close ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Workflow – Gọi L15 (Cảnh báo sắp đóng)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – POST close ticket": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L15 (Thông báo đã đóng)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – Gọi L15 (Thông báo đã đóng)": {
+      "main": [
+        [
+          {
+            "node": "MySQL – Ghi audit_logs (AUTO_CLOSED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL – Ghi audit_logs (AUTO_CLOSED)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items – Từng ticket quá hạn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – Gọi L15 (Cảnh báo sắp đóng)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – Đánh dấu close_warned_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – Đánh dấu close_warned_at": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items – Từng ticket quá hạn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger – Callback L01": {
+      "main": [
+        [
+          {
+            "node": "Code – Kiểm tra callback Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Kiểm tra callback Telegram": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST lưu CSAT (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – POST lưu CSAT (Telegram)": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Cập nhật tin nhắn & Ẩn nút",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram – Cập nhật tin nhắn & Ẩn nút": {
+      "main": [
+        [
+          {
+            "node": "IF – Điểm <= 2 (Telegram)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Điểm <= 2 (Telegram)?": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Hỏi lý do (Send and Wait)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram – Hỏi lý do (Send and Wait)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST lưu csat_comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – POST lưu csat_comment": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L14 (CSAT_LOW, TEAM_LEAD)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – Gọi L14 (CSAT_LOW, TEAM_LEAD)": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L19 Assist (CSAT thấp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook – csat-submit (Web/Email)": {
+      "main": [
+        [
+          {
+            "node": "Code – Chuẩn hóa Web/Email CSAT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Chuẩn hóa Web/Email CSAT": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST lưu CSAT (Web/Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – POST lưu CSAT (Web/Email)": {
+      "main": [
+        [
+          {
+            "node": "IF – Điểm <= 2 (Web/Email)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Điểm <= 2 (Web/Email)?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L14 (Web/Email CSAT_LOW)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – Gọi L14 (Web/Email CSAT_LOW)": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – Gọi L19 Assist (Web/Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "L00_Error_Handler_Health"
+  },
+  "tags": [
+    {
+      "name": "L16"
+    },
+    {
+      "name": "CSAT"
+    },
+    {
+      "name": "AutoClose"
+    }
+  ]
+}
