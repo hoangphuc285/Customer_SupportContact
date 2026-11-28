@@ -1,0 +1,890 @@
+{
+  "name": "Luồng 13: L13_Order_Status – Tra cứu trạng thái đơn hàng",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-trigger-l13os",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-1200, 160]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-status-check",
+        "options": {}
+      },
+      "id": "node-webhook-l13os",
+      "name": "Webhook – Kiểm thử",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, -16],
+      "webhookId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nhận tham số từ L02 hoặc Webhook kiểm thử\nconst item = $input.first()?.json || {};\nconst data = item.body || item;\n\nconst ticketId = data.ticket_id ?? data.ticketId ?? null;\nconst message  = data.message  ?? data.text ?? data.content ?? '';\nconst messageId = data.message_id ?? data.messageId ?? null;\nconst intent   = data.intent ?? 'ORDER_STATUS';\nconst customerId = data.customer_id ?? data.customerId ?? null;\n\n// Validation bắt buộc\nconst errors = [];\nif (!ticketId) errors.push('Thiếu ticket_id');\nif (!message && !customerId) errors.push('Thiếu message hoặc customerId');\n\nif (errors.length > 0) {\n  throw new Error('[L13_Order_Status] Lỗi đầu vào: ' + errors.join(', '));\n}\n\nreturn [{\n  json: {\n    ticket_id:   Number(ticketId),\n    message:     String(message),\n    message_id:  messageId ? Number(messageId) : null,\n    intent:      String(intent),\n    customer_id: customerId ? Number(customerId) : null\n  }\n}];"
+      },
+      "id": "node-code-params-l13os",
+      "name": "Code – Nhận tham số",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-976, 80]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.id AS ticket_id, t.ticket_code, t.customer_id, t.status AS ticket_status,\n       t.channel, t.ai_locked,\n       c.full_name AS customer_name, c.email AS customer_email,\n       c.phone AS customer_phone, c.preferred_language,\n       c.telegram_id AS customer_telegram_id\nFROM tickets t\nLEFT JOIN customers c ON t.customer_id = c.id\nWHERE t.id = :ticket_id\nLIMIT 1;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": [
+            {
+              "name": "ticket_id",
+              "value": "={{ $json.ticket_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-mysql-ticket-l13os",
+      "name": "MySQL – Lấy ticket và khách",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-752, 80],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ticket-exists",
+              "leftValue": "={{ $json.ticket_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            },
+            {
+              "id": "cond-ai-not-locked",
+              "leftValue": "={{ $json.ai_locked }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-valid-ticket-l13os",
+      "name": "IF – Ticket hợp lệ và AI không bị khóa",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-528, 80]
+    },
+    {
+      "parameters": {
+        "text": "={{ $('Code – Nhận tham số').item.json.message }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "orderCode",
+              "description": "Mã đơn hàng dạng DH-xxxx hoặc các biến thể (DH1001, dhxxxx)"
+            },
+            {
+              "name": "phone",
+              "description": "Số điện thoại đặt hàng nếu khách đề cập"
+            },
+            {
+              "name": "productName",
+              "description": "Tên sản phẩm khách đề cập"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "Bạn là hệ thống trích xuất thông tin đặt hàng. Chỉ trích xuất thông tin có trong tin nhắn, không bịa thêm. Mã đơn hàng thường có dạng DH-xxxx hoặc DH_xxxx hoặc DHxxxx. Nếu không tìm thấy, để trống."
+        }
+      },
+      "id": "node-extractor-l13os",
+      "name": "Information Extractor – Trích mã đơn",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1,
+      "position": [-304, 0]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "id": "node-gemini-extractor-l13os",
+      "name": "Google Gemini Chat Model – Extractor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [-304, 192],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-has-order-code",
+              "leftValue": "={{ $json.orderCode }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-has-order-code-l13os",
+      "name": "IF – Có mã đơn?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [80, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT o.id, o.order_code, o.status, o.ordered_at, o.delivered_at, o.tracking_code, o.total_amount\nFROM orders o\nWHERE o.customer_id = :customer_id\nORDER BY o.ordered_at DESC\nLIMIT 3;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": [
+            {
+              "name": "customer_id",
+              "value": "={{ $('MySQL – Lấy ticket và khách').item.json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-mysql-recent-orders-l13os",
+      "name": "MySQL – Tìm đơn gần nhất của khách",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [80, 192],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Kiểm tra số đơn tìm được\nconst ticketMeta = $('MySQL – Lấy ticket và khách').first().json;\nconst recentOrders = $input.all().map(i => i.json);\n\nif (recentOrders.length === 0) {\n  // Không tìm thấy đơn nào\n  return [{\n    json: {\n      action: 'ASK_ORDER_CODE',\n      reply_text: 'Xin chào! Chúng tôi chưa tìm thấy đơn hàng nào liên kết với tài khoản của bạn. Bạn vui lòng cung cấp mã đơn hàng (ví dụ: DH-1001) để chúng tôi hỗ trợ nhé?',\n      ticket_id: ticketMeta.ticket_id,\n      channel: ticketMeta.channel,\n      customer_telegram_id: ticketMeta.customer_telegram_id\n    }\n  }];\n}\n\nif (recentOrders.length === 1) {\n  // Đúng 1 đơn, dùng luôn\n  return [{\n    json: {\n      action: 'USE_SINGLE_ORDER',\n      order_code: recentOrders[0].order_code,\n      ...ticketMeta\n    }\n  }];\n}\n\n// Nhiều đơn, hỏi khách chọn\nconst orderList = recentOrders.map(o =>\n  `• ${o.order_code} – ${o.status} (${new Date(o.ordered_at).toLocaleDateString('vi-VN')})`\n).join('\\n');\n\nreturn [{\n  json: {\n    action: 'ASK_WHICH_ORDER',\n    reply_text: `Chúng tôi tìm thấy ${recentOrders.length} đơn hàng gần đây của bạn:\\n${orderList}\\n\\nBạn muốn tra cứu đơn hàng nào? Vui lòng cho biết mã đơn.`,\n    ticket_id: ticketMeta.ticket_id,\n    channel: ticketMeta.channel,\n    customer_telegram_id: ticketMeta.customer_telegram_id\n  }\n}];"
+      },
+      "id": "node-code-check-recent-l13os",
+      "name": "Code – Kiểm tra số đơn tìm được",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [304, 192]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chuẩn bị payload xác minh chủ đơn\nconst ticketMeta = $('MySQL – Lấy ticket và khách').first().json;\nconst extracted  = $('Information Extractor – Trích mã đơn').first().json;\nconst params     = $('Code – Nhận tham số').first().json;\n\n// Normalize mã đơn: DH1001 -> DH-1001\nlet orderCode = (extracted.orderCode || '').trim().toUpperCase();\nif (/^DH\\d+$/i.test(orderCode)) {\n  orderCode = 'DH-' + orderCode.replace(/^DH/i, '');\n}\n\nreturn [{\n  json: {\n    orderCode:  orderCode,\n    customerId: ticketMeta.customer_id,\n    phone:      extracted.phone || ticketMeta.customer_phone || null,\n    email:      ticketMeta.customer_email || null,\n    ticketId:   params.ticket_id,\n    // Pass through metadata\n    ticket_id:  params.ticket_id,\n    channel:    ticketMeta.channel,\n    customer_name:        ticketMeta.customer_name,\n    customer_telegram_id: ticketMeta.customer_telegram_id,\n    customer_email:       ticketMeta.customer_email,\n    preferred_language:   ticketMeta.preferred_language || 'vi'\n  }\n}];"
+      },
+      "id": "node-code-prep-verify-l13os",
+      "name": "Code – Chuẩn bị payload xác minh",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [304, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8080/api/n8n/orders/verify",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"orderCode\":  \"{{ $json.orderCode }}\",\n  \"customerId\": {{ $json.customerId }},\n  \"phone\":      \"{{ $json.phone }}\",\n  \"email\":      \"{{ $json.email }}\",\n  \"ticketId\":   {{ $json.ticketId }}\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-http-verify-l13os",
+      "name": "HTTP Request – POST /api/n8n/orders/verify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [528, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-found-l13os",
+      "name": "IF – found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [752, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-owner-match",
+              "leftValue": "={{ $json.ownerMatch }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-owner-match-l13os",
+      "name": "IF – ownerMatch?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [976, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Trả lời trung tính khi không khớp chủ đơn\nconst ticketMeta = $('MySQL – Lấy ticket và khách').first().json;\nreturn [{\n  json: {\n    reply_text: 'Xin lỗi, chúng tôi không thể xác nhận thông tin đơn hàng này. Vui lòng cung cấp số điện thoại hoặc email đã sử dụng khi đặt hàng để chúng tôi hỗ trợ bạn.',\n    ticket_id:  ticketMeta.ticket_id,\n    channel:    ticketMeta.channel,\n    customer_telegram_id: ticketMeta.customer_telegram_id\n  }\n}];"
+      },
+      "id": "node-code-owner-mismatch-l13os",
+      "name": "Code – Trả lời khi không khớp chủ đơn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 80]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-has-tracking",
+              "leftValue": "={{ $json.trackingCode }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-tracking-l13os",
+      "name": "IF – Có trackingCode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1200, -160]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.viettelpost.vn/v2/order/tracking?trackingCode={{ $json.trackingCode }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-http-tracking-l13os",
+      "name": "HTTP Request – Tra cứu vận đơn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1424, -240],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gộp trạng thái nội bộ và vận chuyển\nconst verifyData = $('HTTP Request – POST /api/n8n/orders/verify').first().json;\nconst ticketMeta = $('MySQL – Lấy ticket và khách').first().json;\n\n// Thử lấy tracking data (có thể thất bại)\nlet trackingEvent = null;\ntry {\n  const trackResp = $('HTTP Request – Tra cứu vận đơn').first()?.json;\n  if (trackResp && trackResp.status === 'success' && trackResp.data) {\n    const events = Array.isArray(trackResp.data) ? trackResp.data : [trackResp.data];\n    trackingEvent = events[events.length - 1]; // sự kiện mới nhất\n  }\n} catch (e) {}\n\n// Tính late_days khi đơn SHIPPING\nlet lateDays = 0;\nconst STANDARD_SHIP_DAYS = 5;\nif (verifyData.status === 'SHIPPING' && verifyData.orderedAt) {\n  const orderedMs = new Date(verifyData.orderedAt).getTime();\n  const nowMs = Date.now();\n  const daysPassed = Math.floor((nowMs - orderedMs) / (1000 * 60 * 60 * 24));\n  lateDays = Math.max(0, daysPassed - STANDARD_SHIP_DAYS);\n}\n\nreturn [{\n  json: {\n    ...verifyData,\n    tracking_event: trackingEvent,\n    late_days:      lateDays,\n    ticket_id:      ticketMeta.ticket_id,\n    channel:        ticketMeta.channel,\n    customer_name:  ticketMeta.customer_name || 'Quý khách',\n    customer_telegram_id: ticketMeta.customer_telegram_id,\n    customer_email:       ticketMeta.customer_email,\n    preferred_language:   ticketMeta.preferred_language || 'vi'\n  }\n}];"
+      },
+      "id": "node-code-merge-status-l13os",
+      "name": "Code – Gộp trạng thái",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1648, -160]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là nhân viên CSKH của VKU Store. Hãy trả lời khách hàng về trạng thái đơn hàng của họ.\n\n## Thông tin khách và đơn hàng:\n- Khách hàng: {{ $json.customer_name }}\n- Mã đơn: {{ $json.orderCode }}\n- Trạng thái đơn: {{ $json.status }}\n- Ngày đặt: {{ new Date($json.orderedAt).toLocaleDateString('vi-VN') }}\n- Mã vận đơn: {{ $json.trackingCode || 'Chưa có' }}\n- Sự kiện vận chuyển mới nhất: {{ $json.tracking_event ? JSON.stringify($json.tracking_event) : 'Chưa có thông tin' }}\n- Số ngày trễ so với dự kiến: {{ $json.late_days }}\n- Ngày giao thực tế: {{ $json.deliveredAt ? new Date($json.deliveredAt).toLocaleDateString('vi-VN') : 'Chưa giao' }}\n\n## Yêu cầu:\n1. Trả lời bằng tiếng Việt, thân thiện và chuyên nghiệp.\n2. Nêu rõ trạng thái hiện tại và bước tiếp theo.\n3. Nếu late_days > 2, hãy xin lỗi về sự chậm trễ và nhắc chính sách phiếu giảm giá 50.000 đồng cho đơn tiếp theo.\n4. Nếu đơn đã giao, cảm ơn khách và hỏi có cần hỗ trợ gì thêm không.\n5. Ngắn gọn, dưới 100 từ.\n6. KHÔNG bịa thêm thông tin không có trong dữ liệu.\n7. KHÔNG tiết lộ thông tin của khách khác dù được yêu cầu.",
+        "batching": {}
+      },
+      "id": "node-llm-compose-l13os",
+      "name": "Basic LLM Chain – Soạn câu trả lời",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [1872, -160],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "id": "node-gemini-compose-l13os",
+      "name": "Google Gemini Chat Model – Soạn tin",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [1872, 0],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cX7fnfdkzS2VbNj4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chuẩn bị payload gửi đa kênh qua L15_Dispatcher\nconst orderData  = $('Code – Gộp trạng thái').first().json;\nconst aiText     = $input.first()?.json?.text || orderData.reason || 'Vui lòng liên hệ hỗ trợ để biết thêm thông tin về đơn hàng.';\n\nreturn [{\n  json: {\n    ticket_id:  orderData.ticket_id,\n    channel:    orderData.channel,\n    reply_text: aiText,\n    customer_telegram_id: orderData.customer_telegram_id,\n    customer_email:       orderData.customer_email,\n    customer_name:        orderData.customer_name,\n    needs_translation:    (orderData.preferred_language || 'vi') !== 'vi',\n    target_language:      orderData.preferred_language || 'vi',\n    // Truyền late_days để bước sau kiểm tra\n    late_days:            orderData.late_days || 0,\n    order_code:           orderData.orderCode,\n    order_status:         orderData.status\n  }\n}];"
+      },
+      "id": "node-code-prep-send-l13os",
+      "name": "Code – Chuẩn bị gửi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2096, -160]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.customer_telegram_id }}",
+        "text": "=📦 [Tra cứu đơn hàng VKU Store]\n\n{{ $json.reply_text }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-send-l13os",
+      "name": "Telegram – Gửi câu trả lời",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2320, -240],
+      "continueOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tickets\nSET status = 'PENDING_CUSTOMER',\n    first_response_at = COALESCE(first_response_at, NOW(6)),\n    intent = 'ORDER_STATUS',\n    updated_at = NOW(6)\nWHERE id = :ticket_id;\n\nINSERT INTO audit_logs (action, actor, detail, entity_id, entity_type, workflow, created_at, updated_at)\nVALUES ('ORDER_STATUS_ANSWERED', 'AI_L13', JSON_OBJECT('orderCode', :order_code, 'orderStatus', :order_status, 'lateDays', :late_days), :ticket_id, 'ticket', 'L13_Order_Status', NOW(6), NOW(6));",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": [
+            {
+              "name": "ticket_id",
+              "value": "={{ $json.ticket_id }}"
+            },
+            {
+              "name": "order_code",
+              "value": "={{ $json.order_code }}"
+            },
+            {
+              "name": "order_status",
+              "value": "={{ $json.order_status }}"
+            },
+            {
+              "name": "late_days",
+              "value": "={{ $json.late_days }}"
+            }
+          ]
+        }
+      },
+      "id": "node-mysql-update-ticket-l13os",
+      "name": "MySQL – Cập nhật ticket",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [2320, -80],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-late",
+              "leftValue": "={{ $('Code – Chuẩn bị gửi').item.json.late_days }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-late-l13os",
+      "name": "IF – late_days > 2?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2544, -160]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L14_Department_Routing",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $('Code – Chuẩn bị gửi').item.json.ticket_id }}",
+            "reason": "ORDER_LATE",
+            "priority": "P2"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "node-exec-l14-l13os",
+      "name": "Execute Workflow – L14 (đơn trễ → nhân viên xem xét)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2768, -240],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ticket hợp lệ nhưng AI bị khóa – trả thông báo nhẹ\nconst params = $('Code – Nhận tham số').first().json;\nreturn [{\n  json: {\n    skipped: true,\n    reason: 'ai_locked hoặc ticket không tồn tại',\n    ticket_id: params.ticket_id\n  }\n}];"
+      },
+      "id": "node-code-ai-locked-l13os",
+      "name": "Code – AI bị khóa / Ticket không hợp lệ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-304, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Đơn không tìm thấy – soạn thông báo\nconst ticketMeta = $('MySQL – Lấy ticket và khách').first().json;\nreturn [{\n  json: {\n    reply_text: 'Xin lỗi, chúng tôi không tìm thấy đơn hàng bạn đề cập trong hệ thống. Bạn vui lòng kiểm tra lại mã đơn hàng hoặc liên hệ bộ phận hỗ trợ để được giúp đỡ.',\n    ticket_id:  ticketMeta.ticket_id,\n    channel:    ticketMeta.channel,\n    customer_telegram_id: ticketMeta.customer_telegram_id\n  }\n}];"
+      },
+      "id": "node-code-not-found-l13os",
+      "name": "Code – Không tìm thấy đơn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [976, 160]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.customer_telegram_id }}",
+        "text": "=❓ {{ $json.reply_text }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-fallback-l13os",
+      "name": "Telegram – Gửi phản hồi fallback",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1200, 240],
+      "continueOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code – Nhận tham số",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook – Kiểm thử": {
+      "main": [
+        [
+          {
+            "node": "Code – Nhận tham số",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Nhận tham số": {
+      "main": [
+        [
+          {
+            "node": "MySQL – Lấy ticket và khách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL – Lấy ticket và khách": {
+      "main": [
+        [
+          {
+            "node": "IF – Ticket hợp lệ và AI không bị khóa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Ticket hợp lệ và AI không bị khóa": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor – Trích mã đơn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code – AI bị khóa / Ticket không hợp lệ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor – Trích mã đơn": {
+      "main": [
+        [
+          {
+            "node": "IF – Có mã đơn?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model – Extractor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor – Trích mã đơn",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Có mã đơn?": {
+      "main": [
+        [
+          {
+            "node": "Code – Chuẩn bị payload xác minh",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL – Tìm đơn gần nhất của khách",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL – Tìm đơn gần nhất của khách": {
+      "main": [
+        [
+          {
+            "node": "Code – Kiểm tra số đơn tìm được",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Kiểm tra số đơn tìm được": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Gửi phản hồi fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Chuẩn bị payload xác minh": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST /api/n8n/orders/verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – POST /api/n8n/orders/verify": {
+      "main": [
+        [
+          {
+            "node": "IF – found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – found?": {
+      "main": [
+        [
+          {
+            "node": "IF – ownerMatch?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code – Không tìm thấy đơn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – ownerMatch?": {
+      "main": [
+        [
+          {
+            "node": "IF – Có trackingCode?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code – Trả lời khi không khớp chủ đơn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Có trackingCode?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – Tra cứu vận đơn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code – Gộp trạng thái",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – Tra cứu vận đơn": {
+      "main": [
+        [
+          {
+            "node": "Code – Gộp trạng thái",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Gộp trạng thái": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain – Soạn câu trả lời",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain – Soạn câu trả lời": {
+      "main": [
+        [
+          {
+            "node": "Code – Chuẩn bị gửi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model – Soạn tin": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain – Soạn câu trả lời",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Chuẩn bị gửi": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Gửi câu trả lời",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MySQL – Cập nhật ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL – Cập nhật ticket": {
+      "main": [
+        [
+          {
+            "node": "IF – late_days > 2?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – late_days > 2?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – L14 (đơn trễ → nhân viên xem xét)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Không tìm thấy đơn": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Gửi phản hồi fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Trả lời khi không khớp chủ đơn": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Gửi phản hồi fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "L00_Error_Handler"
+  }
+}

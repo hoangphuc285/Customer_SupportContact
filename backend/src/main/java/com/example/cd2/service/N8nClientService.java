@@ -99,12 +99,28 @@ public class N8nClientService {
         return sendSync("/webhook/staff-response", payload != null ? payload : Map.of(), "L13_Staff_Response");
     }
 
+    /**
+     * Kích hoạt luồng L13_Order_Status để xử lý intent ORDER_STATUS.
+     * Payload cần: ticket_id, message, customer_id (tùy chọn), intent = ORDER_STATUS
+     */
+    public void triggerOrderStatus(Map<String, Object> payload) {
+        sendAsync("/webhook/order-status-check", payload != null ? payload : Map.of(), "L13_Order_Status");
+    }
+
+    public boolean triggerOrderStatusSync(Map<String, Object> payload) {
+        return sendSync("/webhook/order-status-check", payload != null ? payload : Map.of(), "L13_Order_Status");
+    }
+
     public void triggerDepartmentRouting(Map<String, Object> payload) {
         sendAsync("/webhook/department-assign", payload != null ? payload : Map.of(), "L14_Department_Routing");
     }
 
     public boolean triggerDepartmentRoutingSync(Map<String, Object> payload) {
         return sendSync("/webhook/department-assign", payload != null ? payload : Map.of(), "L14_Department_Routing");
+    }
+
+    public void triggerOutboundDispatch(Map<String, Object> payload) {
+        sendAsync("/webhook/outbound-reply", payload != null ? payload : Map.of(), "L15_Outbound_Dispatcher");
     }
 
     public void resumeWaitingWebhook(String webhookIdOrUrl, Map<String, Object> payload) {

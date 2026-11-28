@@ -57,4 +57,21 @@ public class Message extends BaseEntity {
 
     @Column(name = "approved_by_human", nullable = false)
     private boolean approvedByHuman = false;
+
+    // Delivery tracking cho L15_Outbound_Dispatcher
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_status", length = 20)
+    private com.example.cd2.enums.DeliveryStatus deliveryStatus = com.example.cd2.enums.DeliveryStatus.PENDING;
+
+    @Column(name = "delivery_attempts", nullable = false)
+    private int deliveryAttempts = 0;
+
+    @Column(name = "delivery_error", columnDefinition = "text")
+    private String deliveryError;
+
+    @Column(name = "sent_at")
+    private Instant sentAt;
+
+    @Column(name = "provider_message_id", length = 200)
+    private String providerMessageId;
 }

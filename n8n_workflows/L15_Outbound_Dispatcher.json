@@ -1,0 +1,1279 @@
+{
+  "name": "Luồng 15: L15_Outbound_Dispatcher – Cổng gửi tin ra ngoài",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-trigger-l15",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outbound-reply",
+        "options": {}
+      },
+      "id": "node-webhook-l15",
+      "name": "Webhook – outbound-reply (Backend gọi khi nhân viên Gửi)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        -16
+      ],
+      "webhookId": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-l15",
+      "name": "Schedule Trigger – Mỗi 1 phút (Retry PENDING/FAILED)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1600,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://localhost:8080/api/n8n/messages/pending",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-http-pending-l15",
+      "name": "HTTP Request – GET /api/n8n/messages/pending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1376,
+        352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "=",
+        "options": {}
+      },
+      "id": "node-split-l15",
+      "name": "Split Out – Từng tin nhắn PENDING/FAILED",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1152,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-ticket-id",
+              "name": "ticket_id",
+              "value": "={{ $json.body?.ticket_id ?? $json.body?.ticketId ?? $json.ticket_id ?? $json.ticketId ?? null }}",
+              "type": "number"
+            },
+            {
+              "id": "assign-content",
+              "name": "content",
+              "value": "={{ $json.body?.content ?? $json.body?.contentOriginal ?? $json.body?.message ?? $json.content ?? $json.contentOriginal ?? $json.message ?? $json.text ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-sender-type",
+              "name": "sender_type",
+              "value": "={{ ($json.body?.sender_type ?? $json.body?.senderType ?? $json.sender_type ?? $json.senderType ?? 'STAFF').toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-needs-translation",
+              "name": "needs_translation",
+              "value": "={{ $json.body?.needs_translation ?? $json.body?.needsTranslation ?? $json.needs_translation ?? $json.needsTranslation ?? false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "assign-message-id",
+              "name": "message_id",
+              "value": "={{ $json.body?.message_id ?? $json.body?.messageId ?? $json.message_id ?? $json.messageId ?? null }}",
+              "type": "number"
+            },
+            {
+              "id": "assign-reply-markup",
+              "name": "reply_markup",
+              "value": "={{ $json.body?.reply_markup ?? $json.reply_markup ?? null }}",
+              "type": "object"
+            },
+            {
+              "id": "assign-channel",
+              "name": "channel_override",
+              "value": "={{ $json.body?.channel ?? $json.channel ?? null }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-editfields-normalize-l15",
+      "name": "Edit Fields – Chuẩn hóa đầu vào",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -928,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-has-message-id",
+              "leftValue": "={{ $json.message_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-has-msgid-l15",
+      "name": "IF – Có message_id?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -704,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (ticket_id, sender_type, channel, content_original, content_translated, language, delivery_status, delivery_attempts, approved_by_human, created_at, updated_at)\nSELECT $1, $2, t.channel, $3, $4, 'vi', 'PENDING', 0, 1, NOW(6), NOW(6)\nFROM tickets t WHERE t.id = $5;",
+        "options": {
+          "queryReplacement": "={{ [$json.ticket_id, $json.sender_type, $json.content, $json.content, $json.ticket_id] }}"
+        }
+      },
+      "id": "node-mysql-insert-msg-l15",
+      "name": "MySQL – Insert message PENDING",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -480,
+        272
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.id AS ticket_id, t.ticket_code, t.channel, t.ai_locked,\n       c.full_name AS customer_name, c.email AS customer_email,\n       c.telegram_id AS customer_telegram_id, c.zalo_id AS customer_zalo_id,\n       c.messenger_id AS customer_messenger_id, c.preferred_language,\n       m.id AS message_id, m.delivery_status, m.delivery_attempts\nFROM tickets t\nLEFT JOIN customers c ON t.customer_id = c.id\nLEFT JOIN messages m ON m.id = $1\nWHERE t.id = $2\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$(\"Edit Fields – Chuẩn hóa đầu vào\").first().json.message_id || $(\"MySQL – Insert message PENDING\").first()?.json?.insertId || 0, $(\"Edit Fields – Chuẩn hóa đầu vào\").first().json.ticket_id] }}"
+        }
+      },
+      "id": "node-mysql-get-ticket-l15",
+      "name": "MySQL – Lấy ticket, khách, kênh",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -480,
+        48
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge ticket metadata with dispatch payload\nconst ticketMeta = $('MySQL – Lấy ticket, khách, kênh').first()?.json || {};\nconst params     = $('Edit Fields – Chuẩn hóa đầu vào').first().json;\n\n// Lấy message_id từ bước Insert nếu vừa tạo mới\nlet messageId = params.message_id;\nif (!messageId) {\n  const inserted = $('MySQL – Insert message PENDING').first()?.json;\n  messageId = inserted?.new_message_id || inserted?.insertId || null;\n}\n\nconst channel = params.channel_override || ticketMeta.channel || 'WEB';\n\nreturn [{\n  json: {\n    ticket_id:      ticketMeta.ticket_id || params.ticket_id,\n    ticket_code:    ticketMeta.ticket_code,\n    message_id:     messageId,\n    content:        params.content,\n    sender_type:    params.sender_type,\n    channel:        channel,\n    ai_locked:      ticketMeta.ai_locked,\n    delivery_status: ticketMeta.delivery_status || 'PENDING',\n    delivery_attempts: ticketMeta.delivery_attempts || 0,\n    needs_translation: params.needs_translation,\n    reply_markup:   params.reply_markup,\n    // Customer contact info\n    customer_name:          ticketMeta.customer_name || 'Quý khách',\n    customer_email:         ticketMeta.customer_email,\n    customer_telegram_id:   ticketMeta.customer_telegram_id,\n    customer_zalo_id:       ticketMeta.customer_zalo_id,\n    customer_messenger_id:  ticketMeta.customer_messenger_id,\n    preferred_language:     ticketMeta.preferred_language || 'vi'\n  }\n}];"
+      },
+      "id": "node-code-merge-l15",
+      "name": "Code – Gộp metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ai-locked",
+              "leftValue": "={{ $json.sender_type === 'AI' && String($json.ai_locked) === '1' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-ai-locked-l15",
+      "name": "IF – AI bị khóa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-already-sent",
+              "leftValue": "={{ $json.delivery_status }}",
+              "rightValue": "SENT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-already-sent-l15",
+      "name": "IF – Đã SENT? (Chống gửi trùng)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        192,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE messages SET delivery_status = 'CANCELLED', updated_at = NOW(6) WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$json.message_id] }}"
+        }
+      },
+      "id": "node-mysql-cancel-l15",
+      "name": "MySQL – Đánh dấu CANCELLED (AI khóa)",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        192,
+        272
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Er1nZ02s6Z3n3w75",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-needs-translation",
+              "leftValue": "={{ $json.needs_translation === true && $json.preferred_language !== 'vi' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-needs-translation-l15",
+      "name": "IF – Cần dịch?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L03_Translation",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "text": "={{ $json.content }}",
+            "direction": "out",
+            "target_language": "={{ $json.preferred_language }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "node-exec-l03-l15",
+      "name": "Execute Workflow – L03 Dịch chiều out",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        -48
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chuẩn hóa nội dung theo kênh gửi\nconst meta       = $('Code – Gộp metadata').first().json;\nconst incoming   = $input.first()?.json || {};\nconst translated = incoming.translated_text || incoming.translatedText || null;\nconst content    = translated || meta.content || '';\n\n// Telegram: escape HTML, cắt tối đa 4096 ký tự\nconst telegramText = content\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;')\n  .substring(0, 4096);\n\n// Email: thay newline bằng <br>\nconst emailHtml = content.replace(/\\n/g, '<br>');\n\n// Zalo/Messenger: cắt theo giới hạn\nconst zaloText      = content.substring(0, 2000);\nconst messengerText = content.substring(0, 2000);\n\nreturn [{\n  json: {\n    ...meta,\n    content_final:   content,\n    telegram_text:   telegramText,\n    email_html:      emailHtml,\n    zalo_text:       zaloText,\n    messenger_text:  messengerText,\n    translation_used: !!translated\n  }\n}];"
+      },
+      "id": "node-code-format-l15",
+      "name": "Code – Định dạng theo kênh",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "TELEGRAM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-telegram"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "EMAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-email"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "ZALO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-zalo"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "MESSENGER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-messenger"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "LIVECHAT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-livechat"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "node-switch-channel-l15",
+      "name": "Switch – Kênh gửi",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1088,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.customer_telegram_id }}",
+        "text": "={{ $json.telegram_text }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "replyMarkup": "={{ $json.reply_markup ? JSON.stringify($json.reply_markup) : undefined }}"
+        }
+      },
+      "id": "node-telegram-send-l15",
+      "name": "Telegram – Send Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        -160
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "telegramApi": {
+          "id": "VCo7LBLtexut3AfT",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "support@support.local",
+        "toEmail": "={{ $json.customer_email }}",
+        "subject": "=📬 [VKU Support] Phản hồi Ticket #{{ $json.ticket_code }}",
+        "html": "=<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px\">\n  <h2 style=\"color:#1e40af;margin-bottom:8px\">VKU Store – Hỗ trợ Khách hàng</h2>\n  <p>Kính gửi <strong>{{ $json.customer_name }}</strong>,</p>\n  <div style=\"background:#fff;padding:16px;border-radius:8px;border-left:4px solid #3b82f6;margin:16px 0\">\n    <p>{{ $json.email_html }}</p>\n  </div>\n  <p style=\"color:#64748b;font-size:13px\">Mã Ticket: <strong>#{{ $json.ticket_code }}</strong></p>\n  <p style=\"color:#64748b;font-size:12px\">Trân trọng,<br/>Đội ngũ CSKH VKU Store</p>\n</div>",
+        "options": {}
+      },
+      "id": "node-email-send-l15",
+      "name": "Email Send (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1312,
+        -48
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "smtp": {
+          "id": "f5ELIXOhZR2kN5Ky",
+          "name": "SMTP account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://openapi.zalo.me/v2.0/oa/message",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { user_id: $json.customer_zalo_id }, message: { text: $json.zalo_text } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-zalo-send-l15",
+      "name": "HTTP Request – Zalo OA Send",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        64
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zalo-oa-auth",
+          "name": "Zalo OA API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/me/messages",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $credentials.accessToken }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { id: $json.customer_messenger_id }, message: { text: $json.messenger_text } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-messenger-send-l15",
+      "name": "HTTP Request – Messenger Send API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        176
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-livechat-sent",
+              "name": "delivery_result",
+              "value": "SENT",
+              "type": "string"
+            },
+            {
+              "id": "assign-livechat-note",
+              "name": "note",
+              "value": "LIVECHAT: Tin đã lưu vào DB, giao diện web đọc từ DB",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-livechat-l15",
+      "name": "Edit Fields – LIVECHAT (Lưu DB, Web đọc)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1312,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-fallback",
+              "name": "delivery_result",
+              "value": "SENT",
+              "type": "string"
+            },
+            {
+              "id": "assign-fallback-note",
+              "name": "note",
+              "value": "Kênh WEB/OTHER: Tin đã lưu, giao diện đọc từ DB",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fallback-l15",
+      "name": "Edit Fields – Fallback WEB/OTHER",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1312,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "passThrough",
+        "output": "first"
+      },
+      "id": "node-merge-success-l15",
+      "name": "Merge – Gom nhánh thành công",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1536,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy provider_message_id từ kết quả gửi (Telegram, Zalo, Messenger)\nconst meta = $('Code – Định dạng theo kênh').first().json;\nlet providerMsgId = null;\n\ntry {\n  const result = $input.first()?.json;\n  // Telegram trả về { message_id: 123, ... }\n  if (result?.message_id) providerMsgId = String(result.message_id);\n  // Zalo trả về { data: { message_id: '...' } }\n  if (result?.data?.message_id) providerMsgId = result.data.message_id;\n  // Messenger trả về { message_id: 'mid.xxx' }\n  if (result?.message_id) providerMsgId = result.message_id;\n} catch(e) {}\n\nreturn [{\n  json: {\n    message_id:         meta.message_id,\n    ticket_id:          meta.ticket_id,\n    channel:            meta.channel,\n    provider_message_id: providerMsgId,\n    sent_at:            new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-code-extract-provider-l15",
+      "name": "Code – Lấy provider_message_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8080/api/n8n/messages/{{ $json.message_id }}/delivery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"SENT\",\n  \"sentAt\": \"{{ $json.sent_at }}\",\n  \"providerMessageId\": \"{{ $json.provider_message_id }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-http-delivery-sent-l15",
+      "name": "HTTP Request – POST delivery SENT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phân loại lỗi: tạm thời vs vĩnh viễn\nconst meta   = $('Code – Định dạng theo kênh').first().json;\nconst errObj = $input.first()?.json || {};\nconst errMsg = JSON.stringify(errObj);\n\n// Lỗi vĩnh viễn: bot bị block, chat_id sai, email không tồn tại\nconst isPermanent = errMsg.includes('403')\n  || errMsg.includes('400')\n  || errMsg.includes('chat not found')\n  || errMsg.includes('user not found')\n  || errMsg.includes('Invalid destination mailbox');\n\nconst newAttempts = (meta.delivery_attempts || 0) + 1;\n\nreturn [{\n  json: {\n    message_id:         meta.message_id,\n    ticket_id:          meta.ticket_id,\n    delivery_attempts:  newAttempts,\n    delivery_error:     errMsg.substring(0, 500),\n    is_permanent_error: isPermanent,\n    should_stop:        isPermanent || newAttempts >= 3\n  }\n}];"
+      },
+      "id": "node-code-classify-error-l15",
+      "name": "Code – Phân loại lỗi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8080/api/n8n/messages/{{ $json.message_id }}/delivery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"FAILED\",\n  \"deliveryError\": \"{{ $json.delivery_error }}\",\n  \"attempts\": {{ $json.delivery_attempts }}\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-http-delivery-failed-l15",
+      "name": "HTTP Request – POST delivery FAILED",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "header-auth-n8n",
+          "name": "Backend API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-should-stop",
+              "leftValue": "={{ $json.should_stop }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if-give-up-l15",
+      "name": "IF – attempts ≥ 3 hoặc lỗi vĩnh viễn?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1984,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L14_Department_Routing",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticket_id }}",
+            "reason": "SEND_FAILED",
+            "force_level": "AGENT"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "node-exec-l14-send-failed-l15",
+      "name": "Execute Workflow – L14 (Gửi thất bại → Nhân viên gửi thủ công)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2208,
+        272
+      ],
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields – Chuẩn hóa đầu vào",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook – outbound-reply (Backend gọi khi nhân viên Gửi)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields – Chuẩn hóa đầu vào",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger – Mỗi 1 phút (Retry PENDING/FAILED)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – GET /api/n8n/messages/pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – GET /api/n8n/messages/pending": {
+      "main": [
+        [
+          {
+            "node": "Split Out – Từng tin nhắn PENDING/FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out – Từng tin nhắn PENDING/FAILED": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields – Chuẩn hóa đầu vào",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields – Chuẩn hóa đầu vào": {
+      "main": [
+        [
+          {
+            "node": "IF – Có message_id?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Có message_id?": {
+      "main": [
+        [
+          {
+            "node": "MySQL – Lấy ticket, khách, kênh",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MySQL – Insert message PENDING",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL – Lấy ticket, khách, kênh": {
+      "main": [
+        [
+          {
+            "node": "Code – Gộp metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL – Insert message PENDING": {
+      "main": [
+        [
+          {
+            "node": "MySQL – Lấy ticket, khách, kênh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Gộp metadata": {
+      "main": [
+        [
+          {
+            "node": "IF – AI bị khóa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – AI bị khóa?": {
+      "main": [
+        [
+          {
+            "node": "MySQL – Đánh dấu CANCELLED (AI khóa)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF – Đã SENT? (Chống gửi trùng)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Đã SENT? (Chống gửi trùng)": {
+      "main": [
+        [],
+        [
+          {
+            "node": "IF – Cần dịch?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – Cần dịch?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – L03 Dịch chiều out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code – Định dạng theo kênh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow – L03 Dịch chiều out": {
+      "main": [
+        [
+          {
+            "node": "Code – Định dạng theo kênh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Định dạng theo kênh": {
+      "main": [
+        [
+          {
+            "node": "Switch – Kênh gửi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch – Kênh gửi": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Send (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request – Zalo OA Send",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request – Messenger Send API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields – LIVECHAT (Lưu DB, Web đọc)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields – Fallback WEB/OTHER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram – Send Message": {
+      "main": [
+        [
+          {
+            "node": "Merge – Gom nhánh thành công",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code – Phân loại lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Send (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Merge – Gom nhánh thành công",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Code – Phân loại lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – Zalo OA Send": {
+      "main": [
+        [
+          {
+            "node": "Merge – Gom nhánh thành công",
+            "type": "main",
+            "index": 2
+          }
+        ],
+        [
+          {
+            "node": "Code – Phân loại lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – Messenger Send API": {
+      "main": [
+        [
+          {
+            "node": "Merge – Gom nhánh thành công",
+            "type": "main",
+            "index": 3
+          }
+        ],
+        [
+          {
+            "node": "Code – Phân loại lỗi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields – LIVECHAT (Lưu DB, Web đọc)": {
+      "main": [
+        [
+          {
+            "node": "Merge – Gom nhánh thành công",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Edit Fields – Fallback WEB/OTHER": {
+      "main": [
+        [
+          {
+            "node": "Merge – Gom nhánh thành công",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Merge – Gom nhánh thành công": {
+      "main": [
+        [
+          {
+            "node": "Code – Lấy provider_message_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Lấy provider_message_id": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST delivery SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Phân loại lỗi": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST delivery FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request – POST delivery FAILED": {
+      "main": [
+        [
+          {
+            "node": "IF – attempts ≥ 3 hoặc lỗi vĩnh viễn?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF – attempts ≥ 3 hoặc lỗi vĩnh viễn?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow – L14 (Gửi thất bại → Nhân viên gửi thủ công)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "c8ea75d9819f1f9b1bf7d31d051e9dd22f9dd75d6945092be05077377c9311b0"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "L00_Error_Handler"
+  }
+}

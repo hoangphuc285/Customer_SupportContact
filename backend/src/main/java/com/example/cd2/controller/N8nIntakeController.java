@@ -3,10 +3,14 @@ package com.example.cd2.controller;
 import com.example.cd2.dto.AttachmentInput;
 import com.example.cd2.dto.IntakeRequest;
 import com.example.cd2.dto.IntakeResponse;
+import com.example.cd2.dto.OrderVerifyRequest;
+import com.example.cd2.dto.OrderVerifyResponse;
 import com.example.cd2.entity.Ticket;
 import com.example.cd2.enums.Channel;
 import com.example.cd2.repository.TicketRepository;
 import com.example.cd2.service.IntakeService;
+import com.example.cd2.service.OrderStatusService;
+import com.example.cd2.service.OutboundDispatcherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,12 +31,20 @@ public class N8nIntakeController {
     private final TicketRepository ticketRepository;
     private final com.example.cd2.repository.MessageRepository messageRepository;
     private final com.example.cd2.service.SlaService slaService;
+    private final OrderStatusService orderStatusService;
+    private final OutboundDispatcherService outboundDispatcherService;
 
-    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository, com.example.cd2.repository.MessageRepository messageRepository, com.example.cd2.service.SlaService slaService) {
+    public N8nIntakeController(IntakeService intake, TicketRepository ticketRepository,
+                               com.example.cd2.repository.MessageRepository messageRepository,
+                               com.example.cd2.service.SlaService slaService,
+                               OrderStatusService orderStatusService,
+                               OutboundDispatcherService outboundDispatcherService) {
         this.intake = intake;
         this.ticketRepository = ticketRepository;
         this.messageRepository = messageRepository;
         this.slaService = slaService;
+        this.orderStatusService = orderStatusService;
+        this.outboundDispatcherService = outboundDispatcherService;
     }
 
     /** Kiem tra ket noi / API key tu n8n. */
@@ -60,6 +72,63 @@ public class N8nIntakeController {
     public ResponseEntity<Map<String, Object>> departmentAssignCallback(@RequestBody Map<String, Object> body) {
         log.info("N8nIntakeController received L14 department-assign callback: {}", body);
         return ResponseEntity.ok(Map.of("status", "ok", "workflow", "L14_Department_Routing"));
+    }
+
+    // ==========================================
+    // L15_Outbound_Dispatcher: Giao tin đa kênh
+    // ==========================================
+
+    /**
+     * L15: Lấy danh sách tin PENDING hoặc FAILED chưa quá 3 lần thử.
+     * n8n polling để lấy hàng đợi giao tin.
+     */
+    @GetMapping("/messages/pending")
+    public ResponseEntity<List<Map<String, Object>>> getPendingMessages() {
+        log.info("[L15] GET /api/n8n/messages/pending");
+        return ResponseEntity.ok(outboundDispatcherService.getPendingMessages());
+    }
+
+    /**
+     * L15: Cập nhật trạng thái giao tin sau khi n8n dispatch xong.
+     * Body: { status, sentAt, providerMessageId, deliveryError, attempts }
+     */
+    @PostMapping("/messages/{id}/delivery")
+    public ResponseEntity<Map<String, Object>> updateDeliveryStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        log.info("[L15] POST /api/n8n/messages/{}/delivery: {}", id, body);
+        return ResponseEntity.ok(outboundDispatcherService.updateDeliveryStatus(id, body));
+    }
+
+    // ==========================================
+    // L13_Order_Status: Xác minh và tra cứu đơn hàng
+    // ==========================================
+
+    /**
+     * L13_Order_Status: Xác minh chủ đơn và trả thông tin đơn hàng.
+     * Dùng chung cho L09 (hoàn tiền) và L10 (bảo hành).
+     * <p>
+     * Request body: { "orderCode": "DH-1001", "customerId": 5, "phone": "0901...", "ticketId": 10 }
+     * Response: { "found": true, "ownerMatch": true, "status": "SHIPPING", "trackingCode": "...", "items": [...] }
+     */
+    @PostMapping("/orders/verify")
+    public ResponseEntity<OrderVerifyResponse> verifyOrder(@RequestBody OrderVerifyRequest req) {
+        log.info("[L13] POST /api/n8n/orders/verify: orderCode={}, customerId={}", req.orderCode(), req.customerId());
+        OrderVerifyResponse resp = orderStatusService.verifyOrder(req);
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * L13_Order_Status: Lấy danh sách tối đa 3 đơn hàng gần nhất của khách
+     * (khi khách không nhớ mã đơn, n8n hỏi lại khách chọn đơn nào).
+     */
+    @GetMapping("/orders/recent")
+    public ResponseEntity<List<Map<String, Object>>> getRecentOrders(
+            @RequestParam Long customerId,
+            @RequestParam(defaultValue = "3") int limit) {
+        log.info("[L13] GET /api/n8n/orders/recent: customerId={}, limit={}", customerId, limit);
+        List<Map<String, Object>> orders = orderStatusService.getRecentOrdersForCustomer(customerId, limit);
+        return ResponseEntity.ok(orders);
     }
 
     /**

@@ -28,6 +28,9 @@ public class KnowledgeGap extends BaseEntity {
     @Column(nullable = false, columnDefinition = "text")
     private String question;              // cau hoi AI khong tra loi duoc (L05)
 
+    @Column(name = "rewritten_query", columnDefinition = "text")
+    private String rewrittenQuery;        // truy van da viet lai de L18 gom nhom (L05)
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
     private GapStatus status = GapStatus.NEW;

@@ -19,7 +19,8 @@ import {
     Award,
     Activity,
     ChevronRight,
-    Sparkles
+    Sparkles,
+    Send
 } from 'lucide-react';
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
@@ -104,6 +105,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 { name: 'Phê duyệt Hoàn tiền (L09)', path: '/staff/refunds', icon: RotateCcw },
                 { name: 'Tiếp nhận Bảo hành (L10)', path: '/staff/warranty', icon: Shield },
                 { name: 'Hàng chờ duyệt (L05, L09)', path: '/staff/approvals', icon: CheckSquare, badge: 'Duyệt', badgeColor: 'bg-amber-100 text-amber-700' },
+                { name: 'Giám sát Gửi Tin (L15)', path: '/staff/outbound', icon: Send, badge: 'Dispatch', badgeColor: 'bg-purple-100 text-purple-700' },
             ]
         },
         {

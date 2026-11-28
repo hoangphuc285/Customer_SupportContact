@@ -967,10 +967,20 @@ public class PortalService {
         m.setContentOriginal(text);
         m.setContentTranslated(text);
         m.setChannel(t.getChannel());
+        m.setDeliveryStatus(DeliveryStatus.PENDING);
         Message saved = messages.save(m);
 
         t.setStatus(TicketStatus.OPEN);
         tickets.save(t);
+
+        Map<String, Object> l15Payload = new HashMap<>();
+        l15Payload.put("message_id", saved.getId());
+        l15Payload.put("ticket_id", t.getId());
+        l15Payload.put("ticket_code", t.getTicketCode());
+        l15Payload.put("channel", saved.getChannel() != null ? saved.getChannel().name() : "WEB");
+        l15Payload.put("content", saved.getContentOriginal());
+        l15Payload.put("sender_type", "STAFF");
+        n8nService.triggerOutboundDispatch(l15Payload);
 
         return new MessageDto(saved.getId(), saved.getSenderType().name(), saved.getContentOriginal(),
                 saved.getContentTranslated(), saved.getLanguage(), saved.getCreatedAt());
