@@ -1,15 +1,6 @@
 {
-  "name": "L18_Knowledge_Gap_to_FAQ",
   "nodes": [
     {
-      "id": "4c3d6767-479e-4e9b-92d6-60a63d4069b5",
-      "name": "Schedule Trigger – Thứ Hai 08:00",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        300
-      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -18,58 +9,56 @@
               "triggerAtDay": [
                 1
               ],
-              "triggerAtHour": 8,
-              "triggerAtMinute": 0
+              "triggerAtHour": 8
             }
           ]
         }
-      }
+      },
+      "id": "bc020ce8-7c28-4dce-83b5-1a755b621d71",
+      "name": "Schedule Trigger – Thứ Hai 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1888,
+        304
+      ]
     },
     {
-      "id": "93608551-ca98-4fc6-b2dd-6a4ddea6f344",
-      "name": "HTTP Request – GET knowledge-gaps?status=NEW",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        220,
-        300
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "header-auth-n8n",
-          "name": "Backend API Key"
-        }
-      },
       "parameters": {
-        "method": "GET",
         "url": "http://backend:8080/api/n8n/knowledge-gaps?status=NEW",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}
+      },
+      "id": "fdb49b38-1ddf-4598-a836-c6c85b432435",
+      "name": "HTTP Request – GET knowledge-gaps?status=NEW",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1680,
+        304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
       }
     },
     {
-      "id": "d54988df-ad5c-4c01-a641-ed4ea2c3f8de",
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json).filter(x => x && x.id);\nif (items.length === 0) return [{ json: { has_gaps: false, gaps: [], total: 0 } }];\n\nconst dedup = new Map();\nfor (const g of items) {\n  const key = (g.rewrittenQuery || g.question || '').trim().toLowerCase();\n  if (!key) continue;\n  if (!dedup.has(key)) {\n    dedup.set(key, {\n      query: (g.rewrittenQuery || g.question).trim(),\n      count: 1,\n      gap_ids: [g.id],\n      ticket_ids: g.ticketId ? [g.ticketId] : []\n    });\n  } else {\n    const cur = dedup.get(key);\n    cur.count += 1;\n    cur.gap_ids.push(g.id);\n    if (g.ticketId && !cur.ticket_ids.includes(g.ticketId)) cur.ticket_ids.push(g.ticketId);\n  }\n}\nreturn [{ json: { has_gaps: dedup.size > 0, total: items.length, unique_gaps: Array.from(dedup.values()) } }];"
+      },
+      "id": "5fa54fef-f51d-4769-8e99-50e219e898f8",
       "name": "Code – Làm sạch & Đếm tần suất",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
-        300
-      ],
-      "parameters": {
-        "jsCode": "const items = $input.all().map(i => i.json).filter(x => x && x.id);\nif (items.length === 0) return [{ json: { has_gaps: false, gaps: [], total: 0 } }];\n\nconst dedup = new Map();\nfor (const g of items) {\n  const key = (g.rewrittenQuery || g.question || '').trim().toLowerCase();\n  if (!key) continue;\n  if (!dedup.has(key)) {\n    dedup.set(key, {\n      query: (g.rewrittenQuery || g.question).trim(),\n      count: 1,\n      gap_ids: [g.id],\n      ticket_ids: g.ticketId ? [g.ticketId] : []\n    });\n  } else {\n    const cur = dedup.get(key);\n    cur.count += 1;\n    cur.gap_ids.push(g.id);\n    if (g.ticketId && !cur.ticket_ids.includes(g.ticketId)) cur.ticket_ids.push(g.ticketId);\n  }\n}\nreturn [{ json: { has_gaps: dedup.size > 0, total: items.length, unique_gaps: Array.from(dedup.values()) } }];"
-      }
+        -1456,
+        304
+      ]
     },
     {
-      "id": "1070eac8-5640-462d-9553-198940ca3555",
-      "name": "IF – Có gap mới?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        660,
-        300
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -93,99 +82,93 @@
           "combinator": "and"
         },
         "options": {}
-      }
+      },
+      "id": "5e1114cc-a84e-4722-9676-157ac5504f50",
+      "name": "IF – Có gap mới?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1232,
+        304
+      ]
     },
     {
-      "id": "13b404aa-8d52-4609-bed2-6e677fc00cf7",
-      "name": "Basic LLM Chain – Gom nhóm câu hỏi",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.5,
-      "position": [
-        900,
-        280
-      ],
       "parameters": {
         "promptType": "define",
         "text": "=Hãy gom nhóm các câu hỏi thiếu tri thức sau đây theo cùng chủ đề:\n{{ JSON.stringify($json.unique_gaps) }}\n\nTrả về JSON theo cấu trúc: { \"groups\": [ { \"topic\": \"...\", \"category\": \"POLICY|ORDER|WARRANTY|REFUND|GENERAL\", \"representative_query\": \"...\", \"gap_ids\": [1,2], \"ticket_ids\": [10,11], \"total_count\": 3 } ] }",
         "hasOutputParser": true
-      }
+      },
+      "id": "ecae2e80-6041-459f-8720-a320baf79dbc",
+      "name": "Basic LLM Chain – Gom nhóm câu hỏi",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        -992,
+        272
+      ]
     },
     {
-      "id": "6af30aa1-7b03-471c-95ba-a8aed6f6a4f3",
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "ce5ee37d-2f6c-4c87-a37b-d4b5d3f753ff",
       "name": "Google Gemini – Gom nhóm Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        860,
-        500
+        -1040,
+        496
       ],
       "credentials": {
         "googlePalmApi": {
           "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
-      },
-      "parameters": {
-        "modelName": "models/gemini-2.5-flash",
-        "options": {
-          "temperature": 0.2
-        }
       }
     },
     {
-      "id": "e9b49bc0-517a-46d9-985a-e9784712e2db",
+      "parameters": {
+        "jsonSchemaExample": "{\"groups\":[{\"topic\":\"Chính sách hoàn tiền\",\"category\":\"REFUND\",\"representative_query\":\"Hoàn tiền mất bao lâu?\",\"gap_ids\":[1,2],\"ticket_ids\":[10,11],\"total_count\":2}]}"
+      },
+      "id": "eaa145d0-5f21-45d8-a8dc-072f61417f14",
       "name": "Structured Output Parser – Nhóm chủ đề",
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.2,
       "position": [
-        1040,
-        500
-      ],
-      "parameters": {
-        "jsonSchemaExample": "{\"groups\":[{\"topic\":\"Chính sách hoàn tiền\",\"category\":\"REFUND\",\"representative_query\":\"Hoàn tiền mất bao lâu?\",\"gap_ids\":[1,2],\"ticket_ids\":[10,11],\"total_count\":2}]}"
-      }
+        -848,
+        496
+      ]
     },
     {
-      "id": "a3e19194-f064-4df4-b4cc-035941ea288a",
+      "parameters": {
+        "jsCode": "const out = $input.first().json.output || $input.first().json;\nconst groups = out.groups || [];\nreturn groups.map(g => ({ json: g }));"
+      },
+      "id": "15c0f54d-41b6-48fe-a837-478769134fd8",
       "name": "Code – Tách từng nhóm chủ đề",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1160,
-        280
-      ],
-      "parameters": {
-        "jsCode": "const out = $input.first().json.output || $input.first().json;\nconst groups = out.groups || [];\nreturn groups.map(g => ({ json: g }));"
-      }
+        -736,
+        272
+      ]
     },
     {
-      "id": "d8a434ae-77f9-4f35-a590-e8b9acb2a593",
+      "parameters": {
+        "options": {}
+      },
+      "id": "d3c98f42-e8dd-4f35-93b6-4f6308ee91d6",
       "name": "Loop Over Items – Từng nhóm câu hỏi",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        1380,
-        280
-      ],
-      "parameters": {
-        "options": {}
-      }
+        -512,
+        272
+      ]
     },
     {
-      "id": "dfcd2092-8451-42d4-b17f-913c0092269e",
-      "name": "Qdrant – Kiểm tra tri thức có sẵn",
-      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
-      "typeVersion": 1.1,
-      "position": [
-        1620,
-        280
-      ],
-      "credentials": {
-        "qdrantApi": {
-          "id": "y730vllKiyJ4P0LX",
-          "name": "Qdrant account"
-        }
-      },
       "parameters": {
         "mode": "load",
         "qdrantCollection": {
@@ -198,47 +181,53 @@
         "topK": 3,
         "options": {}
       },
-      "alwaysOutputData": true
+      "id": "acdd70b0-a0ed-4c0c-8478-16a7725c6737",
+      "name": "Qdrant – Kiểm tra tri thức có sẵn",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.1,
+      "position": [
+        -272,
+        272
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "qdrantApi": {
+          "id": "y730vllKiyJ4P0LX",
+          "name": "Qdrant account"
+        }
+      }
     },
     {
-      "id": "a6ab22c7-6554-47a2-9913-0260dcc0d8da",
+      "parameters": {},
+      "id": "384d866a-7a76-41f5-9729-9921ee856bc6",
       "name": "Embeddings Gemini (Check KB)",
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
       "position": [
-        1620,
-        500
+        -272,
+        496
       ],
       "credentials": {
         "googlePalmApi": {
           "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
-      },
-      "parameters": {}
+      }
     },
     {
-      "id": "4770b3d5-29b6-4276-acbf-4bb58d4eb061",
+      "parameters": {
+        "jsCode": "const group = $('Loop Over Items – Từng nhóm câu hỏi').item.json;\nconst docs = $input.all().map(i => i.json);\nconst topScore = docs.reduce((mx, d) => Math.max(mx, Number(d.score || d.metadata?.score || 0)), 0);\nreturn [{ json: { ...group, top_score: topScore, already_exists: topScore >= 0.75 } }];"
+      },
+      "id": "c85132d2-e0b9-4977-bc1f-f07fdc0070dd",
       "name": "Code – Đánh giá độ trùng kho KB",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1860,
-        280
-      ],
-      "parameters": {
-        "jsCode": "const group = $('Loop Over Items – Từng nhóm câu hỏi').item.json;\nconst docs = $input.all().map(i => i.json);\nconst topScore = docs.reduce((mx, d) => Math.max(mx, Number(d.score || d.metadata?.score || 0)), 0);\nreturn [{ json: { ...group, top_score: topScore, already_exists: topScore >= 0.75 } }];"
-      }
+        -32,
+        272
+      ]
     },
     {
-      "id": "2f2eaa8e-783e-4619-8f58-2478643f368d",
-      "name": "IF – Đã có tri thức (score >= 0.75)?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2080,
-        280
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -262,23 +251,17 @@
           "combinator": "and"
         },
         "options": {}
-      }
+      },
+      "id": "16bd718d-1cde-406f-a30b-f10cd48f4463",
+      "name": "IF – Đã có tri thức (score >= 0.75)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        192,
+        272
+      ]
     },
     {
-      "id": "9d81ebcc-68b9-48c1-9216-0314a5ce3a6f",
-      "name": "HTTP Request – PATCH gap IGNORED",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2320,
-        120
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "header-auth-n8n",
-          "name": "Backend API Key"
-        }
-      },
       "parameters": {
         "method": "PATCH",
         "url": "http://backend:8080/api/n8n/knowledge-gaps/bulk",
@@ -288,23 +271,23 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ gapIds: $json.gap_ids, status: \"IGNORED\", reason: \"Đã có tri thức tương tự trong KB (score=\" + $json.top_score + \")\" }) }}",
         "options": {}
+      },
+      "id": "82d40b9a-3567-49ee-9b2f-6de12494b42f",
+      "name": "HTTP Request – PATCH gap IGNORED",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        432,
+        112
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
       }
     },
     {
-      "id": "f805e4ff-6fef-4c11-a70f-6b0e8fca4b5d",
-      "name": "MySQL – Lấy câu trả lời STAFF cuối cùng",
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        2320,
-        360
-      ],
-      "credentials": {
-        "mySql": {
-          "id": "Er1nZ02s6Z3n3w75",
-          "name": "MySQL account"
-        }
-      },
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT m.ticket_id, m.content_original, m.created_at\nFROM messages m\nWHERE m.sender_type = 'STAFF'\n  AND FIND_IN_SET(m.ticket_id, $1) > 0\nORDER BY m.created_at DESC\nLIMIT 5;",
@@ -312,73 +295,74 @@
           "queryReplacement": "={{ [($json.ticket_ids || []).join(\",\")] }}"
         }
       },
-      "alwaysOutputData": true
+      "id": "abf58294-ed13-48f5-b57d-153928ad74c1",
+      "name": "MySQL – Lấy câu trả lời STAFF cuối cùng",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        432,
+        352
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "sRWvZ8HDAQebbIOB",
+          "name": "MySQL account"
+        }
+      }
     },
     {
-      "id": "bad97493-0840-4f10-a642-546ef7cb8567",
+      "parameters": {
+        "promptType": "define",
+        "text": "=Nhóm câu hỏi của khách: {{ $('Loop Over Items – Từng nhóm câu hỏi').item.json.representative_query }}\nChủ đề: {{ $('Loop Over Items – Từng nhóm câu hỏi').item.json.topic }}\nCâu trả lời thật của nhân viên CSKH:\n{{ JSON.stringify($input.all().map(i => i.json.content_original).filter(Boolean)) }}\n\nQuy tắc: Chỉ dựa trên câu trả lời của nhân viên ở trên để soạn tiêu đề, câu hỏi chuẩn và câu trả lời FAQ. Nếu danh sách câu trả lời nhân viên rỗng hoặc không đủ thông tin, đặt needs_source = true và KHÔNG tự bịa.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "id": "63d90409-5c15-48f2-9f2e-3cc6e04dce40",
       "name": "AI Agent – Soạn bản nháp FAQ",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        2560,
-        360
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "=Nhóm câu hỏi của khách: {{ $('Loop Over Items – Từng nhóm câu hỏi').item.json.representative_query }}\nChủ đề: {{ $('Loop Over Items – Từng nhóm câu hỏi').item.json.topic }}\nCâu trả lời thật của nhân viên CSKH:\n{{ JSON.stringify($input.all().map(i => i.json.content_original).filter(Boolean)) }}\n\nQuy tắc: Chỉ dựa trên câu trả lời của nhân viên ở trên để soạn tiêu đề, câu hỏi chuẩn và câu trả lời FAQ. Nếu danh sách câu trả lời nhân viên rỗng hoặc không đủ thông tin, đặt needs_source = true và KHÔNG tự bịa.",
-        "hasOutputParser": true
-      }
+        672,
+        352
+      ]
     },
     {
-      "id": "844ba947-a8cd-46f9-95d6-3ef8f4d0933d",
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "aa406b97-d7a3-4091-9fa3-881635fac886",
       "name": "Google Gemini – Soạn FAQ Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        2480,
-        580
+        592,
+        576
       ],
       "credentials": {
         "googlePalmApi": {
           "id": "SJLHvzSS8Ttxpv8k",
           "name": "Google Gemini(PaLM) Api account"
         }
-      },
-      "parameters": {
-        "modelName": "models/gemini-2.5-flash",
-        "options": {
-          "temperature": 0.2
-        }
       }
     },
     {
-      "id": "c3c0430b-45a9-488b-a1fe-29fa0392ef01",
+      "parameters": {
+        "jsonSchemaExample": "{\"title\":\"Thời gian hoàn tiền sản phẩm lỗi\",\"question\":\"Sản phẩm lỗi thì hoàn tiền mất bao lâu?\",\"answer\":\"Tiền sẽ được hoàn về tài khoản trong 3-5 ngày làm việc sau khi duyệt.\",\"category\":\"REFUND\",\"language\":\"vi\",\"confidence\":0.92,\"needs_source\":false}"
+      },
+      "id": "a7dd1c3e-82bf-426f-aa62-7ec1af1d9462",
       "name": "Structured Output Parser – FAQ Draft",
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.2,
       "position": [
-        2680,
-        580
-      ],
-      "parameters": {
-        "jsonSchemaExample": "{\"title\":\"Thời gian hoàn tiền sản phẩm lỗi\",\"question\":\"Sản phẩm lỗi thì hoàn tiền mất bao lâu?\",\"answer\":\"Tiền sẽ được hoàn về tài khoản trong 3-5 ngày làm việc sau khi duyệt.\",\"category\":\"REFUND\",\"language\":\"vi\",\"confidence\":0.92,\"needs_source\":false}"
-      }
+        800,
+        576
+      ]
     },
     {
-      "id": "4a0d7cec-36f9-4181-ab2c-d2542be3d2d0",
-      "name": "HTTP Request – POST tạo faq-drafts",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2820,
-        360
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "header-auth-n8n",
-          "name": "Backend API Key"
-        }
-      },
       "parameters": {
         "method": "POST",
         "url": "http://backend:8080/api/n8n/faq-drafts",
@@ -388,107 +372,114 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ ...($json.output || $json), gap_ids: $(\"Loop Over Items – Từng nhóm câu hỏi\").item.json.gap_ids }) }}",
         "options": {}
+      },
+      "id": "023d3c73-2b41-4b56-8baa-78e715bde8cb",
+      "name": "HTTP Request – POST tạo faq-drafts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
       }
     },
     {
-      "id": "7df16add-611b-4d8d-a0cb-d8358f462c62",
-      "name": "Telegram – Gửi người duyệt bản nháp",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        3060,
-        360
-      ],
-      "credentials": {
-        "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
-          "name": "Telegram account"
-        }
-      },
       "parameters": {
         "chatId": "9274620117",
         "text": "=📝 *BẢN NHÁP FAQ MỚI #{{ $json.id }}*\n*Tiêu đề:* {{ $json.title }}\n*Hỏi:* {{ $json.question }}\n*Đáp:* {{ $json.answer }}\n*Cần bổ sung nguồn:* {{ $json.needsSource ? \"Có\" : \"Không\" }}\n\nSửa chi tiết tại: http://localhost:3000/staff/knowledge",
         "additionalFields": {
-          "parse_mode": "Markdown",
-          "reply_markup": "={{ JSON.stringify({ inline_keyboard: [[{ text: \"✅ Duyệt & Nạp KB\", callback_data: \"faq_approve:\" + $json.id }, { text: \"❌ Từ chối\", callback_data: \"faq_reject:\" + $json.id }]] }) }}"
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "46634dc0-b52b-4458-9d01-a84905f63f82",
+      "name": "Telegram – Gửi người duyệt bản nháp",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1168,
+        352
+      ],
+      "webhookId": "3c89e8d3-9a31-4950-9e18-ebea794e84b8",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
         }
       }
     },
     {
-      "id": "cab8b0ed-d914-4633-b3ce-259ce7fe4187",
+      "parameters": {
+        "jsCode": "const groups = $input.all().map(i => i.json);\nconst sorted = [...groups].sort((a, b) => (b.total_count || 0) - (a.total_count || 0)).slice(0, 5);\nconst lines = sorted.map((g, idx) => `${idx + 1}. ${g.topic || g.representative_query} (${g.total_count || 1} lượt)`);\nreturn [{ json: { summary: lines.length ? lines.join('\\n') : 'Không có chủ đề thiếu tri thức mới trong tuần.' } }];"
+      },
+      "id": "bce1d656-667f-4837-a326-52b1155b520d",
       "name": "Code – Thống kê báo cáo tuần",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1620,
-        40
-      ],
-      "parameters": {
-        "jsCode": "const groups = $input.all().map(i => i.json);\nconst sorted = [...groups].sort((a, b) => (b.total_count || 0) - (a.total_count || 0)).slice(0, 5);\nconst lines = sorted.map((g, idx) => `${idx + 1}. ${g.topic || g.representative_query} (${g.total_count || 1} lượt)`);\nreturn [{ json: { summary: lines.length ? lines.join('\\n') : 'Không có chủ đề thiếu tri thức mới trong tuần.' } }];"
-      }
+        -272,
+        32
+      ]
     },
     {
-      "id": "493dbf4f-796f-4bae-a6e8-70a506f96746",
-      "name": "Telegram – Báo cáo tuần cho quản lý",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        1860,
-        40
-      ],
-      "credentials": {
-        "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
-          "name": "Telegram account"
-        }
-      },
       "parameters": {
         "chatId": "9274620117",
         "text": "=📊 *BÁO CÁO TUẦN LỖ HỔNG TRI THỨC (L18)*\nTop chủ đề khách hỏi nhiều nhất:\n{{ $json.summary }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
+      },
+      "id": "fddac4e1-3fa0-43b3-9e46-870641dfcbbf",
+      "name": "Telegram – Báo cáo tuần cho quản lý",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -32,
+        32
+      ],
+      "webhookId": "93676821-155d-4640-99b0-6d4db98b98bd",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
       }
     },
     {
-      "id": "03d2f452-ab52-4fcf-a915-5236f627c531",
-      "name": "Webhook – faq-review-action",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        0,
-        860
-      ],
-      "webhookId": "faq-review-action",
       "parameters": {
         "httpMethod": "POST",
         "path": "faq-review-action",
         "responseMode": "lastNode",
         "options": {}
-      }
+      },
+      "id": "cc9fef0c-8568-47ca-99b9-a8bf737484f6",
+      "name": "Webhook – faq-review-action",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1888,
+        864
+      ],
+      "webhookId": "faq-review-action"
     },
     {
-      "id": "bd01edba-b590-4310-8dad-74a318c6e1da",
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst d = raw.body || raw;\nconst draftId = Number(d.draft_id || d.draftId);\nconst action = String(d.action || 'APPROVE').toUpperCase();\nconst title = d.title || 'FAQ #' + draftId;\nconst question = d.question || '';\nconst answer = d.answer || '';\nconst inlineText = `Tiêu đề: ${title}\\nCâu hỏi: ${question}\\nTrả lời: ${answer}`;\nreturn [{ json: { draft_id: draftId, action, title, question, answer, category: d.category || 'GENERAL', language: d.language || 'vi', reason: d.reason || 'Bị từ chối bởi người duyệt', inline_text: inlineText } }];"
+      },
+      "id": "9d68f6d6-570a-44f0-8b6e-f65e5685ed84",
       "name": "Code – Chuẩn hóa hành động duyệt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        240,
-        860
-      ],
-      "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst d = raw.body || raw;\nconst draftId = Number(d.draft_id || d.draftId);\nconst action = String(d.action || 'APPROVE').toUpperCase();\nconst title = d.title || 'FAQ #' + draftId;\nconst question = d.question || '';\nconst answer = d.answer || '';\nconst inlineText = `Tiêu đề: ${title}\\nCâu hỏi: ${question}\\nTrả lời: ${answer}`;\nreturn [{ json: { draft_id: draftId, action, title, question, answer, category: d.category || 'GENERAL', language: d.language || 'vi', reason: d.reason || 'Bị từ chối bởi người duyệt', inline_text: inlineText } }];"
-      }
+        -1648,
+        864
+      ]
     },
     {
-      "id": "3533cde3-35d0-4efe-be70-e0f70b2d9acc",
-      "name": "Switch – APPROVE / EDIT / REJECT",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        480,
-        860
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -543,22 +534,24 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "199b1421-ebe9-4bf0-8cc3-ace0353f9b61",
+      "name": "Switch – APPROVE / EDIT / REJECT",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1408,
+        864
+      ]
     },
     {
-      "id": "acd1c5db-39d1-43d2-b48c-4f27f079089d",
-      "name": "Execute Workflow – Gọi L04 (Nạp inline_text)",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        740,
-        760
-      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "L04_Knowledge_Base_Ingest",
-          "mode": "name"
+          "value": "cFw1jeryfqX1ka8v",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/cFw1jeryfqX1ka8v",
+          "cachedResultName": "l04"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -571,23 +564,17 @@
           }
         },
         "options": {}
-      }
+      },
+      "id": "15ad4af8-e1ea-4939-acd4-a7f8f234791e",
+      "name": "Execute Workflow – Gọi L04 (Nạp inline_text)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1152,
+        752
+      ]
     },
     {
-      "id": "7c9680d7-1d7f-4c7d-8d73-e46c6f50e2be",
-      "name": "HTTP Request – PATCH draft PUBLISHED",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        980,
-        760
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "header-auth-n8n",
-          "name": "Backend API Key"
-        }
-      },
       "parameters": {
         "method": "PATCH",
         "url": "=http://backend:8080/api/n8n/faq-drafts/{{ $(\"Code – Chuẩn hóa hành động duyệt\").first().json.draft_id }}",
@@ -597,44 +584,45 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ status: \"PUBLISHED\" }) }}",
         "options": {}
+      },
+      "id": "1ef898f2-9206-4cf1-82c8-e8f982a8de56",
+      "name": "HTTP Request – PATCH draft PUBLISHED",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -912,
+        752
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
       }
     },
     {
-      "id": "f7b68226-8d4d-4aa6-bfc6-446b3f0231c5",
-      "name": "Telegram – Báo đã nạp FAQ thành công",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        1220,
-        760
-      ],
-      "credentials": {
-        "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
-          "name": "Telegram account"
-        }
-      },
       "parameters": {
         "chatId": "9274620117",
         "text": "=✅ Đã duyệt và nạp FAQ #{{ $(\"Code – Chuẩn hóa hành động duyệt\").first().json.draft_id }} (\"{{ $(\"Code – Chuẩn hóa hành động duyệt\").first().json.title }}\") vào kho tri thức Qdrant!",
         "additionalFields": {}
+      },
+      "id": "1ff9ad1b-4b57-4b29-87db-eed1b4061798",
+      "name": "Telegram – Báo đã nạp FAQ thành công",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        752
+      ],
+      "webhookId": "960f97bf-8dd3-44b8-90fa-8d41320b0df7",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
       }
     },
     {
-      "id": "42afa043-3551-44a5-b019-2690ce770c2e",
-      "name": "HTTP Request – PATCH draft REJECTED",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        740,
-        980
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "header-auth-n8n",
-          "name": "Backend API Key"
-        }
-      },
       "parameters": {
         "method": "PATCH",
         "url": "=http://backend:8080/api/n8n/faq-drafts/{{ $json.draft_id }}",
@@ -644,27 +632,42 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ status: \"REJECTED\", rejectReason: $json.reason }) }}",
         "options": {}
+      },
+      "id": "31f5ef86-1833-4329-9947-0de5731ea097",
+      "name": "HTTP Request – PATCH draft REJECTED",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1152,
+        976
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "V1iV46OvmfUPiexA",
+          "name": "Header Auth account"
+        }
       }
     },
     {
-      "id": "7afdb9d3-51bd-48d0-bbc6-52872d3b9439",
-      "name": "Telegram – Báo đã từ chối bản nháp",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        980,
-        980
-      ],
-      "credentials": {
-        "telegramApi": {
-          "id": "VCo7LBLtexut3AfT",
-          "name": "Telegram account"
-        }
-      },
       "parameters": {
         "chatId": "9274620117",
         "text": "=❌ Đã từ chối bản nháp FAQ #{{ $(\"Code – Chuẩn hóa hành động duyệt\").first().json.draft_id }}. Lý do: {{ $(\"Code – Chuẩn hóa hành động duyệt\").first().json.reason }}",
         "additionalFields": {}
+      },
+      "id": "7141f052-0cc7-4d66-a1e4-406d1c8fc41c",
+      "name": "Telegram – Báo đã từ chối bản nháp",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -912,
+        976
+      ],
+      "webhookId": "9a8a78fb-f815-4611-8fd0-e6cb0777c5f4",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LI2dFdVJM6rrl0k",
+          "name": "Telegram account"
+        }
       }
     }
   ],
@@ -713,6 +716,17 @@
         ]
       ]
     },
+    "Basic LLM Chain – Gom nhóm câu hỏi": {
+      "main": [
+        [
+          {
+            "node": "Code – Tách từng nhóm chủ đề",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Google Gemini – Gom nhóm Model": {
       "ai_languageModel": [
         [
@@ -730,17 +744,6 @@
           {
             "node": "Basic LLM Chain – Gom nhóm câu hỏi",
             "type": "ai_outputParser",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Basic LLM Chain – Gom nhóm câu hỏi": {
-      "main": [
-        [
-          {
-            "node": "Code – Tách từng nhóm chủ đề",
-            "type": "main",
             "index": 0
           }
         ]
@@ -775,11 +778,11 @@
         ]
       ]
     },
-    "Code – Thống kê báo cáo tuần": {
+    "Qdrant – Kiểm tra tri thức có sẵn": {
       "main": [
         [
           {
-            "node": "Telegram – Báo cáo tuần cho quản lý",
+            "node": "Code – Đánh giá độ trùng kho KB",
             "type": "main",
             "index": 0
           }
@@ -792,17 +795,6 @@
           {
             "node": "Qdrant – Kiểm tra tri thức có sẵn",
             "type": "ai_embedding",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Qdrant – Kiểm tra tri thức có sẵn": {
-      "main": [
-        [
-          {
-            "node": "Code – Đánh giá độ trùng kho KB",
-            "type": "main",
             "index": 0
           }
         ]
@@ -859,6 +851,17 @@
         ]
       ]
     },
+    "AI Agent – Soạn bản nháp FAQ": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request – POST tạo faq-drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Google Gemini – Soạn FAQ Model": {
       "ai_languageModel": [
         [
@@ -881,17 +884,6 @@
         ]
       ]
     },
-    "AI Agent – Soạn bản nháp FAQ": {
-      "main": [
-        [
-          {
-            "node": "HTTP Request – POST tạo faq-drafts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "HTTP Request – POST tạo faq-drafts": {
       "main": [
         [
@@ -908,6 +900,17 @@
         [
           {
             "node": "Loop Over Items – Từng nhóm câu hỏi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code – Thống kê báo cáo tuần": {
+      "main": [
+        [
+          {
+            "node": "Telegram – Báo cáo tuần cho quản lý",
             "type": "main",
             "index": 0
           }
@@ -988,20 +991,8 @@
       ]
     }
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1",
-    "errorWorkflow": "L00_Error_Handler_Health"
-  },
-  "tags": [
-    {
-      "name": "L18"
-    },
-    {
-      "name": "FAQ"
-    },
-    {
-      "name": "KnowledgeGap"
-    }
-  ]
+  "pinData": {},
+  "meta": {
+    "instanceId": "0db469902008c5b164b9b47c64fbfa3bcd25269ee05dd5c24f3eb8ff87d54f28"
+  }
 }
