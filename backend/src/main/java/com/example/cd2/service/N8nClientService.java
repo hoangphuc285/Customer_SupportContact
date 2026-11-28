@@ -123,6 +123,10 @@ public class N8nClientService {
         sendAsync("/webhook/outbound-reply", payload != null ? payload : Map.of(), "L15_Outbound_Dispatcher");
     }
 
+    public void triggerFaqReviewAction(Map<String, Object> payload) {
+        sendAsync("/webhook/faq-review-action", payload != null ? payload : Map.of(), "L18_Knowledge_Gap_to_FAQ");
+    }
+
     public void resumeWaitingWebhook(String webhookIdOrUrl, Map<String, Object> payload) {
         if (webhookIdOrUrl != null && webhookIdOrUrl.startsWith("http")) {
             sendFullUrlAsync(webhookIdOrUrl, payload, "Resume_Wait_Webhook_Direct");

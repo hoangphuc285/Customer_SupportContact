@@ -13,5 +13,7 @@ public interface KnowledgeGapRepository extends JpaRepository<KnowledgeGap, Long
 
     List<KnowledgeGap> findByStatus(GapStatus status);
 
+    List<KnowledgeGap> findTop200ByStatusOrderByCreatedAtAsc(GapStatus status);
+
     List<KnowledgeGap> findAllByOrderByCreatedAtDesc();
 }

@@ -34,4 +34,7 @@ public class KnowledgeGap extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
     private GapStatus status = GapStatus.NEW;
+
+    @Column(columnDefinition = "text")
+    private String reason;                // ly do khi IGNORED hoac ghi chu L18
 }
