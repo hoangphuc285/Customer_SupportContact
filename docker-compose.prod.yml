@@ -1,0 +1,11 @@
+# Production override for Web Deploy using pre-built Docker Hub images.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    image: ${DOCKERHUB_USERNAME}/cd2-backend:${IMAGE_TAG:-latest}
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/cd2-frontend:${IMAGE_TAG:-latest}
