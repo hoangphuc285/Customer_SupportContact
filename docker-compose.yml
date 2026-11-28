@@ -66,6 +66,39 @@ services:
       qdrant:
         condition: service_started
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: support-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/customer_support?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root123}
+      N8N_CHAT_WEBHOOK_URL: ${N8N_CHAT_WEBHOOK_URL:-http://n8n:5678/webhook/chat}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-key-at-least-32-characters-long}
+      N8N_API_KEY: ${N8N_API_KEY:-n8n-super-secret-key-2026}
+      SEED_ENABLED: ${SEED_ENABLED:-true}
+      SEED_PASSWORD: ${SEED_PASSWORD:-ChangeMe@123}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: support-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   mysqldata:
   qdrantdata:
