@@ -14,4 +14,10 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     Optional<CustomerOrder> findByOrderCode(String orderCode);
 
     List<CustomerOrder> findByCustomerId(Long customerId);
+
+    /**
+     * Lấy tối đa N đơn hàng gần nhất của khách, sắp xếp theo ngày đặt mới nhất trước.
+     * Dùng bởi L13_Order_Status khi khách không nhớ mã đơn.
+     */
+    List<CustomerOrder> findTop3ByCustomerIdOrderByOrderedAtDesc(Long customerId);
 }

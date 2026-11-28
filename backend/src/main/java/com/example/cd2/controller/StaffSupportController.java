@@ -206,4 +206,12 @@ public class StaffSupportController {
     public ResponseEntity<Map<String, Object>> completeWarrantyCase(@PathVariable Long id) {
         return ResponseEntity.ok(service.completeWarrantyCase(id));
     }
+
+    // ==========================================
+    // 8. OUTBOUND MONITOR (L15_Outbound_Dispatcher)
+    // ==========================================
+    @GetMapping("/staff/messages/outbound-status")
+    public ResponseEntity<List<Map<String, Object>>> getOutboundStatus() {
+        return ResponseEntity.ok(service.getOutboundStatus());
+    }
 }

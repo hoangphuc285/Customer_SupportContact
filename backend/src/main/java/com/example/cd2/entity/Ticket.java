@@ -106,6 +106,18 @@ public class Ticket extends BaseEntity {
     @Column(name = "csat_score")
     private Integer csatScore;            // 1..5
 
+    @Column(name = "csat_due_at")
+    private Instant csatDueAt;            // thời điểm dự kiến gửi CSAT (L05, L16)
+
+    @Column(name = "csat_requested_at")
+    private Instant csatRequestedAt;      // thời điểm đã gửi khảo sát CSAT (L16)
+
+    @Column(name = "csat_comment", columnDefinition = "text")
+    private String csatComment;           // nhận xét CSAT của khách hàng (L16)
+
+    @Column(name = "closed_at")
+    private Instant closedAt;             // thời điểm đóng ticket (L16)
+
     @PrePersist
     void generateCode() {
         if (ticketCode == null) {

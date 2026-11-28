@@ -28,6 +28,7 @@ public class StaffSupportService {
     private final KbDocumentRepository kbDocuments;
     private final WarrantyCaseRepository warrantyCases;
     private final N8nClientService n8nService;
+    private final OutboundDispatcherService outboundDispatcherService;
 
     public StaffSupportService(
             TicketRepository tickets,
@@ -38,7 +39,8 @@ public class StaffSupportService {
             CustomerOrderRepository orders,
             KbDocumentRepository kbDocuments,
             WarrantyCaseRepository warrantyCases,
-            N8nClientService n8nService) {
+            N8nClientService n8nService,
+            OutboundDispatcherService outboundDispatcherService) {
         this.tickets = tickets;
         this.customers = customers;
         this.staffRepo = staffRepo;
@@ -48,6 +50,7 @@ public class StaffSupportService {
         this.kbDocuments = kbDocuments;
         this.warrantyCases = warrantyCases;
         this.n8nService = n8nService;
+        this.outboundDispatcherService = outboundDispatcherService;
     }
 
     // ==========================================
@@ -790,5 +793,16 @@ public class StaffSupportService {
         n8nService.resumeWaitingWebhook("c98e4ff5-d5ac-488c-9391-b1e771184f3d", resumeData);
 
         return Map.of("status", "SUCCESS", "message", "Đã xác nhận hoàn tất sửa chữa và gửi thông báo cho khách hàng.");
+    }
+
+    // ==========================================
+    // 12. REPLY TO TICKET (L15_Outbound_Dispatcher)
+    // ==========================================
+    public Map<String, Object> replyToTicket(Long ticketId, Map<String, Object> body) {
+        return outboundDispatcherService.replyToTicket(ticketId, body);
+    }
+
+    public List<Map<String, Object>> getOutboundStatus() {
+        return outboundDispatcherService.getPendingMessages();
     }
 }

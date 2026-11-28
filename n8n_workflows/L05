@@ -664,27 +664,32 @@
     },
     {
       "parameters": {
-        "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "={{ $('MySQL - Lấy ticket & khách').first()?.json?.customer_email || $('Code - Chuẩn bị nội dung gửi').first()?.json?.customer_email || \"hoangphuc2855@gmail.com\" }}",
-        "subject": "=[VKU Store] Phản hồi yêu cầu hỗ trợ #{{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_code }}",
-        "html": "<h3>Kính gửi Quý khách,</h3>\n<p>VKU Store xin được giải đáp thắc mắc theo Ticket <strong>#{{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_code }}</strong> như sau:</p>\n<blockquote style=\"background:#f8fafc; padding:12px; border-left:4px solid #1976d2; margin: 12px 0;\">\n{{ $('Code - Chuẩn bị nội dung gửi').first().json.final_answer_html }}\n</blockquote>\n<p><small style=\"color: #64748b;\">Tài liệu tham khảo: {{ $('Code - Chuẩn bị nội dung gửi').first().json.sources_html }}</small></p>\n<p>Quý khách có thể phản hồi trực tiếp trên Cổng Hỗ trợ Khách hàng.</p>\n<p>Trân trọng cảm ơn Quý khách!</p>",
+        "workflowId": {
+          "__rl": true,
+          "value": "L15_Outbound_Dispatcher",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code - Chuẩn bị nội dung gửi\").first().json.ticket_id }}",
+            "ticket_code": "={{ $(\"Code - Chuẩn bị nội dung gửi\").first().json.ticket_code }}",
+            "channel": "={{ $(\"MySQL - Lấy ticket & khách\").first()?.json?.channel || $(\"Code - Chuẩn bị nội dung gửi\").first().json.channel || \"EMAIL\" }}",
+            "content": "={{ $(\"Code - Chuẩn bị nội dung gửi\").first().json.final_answer || $(\"Code - Chuẩn bị nội dung gửi\").first().json.answer || \"\" }}",
+            "sender_type": "AI"
+          }
+        },
         "options": {}
       },
       "id": "919982aa-ecf4-4082-9fcb-409edc54270a",
-      "name": "Gmail / Email - Gửi câu trả lời",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
+      "name": "Execute Workflow - Gọi L15 Outbound Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         -2752,
         1184
       ],
       "webhookId": "bb65e656-f98d-4e46-b576-a97714789017",
-      "credentials": {
-        "smtp": {
-          "id": "4pmZoybZrTzFUyeL",
-          "name": "SMTP account"
-        }
-      },
       "continueOnFail": true,
       "onError": "continueErrorOutput"
     },
@@ -712,7 +717,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE tickets\nSET first_response_at = COALESCE(first_response_at, NOW(6)),\n    status = 'PENDING_CUSTOMER',\n    confidence = {{ $('Code - Chuẩn bị nội dung gửi').first().json.confidence || 0.9 }},\n    updated_at = NOW(6)\nWHERE id = {{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_id }};",
+        "query": "UPDATE tickets\nSET first_response_at = COALESCE(first_response_at, NOW(6)),\n    status = 'PENDING_CUSTOMER',\n    confidence = {{ $('Code - Chuẩn bị nội dung gửi').first().json.confidence || 0.9 }},\n    csat_due_at = DATE_ADD(NOW(6), INTERVAL 1 HOUR),\n    updated_at = NOW(6)\nWHERE id = {{ $('Code - Chuẩn bị nội dung gửi').first().json.ticket_id }};",
         "options": {
           "queryReplacement": "={{ [$('Code - Chuẩn bị nội dung gửi').first().json.confidence, $('Code - Chuẩn bị nội dung gửi').first().json.ticket_id] }}"
         }
@@ -782,7 +787,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO knowledge_gaps (ticket_id, question, status, created_at, updated_at)\nVALUES (\n{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_id}}, \n{{ JSON.stringify($('Code - Chuẩn bị chuyển người').first().json.message )}}, 'NEW', NOW(6), NOW(6));",
+        "query": "INSERT INTO knowledge_gaps (ticket_id, question, rewritten_query, status, created_at, updated_at)\nVALUES (\n{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_id }},\n{{ JSON.stringify($('Code - Chuẩn bị chuyển người').first().json.message || '') }},\n{{ JSON.stringify($('Code - Chuẩn bị chuyển người').first().json.rewritten_query || $('Basic LLM Chain - Viết lại truy vấn độc lập').first()?.json?.text || '') }},\n'NEW', NOW(6), NOW(6));",
         "options": {}
       },
       "id": "eabee99d-0285-4efe-bbad-ec84392d7bf3",
@@ -823,27 +828,29 @@
     },
     {
       "parameters": {
-        "fromEmail": "phucnh.24it@vku.udn.vn",
-        "toEmail": "hoangphuc2855@gmail.com",
-        "subject": "=[CẦN HỖ TRỢ] Ticket #{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_code }} cần chuyên viên hỗ trợ",
-        "html": "<h2>[CẦN CHUYÊN VIÊN HỖ TRỢ] TICKET #{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_code }}</h2>\n<p>Hệ thống AI chưa đủ thông tin hoặc cần nhân viên hỗ trợ trực tiếp cho khách hàng:</p>\n<table border=\"1\" cellpadding=\"8\" style=\"border-collapse: collapse; width: 100%; max-width: 650px;\">\n  <tr><td style=\"width: 30%; background: #f8fafc;\"><strong>Mã Ticket</strong></td><td>#{{ $('Code - Chuẩn bị chuyển người').first().json.ticket_code }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Lý do</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.reason_code }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Câu hỏi của khách</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.message }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Kênh</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.channel || 'WEB' }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Email khách hàng</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.customer_email || 'N/A' }}</td></tr>\n  <tr><td style=\"background: #f8fafc;\"><strong>Độ tin cậy AI</strong></td><td>{{ $('Code - Chuẩn bị chuyển người').first().json.confidence ? ($('Code - Chuẩn bị chuyển người').first().json.confidence * 100).toFixed(1) + '%' : 'N/A' }}</td></tr>\n</table>\n<p style=\"margin-top: 15px;\">Vui lòng đăng nhập Cổng Quản lý Chăm sóc Khách hàng để phản hồi cho khách.</p>",
+        "workflowId": {
+          "__rl": true,
+          "value": "L14_Routing_Escalation",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code - Chuẩn bị chuyển người\").first().json.ticket_id }}",
+            "reason": "LOW_CONFIDENCE"
+          }
+        },
         "options": {}
       },
       "id": "da7b1cca-27c5-4014-b5d6-2eaa504b24ec",
-      "name": "Gmail / Email - Báo chuyên viên hỗ trợ",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
+      "name": "Execute Workflow - Gọi L14 Routing",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         -3392,
         2368
       ],
       "webhookId": "0042c5dc-7903-4274-ac7d-90e66e297799",
-      "credentials": {
-        "smtp": {
-          "id": "4pmZoybZrTzFUyeL",
-          "name": "SMTP account"
-        }
-      },
       "continueOnFail": true,
       "onError": "continueRegularOutput"
     },
@@ -867,6 +874,30 @@
           "name": "MySQL account"
         }
       }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L19_Agent_Assist",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $(\"Code - Chuẩn bị chuyển người\").first().json.ticket_id }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "4d6e4b5b-a8e7-40ee-870b-f370ed6aeb45",
+      "name": "Execute Workflow - Gọi L19 Assist",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -3152,
+        2368
+      ]
     }
   ],
   "connections": {
@@ -1191,7 +1222,7 @@
       "main": [
         [
           {
-            "node": "Gmail / Email - Gửi câu trả lời",
+            "node": "Execute Workflow - Gọi L15 Outbound Dispatcher",
             "type": "main",
             "index": 0
           }
@@ -1242,7 +1273,7 @@
       "main": [
         [
           {
-            "node": "Gmail / Email - Báo chuyên viên hỗ trợ",
+            "node": "Execute Workflow - Gọi L14 Routing",
             "type": "main",
             "index": 0
           },
@@ -1254,9 +1285,20 @@
         ]
       ]
     },
-    "Gmail / Email - Gửi câu trả lời": {
+    "Execute Workflow - Gọi L15 Outbound Dispatcher": {
       "main": [
         []
+      ]
+    },
+    "Execute Workflow - Gọi L14 Routing": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow - Gọi L19 Assist",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
