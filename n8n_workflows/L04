@@ -82,6 +82,12 @@
               "name": "language",
               "value": "={{ $json.body?.language || $json.language || 'vi' }}",
               "type": "string"
+            },
+            {
+              "id": "1d07ca27-e8d9-436f-b869-f45953f00f3e",
+              "name": "inline_text",
+              "value": "={{ $json.inline_text || $json.body?.inline_text || '' }}",
+              "type": "string"
             }
           ]
         },
@@ -239,6 +245,12 @@
               "id": "f3f6e51a-9e88-4b55-acbf-13335675e56f",
               "name": "language",
               "value": "={{ $json.language || 'vi' }}",
+              "type": "string"
+            },
+            {
+              "id": "d5273360-0d14-4a17-b70f-e742def13541",
+              "name": "inline_text",
+              "value": "={{ $json.inline_text || $json.body?.inline_text || '' }}",
               "type": "string"
             }
           ]
@@ -438,7 +450,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const meta = $('Loop Over Documents').item.json;\nconst raw = $json.data ?? $json.text ?? $json.content ?? '';\nconst base = {\n  source_key: meta.source_key,\n  doc_title: meta.doc_title || meta.source_key,\n  category: meta.category || 'GENERAL',\n  language: meta.language || 'vi',\n  source_url: meta.source_url || ''\n};\n\n// Không dùng nội dung giả: nếu không đọc được thì báo lỗi, không nạp.\nif (typeof raw !== 'string' || raw.trim().length < 50) {\n  return { json: { ...base, ok: false, error_message: 'Không trích xuất được nội dung (file rỗng hoặc là PDF dạng ảnh scan)' } };\n}\n\nconst cleaned = raw\n  .normalize('NFC')\n  .replace(/\\r\\n/g, '\\n')\n  .replace(/Page\\s+\\d+\\s+of\\s+\\d+/gi, '')\n  .replace(/Trang\\s+\\d+(\\s*\\/\\s*\\d+)?/gi, '')\n  .replace(/[-=_]{3,}/g, '')\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/\\n\\s*\\n+/g, '\\n\\n')\n  .trim();\n\nreturn { json: { ...base, ok: true, clean_text: cleaned } };"
+        "jsCode": "const meta = $('Loop Over Documents').item.json;\nconst raw = $json.data ?? $json.text ?? $json.content ?? '';\nconst base = {\n  source_key: meta.source_key,\n  doc_title: meta.doc_title || meta.source_key,\n  category: meta.category || 'GENERAL',\n  language: meta.language || 'vi',\n  source_url: meta.source_url || ''\n};\n\n// Không dùng nội dung giả: nếu không đọc được thì báo lỗi, không nạp.\nif (typeof raw !== 'string' || raw.trim().length < (meta.inline_text ? 15 : 50)) {\n  return { json: { ...base, ok: false, error_message: 'Không trích xuất được nội dung (file rỗng hoặc là PDF dạng ảnh scan)' } };\n}\n\nconst cleaned = raw\n  .normalize('NFC')\n  .replace(/\\r\\n/g, '\\n')\n  .replace(/Page\\s+\\d+\\s+of\\s+\\d+/gi, '')\n  .replace(/Trang\\s+\\d+(\\s*\\/\\s*\\d+)?/gi, '')\n  .replace(/[-=_]{3,}/g, '')\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/\\n\\s*\\n+/g, '\\n\\n')\n  .trim();\n\nreturn { json: { ...base, ok: true, clean_text: cleaned } };"
       },
       "id": "e1186432-b9d1-4f06-bebd-862036dba6fe",
       "name": "Code - Chuẩn hóa Unicode NFC & Clean Header Footer",
@@ -1383,6 +1395,63 @@
         -880,
         240
       ]
+    },
+    {
+      "id": "ba7a4fc9-7fc3-4ddf-9dbd-79dca5f61c56",
+      "name": "IF - Có inline_text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -180,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f734b00c-2452-4f58-838c-8a46bc2fab81",
+              "leftValue": "={{ Boolean($json.inline_text && String($json.inline_text).trim().length > 0) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a42e5481-b98f-4db3-9557-1c8b1a8dba81",
+      "name": "Edit Fields - Chuẩn bị Inline Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        280,
+        60
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bb18ce7c-4d6b-423c-8048-6b4157c06a09",
+              "name": "text",
+              "value": "={{ $json.inline_text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -1485,7 +1554,7 @@
         ],
         [
           {
-            "node": "HTTP Request - Tải tài liệu PDF hoặc TXT",
+            "node": "IF - Có inline_text?",
             "type": "main",
             "index": 0
           }
@@ -1977,6 +2046,35 @@
         [
           {
             "node": "HTTP Request - Lấy danh sách tài liệu (backend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Có inline_text?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Chuẩn bị Inline Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request - Tải tài liệu PDF hoặc TXT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Chuẩn bị Inline Text": {
+      "main": [
+        [
+          {
+            "node": "Code - Chuẩn hóa Unicode NFC & Clean Header Footer",
             "type": "main",
             "index": 0
           }
